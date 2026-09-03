@@ -1,0 +1,15 @@
+STEELCONTROL MOBILE — PATCH IHM 1.9.0
+
+Extrair este ZIP dentro da raiz do projeto SteelControl Mobile e substituir os arquivos existentes.
+
+Inclui:
+- IHM / Controle industrial para ESP32, CLP/PLC, controlador robótico, CNC, gateway e genérico;
+- START, STOP, RESET, ACK, AUTO e MANUAL pela rota segura do backend;
+- sensores, intertravamentos, fluxo de processo e métricas;
+- confirmação adicional de START em equipamento real;
+- controle remoto real opt-in no cadastro/edição;
+- preservação de integracaoMeta;
+- traduções nos 6 idiomas;
+- Dobot mantido em painel dedicado.
+
+Requer o backend Desktop atualizado com /maquinas/:id/ihm/comandos.

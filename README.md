@@ -1,5 +1,19 @@
 # SteelControl Mobile
 
+## Versão 1.9.0 — IHM / Controle industrial supervisionado
+
+- Nova **IHM SteelControl** no painel de máquinas com ESP32, CLP/PLC, controlador robótico, CNC, gateway industrial ou controlador genérico. O Dobot continua usando seu painel dedicado.
+- Visão de processo com entrada, esteira, estação, saída, sensores, estado de ciclo, modo AUTO/MANUAL, produção, ciclos, temperatura e vibração.
+- Comandos **START, STOP, RESET, ACK, AUTO e MANUAL** integrados à rota segura `/maquinas/:id/ihm/comandos` do backend do desktop.
+- Em simulação, os comandos alteram somente o processo simulado. Em equipamento real, o controle remoto permanece **desabilitado por padrão** e precisa ser ativado explicitamente no cadastro da máquina.
+- START real exige diagnóstico recente, conexão estável, cargo autorizado e intertravamentos liberados; o aplicativo também pede confirmação antes de enviar START para equipamento real.
+- O cadastro mobile agora preserva `integracaoMeta` existente e permite configurar `hmi.remoteControlEnabled` sem apagar metadados do controlador.
+- Atualização automática do diagnóstico da IHM a cada 8 segundos e exibição de comandos pendentes, telemetria e motivo de bloqueio do START.
+- STOP da IHM é tratado como parada operacional e a interface deixa explícito que ele não substitui E-stop, relé de segurança, Safety PLC ou demais dispositivos físicos.
+- Textos da nova IHM disponíveis nos seis idiomas do aplicativo.
+
+> Requer o backend Desktop com a IHM supervisionada instalada (rota `/maquinas/:id/ihm/comandos`).
+
 ## Versão 1.8.0 — gestão, auditoria e controladores
 
 - Logo da empresa pode ser alterada e removida diretamente em **Minha empresa** por administradores, usando os mesmos endpoints do desktop.
@@ -197,3 +211,16 @@ A versão 1.5.0 aproxima os painéis mobile da experiência do desktop:
 - Senhas e imagens faciais não são gravadas pelo aplicativo.
 - A API continua responsável por permissões, identidade facial única, ambiguidade e acesso à empresa correta.
 - Em produção fora da rede escolar, troque HTTP por HTTPS.
+
+## Descoberta automática resiliente
+
+A tela **Máquinas** usa o mesmo backend do Desktop e agora oferece:
+
+- **Procurar novamente** para reenviar a busca UDP;
+- **Fallback por IP** para informar apenas o IPv4/porta quando broadcast estiver bloqueado;
+- **Diagnóstico da descoberta** com estado do UDP, interfaces de rede, última resposta e possíveis causas de falha;
+- origem da detecção (`UDP` ou `IP`) em cada dispositivo encontrado.
+
+O Mobile não faz scan UDP diretamente: ele solicita a varredura ao backend SteelControl. Isso evita exigir permissões de multicast no tablet e mantém a regra de segurança centralizada.
+
+O fallback por IP apenas identifica o equipamento por `GET /steelcontrol/discovery`; cadastro continua exigindo aprovação do administrador e o controle remoto permanece desativado por padrão.

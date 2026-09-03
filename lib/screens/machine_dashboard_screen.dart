@@ -9,6 +9,7 @@ import '../models/machine.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import '../widgets/section_card.dart';
+import '../widgets/industrial_hmi_panel.dart';
 
 class MachineDashboardScreen extends StatelessWidget {
   const MachineDashboardScreen({required this.controller, required this.section, super.key});
@@ -78,6 +79,13 @@ class OverviewSection extends StatelessWidget {
                   ]),
                 ),
               ),
+              if (machine.hasIndustrialHmi)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: IndustrialHmiPanel(controller: controller, machine: machine),
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
                 sliver: SliverToBoxAdapter(

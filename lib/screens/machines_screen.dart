@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_strings.dart';
@@ -16,7 +18,13 @@ class MachinesScreen extends StatefulWidget {
 
 class _MachinesScreenState extends State<MachinesScreen> {
   bool _busy = false;
+  bool _discoveryBusy = false;
+  List<Map<String, dynamic>> _discovered = <Map<String, dynamic>>[];
+  Map<String, dynamic>? _discoveryDiagnostics;
+  Timer? _discoveryTimer;
   final _searchController = TextEditingController();
+  final _discoveryIpController = TextEditingController();
+  final _discoveryPortController = TextEditingController(text: '80');
   String _typeFilter = 'all';
   String _statusFilter = 'all';
   bool get _admin => widget.controller.session?.user.role.toUpperCase() == 'ADMINISTRADOR';
@@ -52,6 +60,124 @@ class _MachinesScreenState extends State<MachinesScreen> {
   }
   Future<void> _showKey(String key) => showDialog<void>(context: context, builder: (ctx) { final strings = AppStrings.of(ctx); return AlertDialog(icon: const Icon(Icons.key_rounded, color: SteelColors.primary, size: 40), title: Text(strings.get('deviceKey')), content: SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800)), actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.get('understood')))]); });
 
+
+  Future<void> _loadDiscovery({bool showErrors = false}) async {
+    if (!_admin) return;
+    try {
+      final items = await widget.controller.machinesApi.discoveredDevices();
+      if (mounted) setState(() => _discovered = items);
+    } on ApiException catch (e) {
+      if (showErrors) _message(e.message, error: true);
+    } catch (e) {
+      if (showErrors) _message('$e', error: true);
+    }
+  }
+
+  Future<void> _loadDiscoveryDiagnostics({bool showErrors = false}) async {
+    if (!_admin) return;
+    try {
+      final diagnostics = await widget.controller.machinesApi.discoveryDiagnostics();
+      if (mounted) setState(() => _discoveryDiagnostics = diagnostics);
+    } on ApiException catch (e) {
+      if (showErrors) _message(e.message, error: true);
+    } catch (e) {
+      if (showErrors) _message('$e', error: true);
+    }
+  }
+
+  Future<void> _scanDiscovery() async {
+    if (!_admin || _discoveryBusy) return;
+    setState(() => _discoveryBusy = true);
+    try {
+      await widget.controller.machinesApi.scanDiscovery();
+      if (mounted) _message(AppStrings.of(context).get('searchingDevices'));
+      await Future<void>.delayed(const Duration(milliseconds: 1400));
+      await Future.wait(<Future<void>>[
+        _loadDiscovery(showErrors: true),
+        _loadDiscoveryDiagnostics(showErrors: true),
+      ]);
+      Future<void>.delayed(const Duration(milliseconds: 2300), () async {
+        await _loadDiscovery();
+        await _loadDiscoveryDiagnostics();
+      });
+    } on ApiException catch (e) {
+      _message(e.message, error: true);
+      await _loadDiscoveryDiagnostics();
+    } catch (e) {
+      _message('$e', error: true);
+      await _loadDiscoveryDiagnostics();
+    } finally {
+      if (mounted) setState(() => _discoveryBusy = false);
+    }
+  }
+
+  Future<void> _discoverByIp() async {
+    if (!_admin || _discoveryBusy) return;
+    final strings = AppStrings.of(context);
+    final host = _discoveryIpController.text.trim();
+    final port = int.tryParse(_discoveryPortController.text.trim());
+    if (host.isEmpty) {
+      _message(strings.get('ipRequired'), error: true);
+      return;
+    }
+    if (port == null || port < 1 || port > 65535) {
+      _message(strings.get('invalidPort'), error: true);
+      return;
+    }
+
+    setState(() => _discoveryBusy = true);
+    try {
+      final result = await widget.controller.machinesApi.discoverDeviceByIp(host, port: port);
+      await Future.wait(<Future<void>>[
+        _loadDiscovery(showErrors: true),
+        _loadDiscoveryDiagnostics(),
+      ]);
+      _message('${result['mensagem'] ?? strings.get('deviceFoundByIp')}');
+    } on ApiException catch (e) {
+      _message(e.message, error: true);
+      await _loadDiscoveryDiagnostics();
+    } catch (e) {
+      _message('$e', error: true);
+      await _loadDiscoveryDiagnostics();
+    } finally {
+      if (mounted) setState(() => _discoveryBusy = false);
+    }
+  }
+
+  Future<void> _approveDiscovery(Map<String, dynamic> device) async {
+    if (!_admin || device['claimed'] == true) return;
+    final strings = AppStrings.of(context);
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.lan_rounded, color: SteelColors.primary, size: 40),
+            title: Text(strings.get('approveDiscoveryTitle')),
+            content: Text('${device['name'] ?? 'Equipamento'}\n${device['host'] ?? '-'}\n\n${strings.get('approveDiscoveryMessage')}'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(strings.get('cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(strings.get('addToSteelControl'))),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return;
+
+    setState(() => _discoveryBusy = true);
+    try {
+      final result = await widget.controller.machinesApi.approveDiscoveredDevice('${device['id'] ?? ''}');
+      await widget.controller.loadMachines();
+      await _loadDiscovery();
+      _message('${result['mensagem'] ?? strings.get('machineCreated')}');
+      if (result['deviceKey'] != null && mounted) await _showKey('${result['deviceKey']}');
+    } on ApiException catch (e) {
+      _message(e.message, error: true);
+    } catch (e) {
+      _message('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _discoveryBusy = false);
+    }
+  }
+
   bool _maintenance(Machine machine) {
     final value = '${machine.status} ${machine.maintenanceStatus}'.toLowerCase();
     return value.contains('manuten') || value.contains('maintenance') || value.contains('wartung');
@@ -76,8 +202,25 @@ class _MachinesScreenState extends State<MachinesScreen> {
       };
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_admin || !mounted) return;
+      _scanDiscovery();
+      _discoveryTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+        if (!mounted) return;
+        _loadDiscovery();
+        _loadDiscoveryDiagnostics();
+      });
+    });
+  }
+
+  @override
   void dispose() {
+    _discoveryTimer?.cancel();
     _searchController.dispose();
+    _discoveryIpController.dispose();
+    _discoveryPortController.dispose();
     super.dispose();
   }
 
@@ -99,6 +242,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentHero(strings: strings))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _FleetMetrics(total: machines.length, operating: operating, maintenance: maintenance, alerts: alerts))),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentRegistrationCard(strings: strings, busy: _busy, onCreate: _create))),
+      if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _DiscoveryCard(strings: strings, devices: _discovered, diagnostics: _discoveryDiagnostics, busy: _discoveryBusy, ipController: _discoveryIpController, portController: _discoveryPortController, onScan: _scanDiscovery, onProbeIp: _discoverByIp, onApprove: _approveDiscovery))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _MachinesToolbar(strings: strings, controller: _searchController, types: types, typeFilter: _typeFilter, statusFilter: _statusFilter, onSearch: (_) => setState(() {}), onType: (value) => setState(() => _typeFilter = value), onStatus: (value) => setState(() => _statusFilter = value)))),
       if (machines.isEmpty) SliverFillRemaining(hasScrollBody: false, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany')), if (_admin) TextButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: Text(strings.get('firstMachine')))]))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 36), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 28), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: 468), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
     ]);
@@ -172,6 +316,441 @@ class _EquipmentRegistrationCard extends StatelessWidget {
       }));
 }
 
+class _DiscoveryCard extends StatelessWidget {
+  const _DiscoveryCard({
+    required this.strings,
+    required this.devices,
+    required this.diagnostics,
+    required this.busy,
+    required this.ipController,
+    required this.portController,
+    required this.onScan,
+    required this.onProbeIp,
+    required this.onApprove,
+  });
+
+  final AppStrings strings;
+  final List<Map<String, dynamic>> devices;
+  final Map<String, dynamic>? diagnostics;
+  final bool busy;
+  final TextEditingController ipController;
+  final TextEditingController portController;
+  final VoidCallback onScan;
+  final VoidCallback onProbeIp;
+  final ValueChanged<Map<String, dynamic>> onApprove;
+
+  String _issueText(Map<String, dynamic> issue) {
+    final key = switch ('${issue['code'] ?? ''}') {
+      'discovery_disabled' => 'discoveryIssueDisabled',
+      'udp_not_ready' => 'discoveryIssueUdpNotReady',
+      'no_private_interface' => 'discoveryIssueNoInterface',
+      'no_response_after_scan' => 'discoveryIssueNoResponse',
+      'multiple_adapters' => 'discoveryIssueMultipleAdapters',
+      'udp_send_error' => 'discoveryIssueUdpError',
+      'ip_probe_failed' => 'discoveryIssueIpFailed',
+      _ => '',
+    };
+    if (key.isNotEmpty) {
+      final localized = strings.get(key);
+      if (localized != key) return localized;
+    }
+    return '${issue['message'] ?? strings.get('discoveryUnknownIssue')}';
+  }
+
+  String _time(dynamic value) {
+    final parsed = DateTime.tryParse('${value ?? ''}')?.toLocal();
+    if (parsed == null) return strings.get('neverReceived');
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${two(parsed.hour)}:${two(parsed.minute)}:${two(parsed.second)}';
+  }
+
+  Widget _diagnostics(BuildContext context) {
+    final data = diagnostics;
+    if (data == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(strings.get('loadingNetworkDiagnostics'), style: const TextStyle(color: SteelColors.muted, fontSize: 10.5))),
+          ],
+        ),
+      );
+    }
+
+    final socketReady = data['socketReady'] == true;
+    final active = '${data['activeDevices'] ?? 0}';
+    final port = '${data['port'] ?? 4210}';
+    final interfaces = (data['interfaces'] as List? ?? const <dynamic>[]).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    final issues = (data['issues'] as List? ?? const <dynamic>[]).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    final targets = (data['lastScanTargets'] as List? ?? const <dynamic>[]).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            _DiagnosticPill(icon: Icons.wifi_tethering_rounded, label: 'UDP/$port', value: strings.get(socketReady ? 'diagnosticActive' : 'diagnosticUnavailable'), ok: socketReady),
+            _DiagnosticPill(icon: Icons.devices_other_rounded, label: strings.get('visibleDevices'), value: active),
+            _DiagnosticPill(icon: Icons.schedule_rounded, label: strings.get('lastValidResponse'), value: _time(data['lastValidPacketAt'])),
+            _DiagnosticPill(icon: Icons.cell_tower_rounded, label: strings.get('broadcastTargets'), value: '$targets'),
+          ],
+        ),
+        const SizedBox(height: 9),
+        if (interfaces.isEmpty)
+          _DiagnosticNotice(icon: Icons.warning_amber_rounded, text: strings.get('noPrivateInterface'), severity: 'warning')
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: interfaces.map((item) => Chip(
+              avatar: const Icon(Icons.lan_outlined, size: 17, color: SteelColors.primary),
+              label: Text('${item['name'] ?? strings.get('network')} • ${item['address'] ?? '-'}', style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600)),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              visualDensity: VisualDensity.compact,
+            )).toList(),
+          ),
+        if (issues.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...issues.map((issue) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _DiagnosticNotice(
+              icon: '${issue['severity']}' == 'error'
+                  ? Icons.error_outline_rounded
+                  : '${issue['severity']}' == 'warning'
+                      ? Icons.warning_amber_rounded
+                      : Icons.info_outline_rounded,
+              text: _issueText(issue),
+              severity: '${issue['severity'] ?? 'info'}',
+            ),
+          )),
+        ] else ...[
+          const SizedBox(height: 8),
+          _DiagnosticNotice(icon: Icons.check_circle_outline_rounded, text: strings.get('noDiscoveryProblem'), severity: 'ok'),
+        ],
+        const SizedBox(height: 8),
+        Text(strings.get('ipFallbackSafety'), style: const TextStyle(color: SteelColors.muted, fontSize: 9.5, height: 1.35)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final subtleSurface = dark ? const Color(0xFF101B2D) : const Color(0xFFF8FAFD);
+    final elevatedSurface = dark ? const Color(0xFF111E33) : Colors.white;
+    final border = dark ? const Color(0xFF2A3952) : const Color(0xFFD8E2EE);
+
+    return SectionCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final copy = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    strings.get('autoDiscovery'),
+                    style: const TextStyle(color: SteelColors.primary, fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 1.1),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    strings.get('autoDiscoveryTitle'),
+                    style: theme.textTheme.headlineSmall?.copyWith(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -.30, height: 1.12),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(strings.get('autoDiscoveryCaption'), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.25)),
+                ],
+              );
+              final button = FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  textStyle: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+                onPressed: busy ? null : onScan,
+                icon: busy
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(strings.get('searchAgain')),
+              );
+              if (constraints.maxWidth < 640) {
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [copy, const SizedBox(height: 10), button]);
+              }
+              return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [Expanded(child: copy), const SizedBox(width: 16), button]);
+            },
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+            decoration: BoxDecoration(
+              color: SteelColors.primary.withValues(alpha: dark ? .12 : .06),
+              border: Border.all(color: SteelColors.primary.withValues(alpha: dark ? .26 : .18)),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.shield_outlined, size: 17, color: SteelColors.primary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(strings.get('discoverySecurity'), style: TextStyle(color: dark ? const Color(0xFFC8DBFF) : const Color(0xFF274776), fontSize: 10.5, fontWeight: FontWeight.w500, height: 1.35))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: subtleSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(13)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)),
+                      child: const Icon(Icons.lan_rounded, size: 17, color: SteelColors.primary),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(strings.get('ipFallbackTitle'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: -.05)),
+                          const SizedBox(height: 2),
+                          Text(strings.get('ipFallbackCaption'), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 10.5, height: 1.35)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final ip = TextField(
+                      controller: ipController,
+                      enabled: !busy,
+                      keyboardType: TextInputType.text,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      decoration: InputDecoration(labelText: strings.get('deviceIp'), hintText: '192.168.0.87', prefixIcon: const Icon(Icons.router_outlined)),
+                    );
+                    final port = SizedBox(
+                      width: 104,
+                      child: TextField(
+                        controller: portController,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(labelText: strings.get('port'), prefixIcon: const Icon(Icons.numbers_rounded)),
+                      ),
+                    );
+                    final action = FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: busy ? null : onProbeIp,
+                      icon: const Icon(Icons.manage_search_rounded, size: 18),
+                      label: Text(strings.get('detectByIp')),
+                    );
+                    if (constraints.maxWidth < 650) {
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [ip, const SizedBox(height: 8), Row(children: [Expanded(child: port), const SizedBox(width: 8), Expanded(flex: 2, child: action)])]);
+                    }
+                    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Expanded(child: ip), const SizedBox(width: 8), port, const SizedBox(width: 8), action]);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 9),
+          Container(
+            decoration: BoxDecoration(color: elevatedSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(13)),
+            child: Theme(
+              data: theme.copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                initiallyExpanded: false,
+                leading: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.monitor_heart_outlined, color: SteelColors.primary, size: 17),
+                ),
+                title: Text(strings.get('discoveryDiagnostics'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(strings.get('discoveryDiagnosticsCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.25)),
+                ),
+                children: [_diagnostics(context)],
+              ),
+            ),
+          ),
+          const SizedBox(height: 9),
+          if (devices.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: subtleSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(10)),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .08), borderRadius: BorderRadius.circular(9)),
+                    child: const Icon(Icons.sensors_off_outlined, color: SteelColors.primary, size: 18),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(child: Text(strings.get('noDiscoveredDevicesFallback'), style: const TextStyle(color: SteelColors.muted, fontSize: 10.5, height: 1.35))),
+                ],
+              ),
+            )
+          else
+            ...devices.map((device) {
+              final claimed = device['claimed'] == true;
+              final claimedHere = device['claimedByThisCompany'] == true;
+              final name = '${device['name'] ?? 'Equipamento'}';
+              final host = '${device['host'] ?? '-'}:${device['port'] ?? '-'}';
+              final controller = strings.translate('${device['controller'] ?? 'OUTRO'}');
+              final protocol = strings.translate('${device['protocol'] ?? 'OUTRO'}');
+              final source = '${device['discoverySource'] ?? 'LAN'}';
+              final label = claimedHere ? strings.get('alreadyAdded') : claimed ? strings.get('unavailableDevice') : strings.get('addToSteelControl');
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(border: Border.all(color: border), borderRadius: BorderRadius.circular(10), color: subtleSurface),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final info = Row(
+                      children: [
+                        Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.memory_rounded, color: SteelColors.primary, size: 22)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+                                  const SizedBox(width: 7),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(999)),
+                                    child: Text(source, style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w700, fontSize: 10)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('$host  •  $controller  •  $protocol', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.25)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                    final action = FilledButton.tonalIcon(
+                      onPressed: claimed || busy ? null : () => onApprove(device),
+                      icon: Icon(claimed ? Icons.check_circle_outline_rounded : Icons.link_rounded, size: 19),
+                      label: Text(label),
+                    );
+                    if (constraints.maxWidth < 620) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [info, const SizedBox(height: 8), action]);
+                    return Row(children: [Expanded(child: info), const SizedBox(width: 14), action]);
+                  },
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticPill extends StatelessWidget {
+  const _DiagnosticPill({required this.icon, required this.label, required this.value, this.ok});
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool? ok;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final border = dark ? const Color(0xFF2A3952) : const Color(0xFFD8E2EE);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(10),
+        color: dark ? const Color(0xFF101B2D) : const Color(0xFFF8FAFD),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(color: (ok == false ? SteelColors.danger : SteelColors.primary).withValues(alpha: .09), borderRadius: BorderRadius.circular(7)),
+            child: Icon(icon, size: 14, color: ok == false ? SteelColors.danger : SteelColors.primary),
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 8.5, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ok == false ? SteelColors.danger : null)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticNotice extends StatelessWidget {
+  const _DiagnosticNotice({required this.icon, required this.text, required this.severity});
+  final IconData icon;
+  final String text;
+  final String severity;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (severity) {
+      'error' => SteelColors.danger,
+      'warning' => SteelColors.warning,
+      'ok' => SteelColors.success,
+      _ => SteelColors.primary,
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      decoration: BoxDecoration(color: color.withValues(alpha: .075), border: Border.all(color: color.withValues(alpha: .18)), borderRadius: BorderRadius.circular(9)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 7),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 10, height: 1.35, fontWeight: FontWeight.w500))),
+        ],
+      ),
+    );
+  }
+}
+
 class _MachinesToolbar extends StatelessWidget {
   const _MachinesToolbar({required this.strings, required this.controller, required this.types, required this.typeFilter, required this.statusFilter, required this.onSearch, required this.onType, required this.onStatus});
   final AppStrings strings;
@@ -207,7 +786,7 @@ class _MachineCard extends StatelessWidget {
     const SizedBox(height: 13), Text(machine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text('${machine.sector} • ${strings.translate(machine.type ?? machine.controller ?? machine.model)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted)),
     const SizedBox(height: 13), Row(children: [Expanded(child: _Detail(label: strings.get('manufacturer').toUpperCase(), value: machine.manufacturer?.isNotEmpty == true ? machine.manufacturer! : '-')), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('model').toUpperCase(), value: machine.model))]), const SizedBox(height: 8), Row(children: [Expanded(child: _Detail(label: strings.get('code').toUpperCase(), value: machine.code)), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('mode').toUpperCase(), value: machine.simulation ? strings.get('simulation') : strings.get('real')))]),
     const SizedBox(height: 10), Row(children: [Expanded(child: _Metric(icon: Icons.thermostat_rounded, value: '${machine.temperature.toStringAsFixed(1)}°C', label: strings.get('temperature'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.loop_rounded, value: '${machine.cycles}', label: strings.get('cycles'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.bolt_rounded, value: '${machine.energy.toStringAsFixed(0)}%', label: strings.get('load')))]),
-    const Spacer(), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.dashboard_outlined), label: Text(AppStrings.of(context).get(machine.isDobot ? 'openDobotPanel' : 'openPanel')))),
+    const Spacer(), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(AppStrings.of(context).get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
     if (admin) Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('newKey'), onPressed: onKey, icon: const Icon(Icons.key_outlined)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
   ])); }
 }
@@ -226,6 +805,7 @@ class _MachineDialogState extends State<_MachineDialog> {
   bool networkExpanded = false;
   bool limitsExpanded = false;
   bool dobotAllowMotion = false;
+  bool hmiRemoteControlEnabled = false;
   String controller = '';
   String protocol = '';
   String equipmentType = '';
@@ -255,7 +835,9 @@ class _MachineDialogState extends State<_MachineDialog> {
     identificationExpanded = m != null && ((m.manufacturer?.isNotEmpty ?? false) || (m.type?.isNotEmpty ?? false) || (m.description?.isNotEmpty ?? false));
     networkExpanded = m != null && ((m.host?.isNotEmpty ?? false) || m.port != null || m.unitId != null || (m.endpoint?.isNotEmpty ?? false) || (m.topic?.isNotEmpty ?? false));
     final dobot = m?.integrationMeta['dobot'] as Map? ?? const {};
+    final hmi = m?.integrationMeta['hmi'] as Map? ?? const {};
     dobotAllowMotion = dobot['allowMotion'] == true;
+    hmiRemoteControlEnabled = hmi['remoteControlEnabled'] == true;
     final values = <String, dynamic>{
       'nome': m?.name,
       'setor': m?.sector,
@@ -345,6 +927,33 @@ class _MachineDialogState extends State<_MachineDialog> {
 
   double number(String name, double fallback) => double.tryParse(fields[name]?.text.replaceAll(',', '.') ?? '') ?? fallback;
 
+  Map<String, dynamic>? _integrationMeta() {
+    if (controller.isEmpty) return null;
+    final current = Map<String, dynamic>.from(widget.machine?.integrationMeta ?? const <String, dynamic>{});
+    if (controller == 'DOBOT_MAGICIAN') {
+      current.remove('hmi');
+      current['dobot'] = {
+        'enabled': true,
+        'mode': fields['dobotMode']!.text.trim().toUpperCase(),
+        'port': fields['dobotPort']!.text.trim().toUpperCase(),
+        'baudRate': 115200,
+        'allowMotion': dobotAllowMotion,
+        'externalSensors': {'temperature': false, 'vibration': false, 'current': false},
+      };
+      return current;
+    }
+    current.remove('dobot');
+    final existingHmi = current['hmi'] is Map
+        ? Map<String, dynamic>.from(current['hmi'] as Map)
+        : <String, dynamic>{};
+    current['hmi'] = {
+      ...existingHmi,
+      'enabled': true,
+      'remoteControlEnabled': hmiRemoteControlEnabled,
+    };
+    return current;
+  }
+
   void _submit() {
     if (!key.currentState!.validate()) return;
     if (!simulation && controller.isEmpty) {
@@ -399,18 +1008,7 @@ class _MachineDialogState extends State<_MachineDialog> {
       'vibracaoAtencao': vibrationWarning,
       'vibracaoCritica': vibrationCritical,
       'ciclosManutencao': maintenanceCycles,
-      'integracaoMeta': controller == 'DOBOT_MAGICIAN'
-          ? {
-              'dobot': {
-                'enabled': true,
-                'mode': fields['dobotMode']!.text.trim().toUpperCase(),
-                'port': fields['dobotPort']!.text.trim().toUpperCase(),
-                'baudRate': 115200,
-                'allowMotion': dobotAllowMotion,
-                'externalSensors': {'temperature': false, 'vibration': false, 'current': false},
-              }
-            }
-          : null,
+      'integracaoMeta': _integrationMeta(),
     };
     Navigator.pop(context, data);
   }
@@ -503,6 +1101,35 @@ class _MachineDialogState extends State<_MachineDialog> {
                       pair(input('dobotMode',strings.get('gatewayMode'),icon:Icons.settings_ethernet_rounded,hint:'MOCK / REAL'), input('dobotPort',strings.get('serialPort'),icon:Icons.usb_rounded,hint:'AUTO / COM4')),
                       SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: Text(strings.get('preparePhysicalControl'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)), subtitle: Text(strings.get('physicalControlCaption'), style: const TextStyle(fontSize: 10)), value: dobotAllowMotion, onChanged: (value) => setState(() => dobotAllowMotion = value)),
                     ])),
+                  ],
+                  if (controller.isNotEmpty && controller != 'DOBOT_MAGICIAN') ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: SteelColors.primary.withValues(alpha: .06),
+                        border: Border.all(color: SteelColors.primary.withValues(alpha: .20)),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [const Icon(Icons.developer_board_rounded, color: SteelColors.primary), const SizedBox(width: 9), Expanded(child: Text(strings.get('hmiConfigTitle'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)))]),
+                          const SizedBox(height: 7),
+                          Text(strings.get('hmiConfigCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.35)),
+                          if (!simulation) ...[
+                            const SizedBox(height: 8),
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(strings.get('hmiEnableRemoteReal'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                              subtitle: Text(strings.get('hmiEnableRemoteWarning'), style: const TextStyle(fontSize: 10, height: 1.35)),
+                              value: hmiRemoteControlEnabled,
+                              onChanged: (value) => setState(() => hmiRemoteControlEnabled = value),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 12),
                   disclosure(title: networkExpanded ? strings.get('hideAdvancedNetwork') : strings.get('advancedNetwork'), caption: strings.get('readingInterval'), icon: Icons.network_check_rounded, expanded: networkExpanded, onTap: () => setState(() => networkExpanded = !networkExpanded), child: Column(children: [

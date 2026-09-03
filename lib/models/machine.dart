@@ -92,6 +92,10 @@ class Machine {
     return simulation || normalized == 'online' || normalized == 'conectada';
   }
   bool get isDobot => (controller ?? '').toLowerCase().contains('dobot');
+  bool get hasIndustrialHmi {
+    final value = (controller ?? '').trim().toUpperCase();
+    return value.isNotEmpty && value != 'DOBOT_MAGICIAN' && !value.contains('DOBOT');
+  }
 
   factory Machine.fromJson(Map<String, dynamic> json) {
     final alertItems = json['alertas'] as List? ?? const [];

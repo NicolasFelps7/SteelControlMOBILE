@@ -80,6 +80,42 @@ class MachineService {
     );
   }
 
+  Future<Map<String, dynamic>> sendHmiCommand(int id, String command) async {
+    final result = await client.post(
+      '/maquinas/$id/ihm/comandos',
+      body: {'comando': command},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<List<Map<String, dynamic>>> discoveredDevices() async {
+    final result = await client.get('/descoberta') as List;
+    return result.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  Future<void> scanDiscovery() async {
+    await client.post('/descoberta/varrer');
+  }
+
+  Future<Map<String, dynamic>> discoveryDiagnostics() async {
+    final result = await client.get('/descoberta/diagnostico');
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> discoverDeviceByIp(String host, {int port = 80}) async {
+    final result = await client.post(
+      '/descoberta/por-ip',
+      body: <String, dynamic>{'host': host, 'port': port},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> approveDiscoveredDevice(String discoveryId) async {
+    final encoded = Uri.encodeComponent(discoveryId);
+    final result = await client.post('/descoberta/$encoded/aprovar', body: <String, dynamic>{});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   Future<Map<String, dynamic>> create(Map<String, dynamic> data) async =>
       Map<String, dynamic>.from(await client.post('/maquinas', body: data) as Map);
 

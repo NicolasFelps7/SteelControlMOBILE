@@ -26,6 +26,7 @@ void main() {
 
       expect(machine.id, 7);
       expect(machine.isDobot, isTrue);
+      expect(machine.hasIndustrialHmi, isFalse);
       expect(machine.isOnline, isTrue);
       expect(machine.temperature, 32.5);
       expect(machine.production, 120);
@@ -57,6 +58,23 @@ void main() {
       expect(machine.maintenanceCycles, 1500);
       expect(machine.signalQuality, 87);
       expect(machine.latencyMs, 24);
+    });
+
+    test('habilita IHM industrial para controladores não-Dobot', () {
+      final machine = Machine.fromJson({
+        'id': 9,
+        'nome': 'Esteira principal',
+        'setor': 'Produção',
+        'modelo': 'EST-01',
+        'codigo': 'EST-09',
+        'status': 'Desligada',
+        'modoSimulacao': true,
+        'estadoConexao': {'codigo': 'SIMULACAO'},
+        'controlador': 'CLP_PLC',
+      });
+
+      expect(machine.isDobot, isFalse);
+      expect(machine.hasIndustrialHmi, isTrue);
     });
 
     test('mantém sessão, empresa e usuário do mesmo backend', () {
@@ -102,6 +120,8 @@ void main() {
         expect(strings.get('preferencesTitle'), isNotEmpty);
         expect(strings.get('editCompany'), isNotEmpty);
         expect(strings.get('confirmLogoutTitle'), isNotEmpty);
+        expect(strings.get('hmiTitle'), isNotEmpty);
+        expect(strings.get('hmiEnableRemoteReal'), isNotEmpty);
       }
       expect(AppStrings(AppLanguage.en).get('maintenanceCenter'), 'Maintenance center');
       expect(AppStrings(AppLanguage.es).get('editCompany'), 'Editar empresa');
