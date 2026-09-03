@@ -1,0 +1,13 @@
+SteelControl Mobile v1.8.1 - Correção flutter analyze
+
+Substitua na raiz do projeto:
+- lib/screens/face_auth_screen.dart
+- lib/screens/machine_dashboard_screen.dart
+
+Correções:
+1. use_build_context_synchronously em face_auth_screen.dart
+2. unused_element (_InfoPill) em machine_dashboard_screen.dart
+
+Depois execute:
+flutter analyze
+flutter run

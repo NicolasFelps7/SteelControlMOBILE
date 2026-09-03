@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SteelControl">
+  <g fill="#0b1220">
+    <circle cx="32" cy="45" r="13" fill="none" stroke="#0b1220" stroke-width="6"/>
+    <rect x="28" y="27" width="8" height="9" rx="1"/>
+    <rect x="28" y="54" width="8" height="9" rx="1"/>
+    <rect x="46" y="41" width="9" height="8" rx="1"/>
+    <rect x="9" y="41" width="9" height="8" rx="1"/>
+    <rect x="43" y="30" width="8" height="9" rx="1" transform="rotate(45 47 34.5)"/>
+    <rect x="13" y="51" width="8" height="9" rx="1" transform="rotate(45 17 55.5)"/>
+    <rect x="43" y="51" width="8" height="9" rx="1" transform="rotate(-45 47 55.5)"/>
+    <rect x="13" y="30" width="8" height="9" rx="1" transform="rotate(-45 17 34.5)"/>
+    <path d="M13 31c0-10 5.8-18.5 14-21.5V6.5A3.5 3.5 0 0 1 30.5 3h3A3.5 3.5 0 0 1 37 6.5v3c8.2 3 14 11.5 14 21.5v3H13z"/>
+    <path d="M7 33h50v4c0 3.6-11.2 6.5-25 6.5S7 40.6 7 37z"/>
+  </g>
+</svg>
