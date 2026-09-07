@@ -55,11 +55,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
 
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final tablet = constraints.maxWidth >= 760;
+            final compactIndustrialPanel = keyboardOpen || constraints.maxHeight < 620;
             final form = _LoginForm(
               showBrand: !tablet,
               formKey: _formKey,
@@ -84,7 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Row(
                   children: [
-                    if (tablet) const Expanded(flex: 5, child: _IndustrialPanel()),
+                    if (tablet)
+                      Expanded(
+                        flex: 5,
+                        child: _IndustrialPanel(compact: compactIndustrialPanel),
+                      ),
                     Expanded(
                       flex: tablet ? 6 : 1,
                       child: SingleChildScrollView(
@@ -132,7 +140,7 @@ class _PreferencesButton extends StatelessWidget {
               padding: const EdgeInsets.all(26),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .1), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.tune_rounded, color: SteelColors.primary)),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .10), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.tune_rounded, color: SteelColors.industrialAccentDark)),
                   const SizedBox(width: 14),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferences'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(height: 2), Text(strings.get('adjustExperience'), style: const TextStyle(color: SteelColors.muted))])),
                   IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close_rounded)),
@@ -142,18 +150,18 @@ class _PreferencesButton extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest.withValues(alpha: .55), borderRadius: BorderRadius.circular(17)),
                   child: Row(children: [
-                    Icon(controller.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, color: SteelColors.primary),
+                    Icon(controller.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, color: SteelColors.industrialAccentDark),
                     const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('appearance'), style: const TextStyle(fontWeight: FontWeight.w800)), Text(strings.get('themeApplied'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
                     SegmentedButton<bool>(segments: [ButtonSegment(value: false, icon: const Icon(Icons.light_mode_outlined), tooltip: strings.get('lightTheme')), ButtonSegment(value: true, icon: const Icon(Icons.dark_mode_outlined), tooltip: strings.get('darkTheme'))], selected: {controller.darkMode}, showSelectedIcon: false, onSelectionChanged: (value) => controller.setDarkMode(value.first)),
                   ]),
                 ),
                 const SizedBox(height: 22),
-                Text(strings.get('interfaceLanguage').toUpperCase(), style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                Text(strings.get('interfaceLanguage').toUpperCase(), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
                 const SizedBox(height: 11),
                 Wrap(spacing: 8, runSpacing: 8, children: ['Português', 'English', 'Español', 'Français', 'Deutsch', 'Italiano'].asMap().entries.map((entry) {
                   final selected = controller.language == AppLanguage.values[entry.key];
-                  return ChoiceChip(avatar: Icon(selected ? Icons.check_circle_rounded : Icons.language_rounded, size: 17, color: selected ? SteelColors.primary : SteelColors.muted), label: Text(entry.value), selected: selected, onSelected: (_) => controller.setLanguage(AppLanguage.values[entry.key]));
+                  return ChoiceChip(avatar: Icon(selected ? Icons.check_circle_rounded : Icons.language_rounded, size: 17, color: selected ? SteelColors.industrialAccentDark : SteelColors.muted), label: Text(entry.value), selected: selected, onSelected: (_) => controller.setLanguage(AppLanguage.values[entry.key]));
                 }).toList()),
                 const SizedBox(height: 24),
                 SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(dialogContext), child: Text(strings.get('finish')))),
@@ -207,7 +215,7 @@ class _LoginForm extends StatelessWidget {
             const SizedBox(height: 42),
           ] else
             const SizedBox(height: 12),
-          Text(strings.get('platform'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: SteelColors.primary, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          Text(strings.get('platform'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: SteelColors.industrialAccentDark, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
           const SizedBox(height: 12),
           Text(strings.get('accessCompany'), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1.2)),
           const SizedBox(height: 12),
@@ -264,30 +272,98 @@ class _LoginForm extends StatelessWidget {
 }
 
 class _IndustrialPanel extends StatelessWidget {
-  const _IndustrialPanel();
+  const _IndustrialPanel({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(18),
-      padding: const EdgeInsets.all(44),
+    final strings = AppStrings.of(context);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      margin: EdgeInsets.all(compact ? 10 : 18),
+      padding: EdgeInsets.all(compact ? 24 : 44),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [SteelColors.ink, Color(0xFF173B82)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(30),
+        gradient: const LinearGradient(
+          colors: [SteelColors.ink, Color(0xFF27313C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(compact ? 24 : 30),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SteelBrand(light: true),
-          const Spacer(),
-          const Icon(Icons.monitor_heart_outlined, color: Color(0xFF7FB3FF), size: 58),
-          const SizedBox(height: 26),
-          Text(AppStrings.of(context).get('heroTitle'), style: const TextStyle(color: Colors.white, fontSize: 37, height: 1.08, fontWeight: FontWeight.w800, letterSpacing: -1.2)),
-          const SizedBox(height: 18),
-          Text(AppStrings.of(context).get('heroCaption'), style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.55)),
-          const Spacer(),
-          Row(children: [const Icon(Icons.shield_outlined, color: Colors.white70), const SizedBox(width: 10), Text(AppStrings.of(context).get('protectedAccess'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))]),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final veryCompact = compact || constraints.maxHeight < 500;
+
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: veryCompact
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.spaceBetween,
+                children: [
+                  const SteelBrand(light: true),
+                  SizedBox(height: veryCompact ? 24 : 54),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.monitor_heart_outlined,
+                        color: SteelColors.industrialAccent,
+                        size: veryCompact ? 38 : 58,
+                      ),
+                      SizedBox(height: veryCompact ? 14 : 26),
+                      Text(
+                        strings.get('heroTitle'),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: veryCompact ? 27 : 37,
+                          height: 1.08,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: veryCompact ? -.7 : -1.2,
+                        ),
+                      ),
+                      if (!veryCompact) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          strings.get('heroCaption'),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 16,
+                            height: 1.55,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  SizedBox(height: veryCompact ? 24 : 54),
+                  Row(
+                    children: [
+                      const Icon(Icons.shield_outlined, color: Colors.white70),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          strings.get('protectedAccess'),
+                          maxLines: veryCompact ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

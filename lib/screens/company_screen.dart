@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -23,9 +24,56 @@ class CompanyScreen extends StatefulWidget {
 class _CompanyScreenState extends State<CompanyScreen> {
   late Future<_CompanyData> _data;
   bool _working = false;
+  StreamSubscription<Map<String, dynamic>>? _companyEvents;
+  Timer? _companyEventsReconnect;
+  Timer? _companyEventsDebounce;
+  bool _closingRealtime = false;
   bool get _isAdmin => widget.controller.session?.user.role.toUpperCase() == 'ADMINISTRADOR';
 
-  @override void initState() { super.initState(); _reload(); }
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+    _startCompanyRealtime();
+  }
+
+  @override
+  void dispose() {
+    _closingRealtime = true;
+    _companyEventsReconnect?.cancel();
+    _companyEventsDebounce?.cancel();
+    _companyEvents?.cancel();
+    super.dispose();
+  }
+
+  void _startCompanyRealtime() {
+    if (_closingRealtime || widget.controller.session?.token.isNotEmpty != true) return;
+
+    _companyEvents?.cancel();
+    _companyEvents = widget.controller.companyApi.events().listen(
+      (event) {
+        final type = '${event['tipo'] ?? ''}';
+        if (type.isEmpty || type == 'conectado') return;
+        if (!type.startsWith('usuario.') && !type.startsWith('empresa.')) return;
+
+        _companyEventsDebounce?.cancel();
+        _companyEventsDebounce = Timer(const Duration(milliseconds: 120), () {
+          if (!_closingRealtime && mounted) {
+            _refresh();
+          }
+        });
+      },
+      onError: (_) => _scheduleCompanyRealtimeReconnect(),
+      onDone: _scheduleCompanyRealtimeReconnect,
+      cancelOnError: true,
+    );
+  }
+
+  void _scheduleCompanyRealtimeReconnect() {
+    if (_closingRealtime) return;
+    _companyEventsReconnect?.cancel();
+    _companyEventsReconnect = Timer(const Duration(seconds: 2), _startCompanyRealtime);
+  }
   void _reload() => _data = _fetch();
   Future<_CompanyData> _fetch() async {
     final company = await widget.controller.companyApi.getCompany();
@@ -44,6 +92,58 @@ class _CompanyScreenState extends State<CompanyScreen> {
       });
     }
     await nextData;
+  }
+
+  Future<void> _mutateUsersInstant(
+    void Function(List<Map<String, dynamic>> users) mutation,
+  ) async {
+    try {
+      final current = await _data;
+      mutation(current.users);
+      current.users.sort(
+        (a, b) => '${a['nome'] ?? ''}'.toLowerCase().compareTo(
+          '${b['nome'] ?? ''}'.toLowerCase(),
+        ),
+      );
+      if (mounted) setState(() {});
+    } catch (_) {
+      await _refresh();
+    }
+  }
+
+  Future<void> _upsertUserInstant(Map<String, dynamic> user) async {
+    final id = _asInt(user['id']);
+    if (id <= 0) return;
+    await _mutateUsersInstant((users) {
+      final index = users.indexWhere((item) => _asInt(item['id']) == id);
+      if (user['ativo'] == false) {
+        users.removeWhere((item) => _asInt(item['id']) == id);
+        return;
+      }
+      if (index >= 0) {
+        users[index] = <String, dynamic>{...users[index], ...user};
+      } else {
+        users.add(Map<String, dynamic>.from(user));
+      }
+    });
+  }
+
+  Future<void> _removeUserInstant(int userId) async {
+    await _mutateUsersInstant(
+      (users) => users.removeWhere((item) => _asInt(item['id']) == userId),
+    );
+  }
+
+  Future<void> _setUserFaceInstant(int userId, {required bool active}) async {
+    await _mutateUsersInstant((users) {
+      final index = users.indexWhere((item) => _asInt(item['id']) == userId);
+      if (index < 0) return;
+      users[index] = <String, dynamic>{
+        ...users[index],
+        'facialCadastrada': active,
+        'quantidadeFaces': active ? 1 : 0,
+      };
+    });
   }
   void _message(String text, {bool error = false}) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), backgroundColor: error ? SteelColors.danger : SteelColors.success)); }
 
@@ -208,7 +308,21 @@ class _CompanyScreenState extends State<CompanyScreen> {
     final successMessage = AppStrings.of(context).get('employeeCreated');
     final result = await showDialog<_UserFormResult>(context: context, builder: (_) => const _UserDialog());
     if (result == null) return;
-    await _run(() async { await widget.controller.companyApi.createUser(name: result.name, email: result.email, password: result.password ?? '', role: result.role); _message(successMessage); await _refresh(); });
+    await _run(() async {
+      final response = await widget.controller.companyApi.createUser(
+        name: result.name,
+        email: result.email,
+        password: result.password ?? '',
+        role: result.role,
+      );
+      final user = response['usuario'];
+      if (user is Map) {
+        await _upsertUserInstant(Map<String, dynamic>.from(user));
+      } else {
+        await _refresh();
+      }
+      _message(successMessage);
+    });
   }
 
   Future<void> _editUser(Map<String, dynamic> user) async {
@@ -221,16 +335,43 @@ class _CompanyScreenState extends State<CompanyScreen> {
       final ownAccount = id == widget.controller.session?.user.id;
       final emailChanged = result.email.trim().toLowerCase() != currentEmail.trim().toLowerCase();
       if (ownAccount && emailChanged) {
-        await widget.controller.companyApi.updateUser(id, name: result.name, email: currentEmail, role: result.role, password: result.password);
+        final response = await widget.controller.companyApi.updateUser(
+          id,
+          name: result.name,
+          email: currentEmail,
+          role: result.role,
+          password: result.password,
+        );
+        final updatedPayload = response['usuario'];
+        if (updatedPayload is Map) {
+          await _upsertUserInstant(Map<String, dynamic>.from(updatedPayload));
+        }
         await widget.controller.companyApi.requestEmailChange(id, result.email);
         if (!mounted) return;
         final code = await showDialog<String>(context: context, builder: (_) => _CodeDialog(email: result.email));
         if (code == null) return;
         await widget.controller.companyApi.confirmEmailChange(id, result.email, code);
+        await _upsertUserInstant(<String, dynamic>{
+          ...user,
+          'id': id,
+          'nome': result.name,
+          'email': result.email,
+          'cargo': result.role,
+        });
       } else {
-        await widget.controller.companyApi.updateUser(id, name: result.name, email: result.email, role: result.role, password: result.password);
+        final response = await widget.controller.companyApi.updateUser(
+          id,
+          name: result.name,
+          email: result.email,
+          role: result.role,
+          password: result.password,
+        );
+        final updated = response['usuario'];
+        if (updated is Map) {
+          await _upsertUserInstant(Map<String, dynamic>.from(updated));
+        }
       }
-      _message(successMessage); await _refresh();
+      _message(successMessage);
     });
   }
 
@@ -239,14 +380,22 @@ class _CompanyScreenState extends State<CompanyScreen> {
     if (_asInt(user['id']) == widget.controller.session?.user.id) { _message(strings.get('cannotDismissSelf'), error: true); return; }
     final confirmed = await _confirm(title: strings.get('dismissEmployeeTitle'), message: strings.get('dismissEmployeeMessage').replaceAll('{name}', '${user['nome']}'), action: strings.get('dismissEmployee'));
     if (!confirmed) return;
-    await _run(() async { await widget.controller.companyApi.dismissUser(_asInt(user['id'])); _message(strings.get('employeeDismissed')); await _refresh(); });
+    await _run(() async {
+      final id = _asInt(user['id']);
+      await widget.controller.companyApi.dismissUser(id);
+      await _removeUserInstant(id);
+      _message(strings.get('employeeDismissed'));
+    });
   }
 
   Future<void> _registerFace(Map<String, dynamic> user) async {
     final strings = AppStrings.of(context);
     if (user['facialCadastrada'] == true || _asInt(user['quantidadeFaces']) > 0) { _message(strings.get('faceAlreadyRegistered'), error: true); return; }
     final completed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => FaceAuthScreen(controller: widget.controller, userId: _asInt(user['id']))));
-    if (completed == true) { _message(strings.get('faceLinked').replaceAll('{name}', '${user['nome']}')); await _refresh(); }
+    if (completed == true) {
+      await _setUserFaceInstant(_asInt(user['id']), active: true);
+      _message(strings.get('faceLinked').replaceAll('{name}', '${user['nome']}'));
+    }
   }
 
   Future<void> _manageFaces(Map<String, dynamic> user) async {
@@ -261,7 +410,15 @@ class _CompanyScreenState extends State<CompanyScreen> {
             final strings = AppStrings.of(dialogContext);
             final ok = await _confirm(context: dialogContext, title: strings.get('removeFaceTitle'), message: strings.get('removeFaceMessage'), action: strings.get('remove'));
             if (!ok) return;
-            try { await widget.controller.companyApi.removeFace(_asInt(user['id']), _asInt(face['id'])); if (dialogContext.mounted) Navigator.pop(dialogContext); _message(strings.get('faceRemoved')); await _refresh(); } on ApiException catch (e) { _message(e.message, error: true); }
+            try {
+              final userId = _asInt(user['id']);
+              await widget.controller.companyApi.removeFace(userId, _asInt(face['id']));
+              await _setUserFaceInstant(userId, active: false);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              _message(strings.get('faceRemoved'));
+            } on ApiException catch (e) {
+              _message(e.message, error: true);
+            }
           }),
         )).toList())),
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(AppStrings.of(dialogContext).get('close')))],
@@ -355,7 +512,7 @@ class _UserTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
       decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .32), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(17)),
       child: Row(children: [
-        Container(width: 46, height: 46, alignment: Alignment.center, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFE0ECFF), Color(0xFFF0F5FF)]), borderRadius: BorderRadius.circular(14)), child: Text(_initial('${user['nome'] ?? 'U'}'), style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w900, fontSize: 16))),
+        Container(width: 46, height: 46, alignment: Alignment.center, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEEF1F4), Color(0xFFF7F8FA)]), borderRadius: BorderRadius.circular(14)), child: Text(_initial('${user['nome'] ?? 'U'}'), style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w900, fontSize: 16))),
         const SizedBox(width: 13),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [Flexible(child: Text('${user['nome'] ?? strings.get('notProvided')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))), if (own) Padding(padding: const EdgeInsets.only(left: 8), child: _MiniBadge(label: strings.get('you'), color: SteelColors.primary, icon: Icons.person_rounded))]),

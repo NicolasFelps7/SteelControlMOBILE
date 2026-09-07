@@ -22,6 +22,10 @@ class _MachinesScreenState extends State<MachinesScreen> {
   List<Map<String, dynamic>> _discovered = <Map<String, dynamic>>[];
   Map<String, dynamic>? _discoveryDiagnostics;
   Timer? _discoveryTimer;
+  StreamSubscription<Map<String, dynamic>>? _companyEvents;
+  Timer? _companyEventsReconnect;
+  Timer? _companyEventsDebounce;
+  bool _closingRealtime = false;
   final _searchController = TextEditingController();
   final _discoveryIpController = TextEditingController();
   final _discoveryPortController = TextEditingController(text: '80');
@@ -201,9 +205,38 @@ class _MachinesScreenState extends State<MachinesScreen> {
         _ => true,
       };
 
+  void _startCompanyRealtime() {
+    if (_closingRealtime || widget.controller.session?.token.isNotEmpty != true) return;
+
+    _companyEvents?.cancel();
+    _companyEvents = widget.controller.companyApi.events().listen(
+      (event) {
+        final type = '${event['tipo'] ?? ''}';
+        if (!type.startsWith('maquina.')) return;
+
+        _companyEventsDebounce?.cancel();
+        _companyEventsDebounce = Timer(const Duration(milliseconds: 120), () {
+          if (!_closingRealtime && mounted) {
+            widget.controller.loadMachines();
+          }
+        });
+      },
+      onError: (_) => _scheduleCompanyRealtimeReconnect(),
+      onDone: _scheduleCompanyRealtimeReconnect,
+      cancelOnError: true,
+    );
+  }
+
+  void _scheduleCompanyRealtimeReconnect() {
+    if (_closingRealtime) return;
+    _companyEventsReconnect?.cancel();
+    _companyEventsReconnect = Timer(const Duration(seconds: 2), _startCompanyRealtime);
+  }
+
   @override
   void initState() {
     super.initState();
+    _startCompanyRealtime();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_admin || !mounted) return;
       _scanDiscovery();
@@ -217,6 +250,10 @@ class _MachinesScreenState extends State<MachinesScreen> {
 
   @override
   void dispose() {
+    _closingRealtime = true;
+    _companyEventsReconnect?.cancel();
+    _companyEventsDebounce?.cancel();
+    _companyEvents?.cancel();
     _discoveryTimer?.cancel();
     _searchController.dispose();
     _discoveryIpController.dispose();
@@ -257,17 +294,17 @@ class _EquipmentHero extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0A1427), Color(0xFF13213D)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          border: Border.all(color: const Color(0xFF33435D)),
+          gradient: const LinearGradient(colors: [Color(0xFF18202A), Color(0xFF27313C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          border: Border.all(color: const Color(0xFF3D4854)),
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: const Color(0xFF071224).withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))],
+          boxShadow: [BoxShadow(color: const Color(0xFF11161C).withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))],
         ),
         child: LayoutBuilder(builder: (context, constraints) {
           final wide = constraints.maxWidth >= 650;
           final content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(strings.get('companyEquipmentTitle'), style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: -.8)),
             const SizedBox(height: 9),
-            ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: Text(strings.get('companyEquipmentCaption'), style: const TextStyle(color: Color(0xFFCAD5E7), height: 1.5))),
+            ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: Text(strings.get('companyEquipmentCaption'), style: const TextStyle(color: Color(0xFFCBD2D9), height: 1.5))),
             const SizedBox(height: 18),
             Wrap(spacing: 8, runSpacing: 8, children: [strings.get('centralizedMonitoring'), strings.get('operationalHistory'), strings.get('integratedMaintenance')].map((label) => Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .07), borderRadius: BorderRadius.circular(99), border: Border.all(color: Colors.white.withValues(alpha: .15))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.check_rounded, size: 15, color: Color(0xFF43E58B)), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))]))).toList()),
           ]);
@@ -441,9 +478,9 @@ class _DiscoveryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final subtleSurface = dark ? const Color(0xFF101B2D) : const Color(0xFFF8FAFD);
-    final elevatedSurface = dark ? const Color(0xFF111E33) : Colors.white;
-    final border = dark ? const Color(0xFF2A3952) : const Color(0xFFD8E2EE);
+    final subtleSurface = dark ? const Color(0xFF20272F) : const Color(0xFFF7F8FA);
+    final elevatedSurface = dark ? const Color(0xFF27313C) : Colors.white;
+    final border = dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8);
 
     return SectionCard(
       padding: const EdgeInsets.all(12),
@@ -500,7 +537,7 @@ class _DiscoveryCard extends StatelessWidget {
               children: [
                 const Icon(Icons.shield_outlined, size: 17, color: SteelColors.primary),
                 const SizedBox(width: 8),
-                Expanded(child: Text(strings.get('discoverySecurity'), style: TextStyle(color: dark ? const Color(0xFFC8DBFF) : const Color(0xFF274776), fontSize: 10.5, fontWeight: FontWeight.w500, height: 1.35))),
+                Expanded(child: Text(strings.get('discoverySecurity'), style: TextStyle(color: dark ? const Color(0xFFCBD2D9) : const Color(0xFF5F6B78), fontSize: 10.5, fontWeight: FontWeight.w500, height: 1.35))),
               ],
             ),
           ),
@@ -685,14 +722,14 @@ class _DiagnosticPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final border = dark ? const Color(0xFF2A3952) : const Color(0xFFD8E2EE);
+    final border = dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8);
     return Container(
       constraints: const BoxConstraints(minWidth: 132),
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       decoration: BoxDecoration(
         border: Border.all(color: border),
         borderRadius: BorderRadius.circular(10),
-        color: dark ? const Color(0xFF101B2D) : const Color(0xFFF8FAFD),
+        color: dark ? const Color(0xFF20272F) : const Color(0xFFF7F8FA),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -764,7 +801,7 @@ class _MachinesToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(strings.get('industrialPark'), style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+        Text(strings.get('industrialPark'), style: const TextStyle(color: SteelColors.industrialAccent, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
         const SizedBox(height: 6),
         Text(strings.get('registeredEquipmentTitle'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 14),
@@ -1016,7 +1053,7 @@ class _MachineDialogState extends State<_MachineDialog> {
   Widget disclosure({required String title, required String caption, required IconData icon, required bool expanded, required VoidCallback onTap, required Widget child}) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      decoration: BoxDecoration(color: colors.surfaceContainerLowest, border: Border.all(color: expanded ? SteelColors.primary.withValues(alpha: .45) : Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: colors.surfaceContainerLowest, border: Border.all(color: expanded ? SteelColors.industrialAccent.withValues(alpha: .45) : Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(16)),
       child: Column(children: [
         InkWell(
           onTap: onTap,
@@ -1048,7 +1085,7 @@ class _MachineDialogState extends State<_MachineDialog> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 18, 20),
-            decoration: const BoxDecoration(gradient: LinearGradient(colors: [SteelColors.ink, Color(0xFF1D4ED8)]), borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+            decoration: const BoxDecoration(gradient: LinearGradient(colors: [SteelColors.ink, Color(0xFF46515D)]), borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
             child: Row(children: [
               Container(width: 48, height: 48, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .13), borderRadius: BorderRadius.circular(15)), child: const Icon(Icons.precision_manufacturing_rounded, color: Colors.white)),
               const SizedBox(width: 14),
@@ -1169,7 +1206,7 @@ class _MachineDialogState extends State<_MachineDialog> {
 }
 
 class _FormSection extends StatelessWidget { const _FormSection({required this.icon,required this.number,required this.title,required this.caption}); final IconData icon; final String number,title,caption; @override Widget build(BuildContext context)=>Row(children:[Container(width:43,height:43,decoration:BoxDecoration(color:SteelColors.primary.withValues(alpha:.09),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:SteelColors.primary,size:21)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('$number  $title',style:const TextStyle(fontSize:15,fontWeight:FontWeight.w800)),const SizedBox(height:2),Text(caption,style:const TextStyle(color:SteelColors.muted,fontSize:11))]))]); }
-class _ModeCard extends StatelessWidget { const _ModeCard({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:selected?SteelColors.primary.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.35),border:Border.all(color:selected?SteelColors.primary:Theme.of(context).dividerColor,width:selected?1.5:1),borderRadius:BorderRadius.circular(16)),child:Row(children:[Container(width:40,height:40,decoration:BoxDecoration(color:selected?SteelColors.primary:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted,size:20)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:10))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.primary:SteelColors.muted,size:19)]))); }
+class _ModeCard extends StatelessWidget { const _ModeCard({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:selected?SteelColors.industrialAccent.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.35),border:Border.all(color:selected?SteelColors.industrialAccent:Theme.of(context).dividerColor,width:selected?1.5:1),borderRadius:BorderRadius.circular(16)),child:Row(children:[Container(width:40,height:40,decoration:BoxDecoration(color:selected?SteelColors.industrialAccentDark:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted,size:20)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:10))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.industrialAccentDark:SteelColors.muted,size:19)]))); }
 
 class _Status extends StatelessWidget { const _Status({required this.online}); final bool online; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:(online?SteelColors.success:SteelColors.danger).withValues(alpha:.10),borderRadius:BorderRadius.circular(99)),child:Row(children:[Icon(Icons.circle,size:8,color:online?SteelColors.success:SteelColors.danger),const SizedBox(width:6),Text(AppStrings.of(context).get(online?'online':'offline'),style:TextStyle(color:online?SteelColors.success:SteelColors.danger,fontSize:11,fontWeight:FontWeight.w800))])); }
 class _Detail extends StatelessWidget { const _Detail({required this.label,required this.value}); final String label,value; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Theme.of(context).colorScheme.surfaceContainerLowest,border:Border.all(color:Theme.of(context).dividerColor),borderRadius:BorderRadius.circular(10)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:SteelColors.muted,fontSize:9,fontWeight:FontWeight.w700)),const SizedBox(height:2),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))])); }

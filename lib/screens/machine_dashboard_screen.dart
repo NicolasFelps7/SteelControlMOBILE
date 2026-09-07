@@ -134,7 +134,7 @@ class _MachineHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [SteelColors.ink, Color(0xFF2358C8)]),
+        gradient: const LinearGradient(colors: [SteelColors.ink, Color(0xFF3D4854)]),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -145,7 +145,7 @@ class _MachineHero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(strings.get(machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel'), style: const TextStyle(color: Color(0xFFA6C7FF), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.25)),
+                Text(strings.get(machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel'), style: const TextStyle(color: Color(0xFFBCC5CD), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.25)),
                 const SizedBox(height: 6),
                 Text(machine.name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
                 Text('${machine.controller ?? machine.model} • ${machine.protocol ?? machine.sector}', style: const TextStyle(color: Colors.white70)),
@@ -1393,8 +1393,8 @@ class _ProductionBars extends StatelessWidget {
     return CustomPaint(
       painter: _BarChartPainter(
         points: points,
-        gridColor: dark ? const Color(0xFF2A3952) : const Color(0xFFDCE5F0),
-        labelColor: dark ? const Color(0xFF91A0B8) : SteelColors.muted,
+        gridColor: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8),
+        labelColor: dark ? const Color(0xFF9AA6B1) : SteelColors.muted,
       ),
       child: const SizedBox.expand(),
     );

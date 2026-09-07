@@ -17,12 +17,12 @@ class SectionCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF0F1A2D) : Colors.white,
-        border: Border.all(color: dark ? const Color(0xFF24324A) : const Color(0xFFDCE5F0)),
+        color: dark ? const Color(0xFF18202A) : Colors.white,
+        border: Border.all(color: dark ? const Color(0xFF343E48) : const Color(0xFFDDE3E8)),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: dark ? Colors.black.withValues(alpha: .18) : const Color(0xFF0F2A52).withValues(alpha: .06),
+            color: dark ? Colors.black.withValues(alpha: .18) : const Color(0xFF11161C).withValues(alpha: .06),
             blurRadius: 24,
             offset: const Offset(0, 9),
           ),

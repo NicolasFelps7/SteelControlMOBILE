@@ -593,7 +593,7 @@ class _ProcessConsole extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF071A3D), Color(0xFF102B58)],
+          colors: [Color(0xFF11161C), Color(0xFF27313C)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -692,13 +692,13 @@ class _ProcessNode extends StatelessWidget {
         width: 118,
         padding: const EdgeInsets.all(11),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF1F4E85) : Colors.white.withValues(alpha: .055),
+          color: active ? const Color(0xFF3D4854) : Colors.white.withValues(alpha: .055),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: active ? const Color(0xFF60A5FA) : Colors.white12),
+          border: Border.all(color: active ? const Color(0xFF9AA6B1) : Colors.white12),
         ),
         child: Column(
           children: [
-            Icon(_safeIcon(icon, fallbackIcon), color: active ? const Color(0xFF7DD3FC) : Colors.white70, size: 26),
+            Icon(_safeIcon(icon, fallbackIcon), color: active ? const Color(0xFFBCC5CD) : Colors.white70, size: 26),
             const SizedBox(height: 7),
             Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
             const SizedBox(height: 2),
@@ -719,8 +719,8 @@ class _Connector extends StatelessWidget {
         width: 44,
         child: Row(
           children: [
-            Expanded(child: Container(height: 2, color: active ? const Color(0xFF38BDF8) : Colors.white24)),
-            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: active ? const Color(0xFF38BDF8) : Colors.white38),
+            Expanded(child: Container(height: 2, color: active ? const Color(0xFF9AA6B1) : Colors.white24)),
+            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: active ? const Color(0xFF9AA6B1) : Colors.white38),
           ],
         ),
       );

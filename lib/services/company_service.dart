@@ -8,6 +8,8 @@ class CompanyService {
 
   final ApiClient client;
 
+  Stream<Map<String, dynamic>> events() => client.sse('/empresa/stream');
+
   Future<Company> getCompany() async {
     final result = await client.get('/empresa/me');
     return Company.fromJson(Map<String, dynamic>.from(result as Map));

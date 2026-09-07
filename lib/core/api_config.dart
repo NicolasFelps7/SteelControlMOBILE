@@ -19,10 +19,18 @@ class ApiConfig {
   }
 
   static Future<void> save(String value) async {
-    final normalized = value.trim().replaceAll(RegExp(r'/+$'), '');
+    var normalized = value.trim();
+    if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(normalized)) {
+      normalized = 'http://$normalized';
+    }
+    normalized = normalized.replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
 
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    final scheme = uri?.scheme.toLowerCase();
+    if (uri == null ||
+        !uri.hasScheme ||
+        (scheme != 'http' && scheme != 'https') ||
+        uri.host.isEmpty) {
       throw const FormatException('Informe um endereço HTTP válido.');
     }
 

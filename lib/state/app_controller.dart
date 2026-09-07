@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/company_service.dart';
 import '../services/machine_service.dart';
 import '../services/session_store.dart';
+import '../services/session_event_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController();
@@ -21,6 +22,7 @@ class AppController extends ChangeNotifier {
   late AuthService auth;
   late MachineService machinesApi;
   late CompanyService companyApi;
+  SessionEventService? _sessionEvents;
 
   Session? session;
   List<Machine> machines = const [];
@@ -31,6 +33,7 @@ class AppController extends ChangeNotifier {
   AppLanguage language = AppLanguage.pt;
   String? error;
   WelcomeNotice? pendingWelcome;
+  String? forcedLogoutNotice;
 
   bool get isAuthenticated => session?.token.isNotEmpty == true;
 
@@ -49,9 +52,10 @@ class AppController extends ChangeNotifier {
     if (isAuthenticated) {
       try {
         await loadMachines();
+        _startSessionEvents();
       } on ApiException catch (exception) {
         if (exception.statusCode == 401) {
-          await logout();
+          await logout(forcedMessage: AppStrings(language).get('sessionRevoked'));
         } else {
           error = exception.message;
         }
@@ -98,6 +102,7 @@ class AppController extends ChangeNotifier {
     await _sessionStore.save(json);
     _configureServices();
     await loadMachines();
+    _startSessionEvents();
   }
 
   Future<void> loadMachines() async {
@@ -139,15 +144,44 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String? forcedMessage}) async {
+    await _sessionEvents?.stop();
+    _sessionEvents = null;
     await _sessionStore.clear();
     session = null;
     machines = const [];
     selectedMachine = null;
     error = null;
     pendingWelcome = null;
+    forcedLogoutNotice = forcedMessage;
     _configureServices();
     notifyListeners();
+  }
+
+  void _startSessionEvents() {
+    final token = session?.token ?? '';
+    if (token.isEmpty) return;
+
+    _sessionEvents?.stop();
+    final service = SessionEventService(
+      token: token,
+      onRevoked: (reason) async {
+        if (!isAuthenticated) return;
+        await logout(
+          forcedMessage: reason.trim().isEmpty
+              ? AppStrings(language).get('sessionRevoked')
+              : reason,
+        );
+      },
+    );
+    _sessionEvents = service;
+    service.start();
+  }
+
+  String? consumeForcedLogoutNotice() {
+    final value = forcedLogoutNotice;
+    forcedLogoutNotice = null;
+    return value;
   }
 
   WelcomeNotice? consumeWelcome() {
@@ -174,7 +208,21 @@ class AppController extends ChangeNotifier {
   Future<void> updateApiUrl(String value) async {
     await ApiConfig.save(value);
     _configureServices();
+    if (isAuthenticated) _startSessionEvents();
     notifyListeners();
+  }
+
+  Future<void> testApiConnection() async {
+    final result = await _client.get('/api/health');
+    if (result is! Map || result['status'] != 'ok') {
+      throw ApiException(AppStrings(language).get('invalidServerResponse'));
+    }
+  }
+
+  @override
+  void dispose() {
+    _sessionEvents?.stop();
+    super.dispose();
   }
 
   Future<void> _guard(Future<void> Function() operation) async {

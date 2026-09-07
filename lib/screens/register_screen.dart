@@ -71,20 +71,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       if (!mounted) return;
 
-      final completed = await Navigator.push<bool>(
+      final completedSession = await Navigator.push<Map<String, dynamic>>(
         context,
         MaterialPageRoute(
           builder: (_) => FaceAuthScreen(
             controller: widget.controller,
-            registrationToken: '${response['token'] ?? ''}',
+            registrationId: '${response['verificacaoId'] ?? _verificationId ?? ''}',
           ),
         ),
       );
 
-      if (completed == true && mounted) {
-        await widget.controller.acceptRegisteredSession(response);
+      if (completedSession != null && mounted) {
+        await widget.controller.acceptRegisteredSession(completedSession);
         if (!mounted) return;
         Navigator.pop(context);
+      } else if (mounted) {
+        _message(
+          AppStrings.of(context).get('registrationFaceRequired'),
+          error: true,
+        );
       }
     } on ApiException catch (exception) {
       _message(exception.message, error: true);

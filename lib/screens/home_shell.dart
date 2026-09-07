@@ -130,7 +130,7 @@ class _HomeShellState extends State<HomeShell> {
                   margin: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF0D182A)
+                        ? const Color(0xFF18202A)
                         : Colors.white,
                     border: Border.all(color: Theme.of(context).dividerColor),
                     borderRadius: BorderRadius.circular(24),
@@ -154,11 +154,11 @@ class _HomeShellState extends State<HomeShell> {
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .08), borderRadius: BorderRadius.circular(15)),
+                            decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .08), border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .20)), borderRadius: BorderRadius.circular(15)),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(strings.get('selectedMachine'), style: const TextStyle(color: SteelColors.primary, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                                Text(strings.get('selectedMachine'), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
                                 const SizedBox(height: 5),
                                 Text(selected.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
                                 Text(selected.sector, style: Theme.of(context).textTheme.bodySmall),
@@ -174,11 +174,11 @@ class _HomeShellState extends State<HomeShell> {
                           itemBuilder: (context, index) => Padding(
                             padding: const EdgeInsets.only(bottom: 5),
                             child: Material(
-                              color: _index == index ? SteelColors.primary : Colors.transparent,
+                              color: _index == index ? SteelColors.industrialAccent.withValues(alpha: .14) : Colors.transparent,
                               borderRadius: BorderRadius.circular(14),
                               child: ListTile(
-                                iconColor: _index == index ? Colors.white : Theme.of(context).colorScheme.onSurface,
-                                textColor: _index == index ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                                iconColor: _index == index ? SteelColors.industrialAccentDark : Theme.of(context).colorScheme.onSurface,
+                                textColor: _index == index ? SteelColors.industrialAccentDark : Theme.of(context).colorScheme.onSurface,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 leading: Icon(items[index].icon),
                                 title: Text(items[index].label, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -311,8 +311,8 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
         constraints: const BoxConstraints(maxWidth: 470),
         padding: const EdgeInsets.fromLTRB(30, 28, 30, 30),
         decoration: BoxDecoration(
-          color: dark ? const Color(0xFF101C30) : Colors.white,
-          border: Border.all(color: dark ? const Color(0xFF33435D) : const Color(0xFFD7E0EC)),
+          color: dark ? const Color(0xFF20272F) : Colors.white,
+          border: Border.all(color: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
           borderRadius: BorderRadius.circular(26),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: dark ? .35 : .14), blurRadius: 32, offset: const Offset(0, 16))],
         ),
@@ -338,7 +338,7 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
               curve: Curves.easeInOut,
               builder: (context, value, _) => ClipRRect(
                 borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(value: value, minHeight: 5, backgroundColor: dark ? const Color(0xFF344158) : const Color(0xFFE1E8F2)),
+                child: LinearProgressIndicator(value: value, minHeight: 5, backgroundColor: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
               ),
             ),
             const SizedBox(height: 10),

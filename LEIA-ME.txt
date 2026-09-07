@@ -1,13 +1,12 @@
-SteelControl Mobile v1.8.1 - Correção flutter analyze
+CORRECAO BUILD FLUTTER - AuthService
 
-Substitua na raiz do projeto:
-- lib/screens/face_auth_screen.dart
-- lib/screens/machine_dashboard_screen.dart
+Este patch adiciona os metodos usados pelo register_screen.dart:
+- finalizeCompanyRegistrationFace(...)
+- cancelPendingCompanyRegistration(...)
 
-Correções:
-1. use_build_context_synchronously em face_auth_screen.dart
-2. unused_element (_InfoPill) em machine_dashboard_screen.dart
-
-Depois execute:
-flutter analyze
-flutter run
+Extraia este ZIP na raiz do projeto SteelControl Mobile e substitua os arquivos.
+Depois rode:
+  flutter clean
+  flutter pub get
+  flutter analyze
+  flutter run

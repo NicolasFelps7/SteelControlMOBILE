@@ -67,6 +67,23 @@ class AuthService {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> completeRegistrationFace({
+    required String verificationId,
+    required File finalImage,
+    required File livenessImage,
+  }) async {
+    final result = await client.multipart(
+      '/auth/register-company/complete-face',
+      files: {
+        'imagem': finalImage,
+        'liveness': livenessImage,
+      },
+      fields: {'verificacaoId': verificationId},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  // Mantido para compatibilidade com fluxos autenticados antigos.
   Future<void> registerFace(File image, String token) async {
     final authenticated = ApiClient(token: token, language: client.language);
     await authenticated.multipart(

@@ -1,0 +1,16 @@
+SteelControl Mobile - correcao da tela vermelha antes da camera
+
+O que foi alterado:
+- Remove o flash/tela vermelha que podia aparecer depois de salvar o nome da facial.
+- O TextEditingController do dialogo agora so e liberado depois da animacao de fechamento terminar.
+- A camera so abre depois que a rota do dialogo foi totalmente encerrada.
+- Nenhuma regra de reconhecimento facial, seguranca ou backend foi alterada.
+
+Como aplicar:
+1. Extraia este ZIP na raiz do projeto SteelControl Mobile.
+2. Substitua os arquivos existentes.
+3. Rode:
+   flutter clean
+   flutter pub get
+   flutter analyze
+   flutter run

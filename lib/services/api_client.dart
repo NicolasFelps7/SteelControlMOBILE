@@ -54,9 +54,59 @@ class ApiClient {
     return _send(() => http.delete(ApiConfig.uri(path), headers: _headers));
   }
 
+  Stream<Map<String, dynamic>> sse(String path) async* {
+    final client = http.Client();
+
+    try {
+      final request = http.Request('GET', ApiConfig.uri(path));
+      request.headers['Accept'] = 'text/event-stream';
+      request.headers['Cache-Control'] = 'no-cache';
+      if (token?.isNotEmpty == true) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await client.send(request).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await response.stream.bytesToString();
+        dynamic decoded;
+        try {
+          decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
+        } catch (_) {
+          decoded = <String, dynamic>{};
+        }
+        final message = decoded is Map
+            ? '${decoded['mensagem'] ?? decoded['message'] ?? _text('operationFailed')}'
+            : _text('operationFailed');
+        throw ApiException(message, statusCode: response.statusCode);
+      }
+
+      await for (final line in response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())) {
+        if (!line.startsWith('data:')) continue;
+        final payload = line.substring(5).trim();
+        if (payload.isEmpty) continue;
+        try {
+          final decoded = jsonDecode(payload);
+          if (decoded is Map) {
+            yield Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {}
+      }
+    } on SocketException {
+      throw ApiException(_text('networkUnavailable'));
+    } on TimeoutException {
+      throw ApiException(_text('requestTimeout'));
+    } finally {
+      client.close();
+    }
+  }
+
   Future<dynamic> multipart(
     String path, {
     required Map<String, File> files,
+    Map<String, String> fields = const <String, String>{},
   }) async {
     try {
       final request = http.MultipartRequest('POST', ApiConfig.uri(path));
@@ -64,6 +114,8 @@ class ApiClient {
       if (token?.isNotEmpty == true) {
         request.headers['Authorization'] = 'Bearer $token';
       }
+
+      request.fields.addAll(fields);
 
       for (final entry in files.entries) {
         request.files.add(await http.MultipartFile.fromPath(entry.key, entry.value.path));

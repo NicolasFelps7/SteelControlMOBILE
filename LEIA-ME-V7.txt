@@ -1,0 +1,11 @@
+STEELCONTROL MOBILE V7 — FACIAL OBRIGATÓRIA
+
+1. Extraia sobre o projeto Flutter atual e substitua os arquivos.
+2. O app deve apontar para o backend V7 correspondente.
+3. Rode:
+   flutter clean
+   flutter pub get
+   flutter run
+
+O cadastro só conclui depois da facial + prova de vida.
+Se a facial falhar, o app informa que a conta ainda não foi criada e oferece Tentar novamente.

@@ -1,17 +1,27 @@
 import 'package:flutter/material.dart';
 
 class SteelColors {
-  static const ink = Color(0xFF0B1220);
-  static const navy = Color(0xFF10213F);
-  static const primary = Color(0xFF2563EB);
-  static const primaryDark = Color(0xFF1D4ED8);
-  static const canvas = Color(0xFFF2F6FB);
+  // Identidade SteelControl — aço/titânio, igual ao desktop.
+  static const ink = Color(0xFF11161C);
+  static const navy = Color(0xFF27313C);
+  static const primary = Color(0xFF66727D);
+  static const primaryDark = Color(0xFF46515D);
+  // Bronze industrial usado apenas como destaque visual, como no desktop.
+  static const industrialAccent = Color(0xFFC39A45);
+  static const industrialAccentDark = Color(0xFF9A7534);
+  static const titanium = Color(0xFF9AA6B1);
+  static const titaniumLight = Color(0xFFBCC5CD);
+  static const steel700 = Color(0xFF3D4854);
+  static const steel800 = Color(0xFF27313C);
+  static const steel900 = Color(0xFF18202A);
+  static const canvas = Color(0xFFEEF1F4);
   static const card = Color(0xFFFFFFFF);
-  static const muted = Color(0xFF64748B);
-  static const border = Color(0xFFDCE5F0);
+  static const muted = Color(0xFF6F7A85);
+  static const border = Color(0xFFDDE3E8);
   static const success = Color(0xFF16A34A);
-  static const warning = Color(0xFFF59E0B);
-  static const danger = Color(0xFFDC2626);
+  // Âmbar de aviso continua separado do bronze visual da identidade.
+  static const warning = Color(0xFFAD7A2D);
+  static const danger = Color(0xFFC43D3D);
 }
 
 class AppTheme {
@@ -29,18 +39,21 @@ class AppTheme {
       error: SteelColors.danger,
     );
     final scheme = generated.copyWith(
-      surface: dark ? const Color(0xFF0F1A2D) : Colors.white,
-      onSurface: dark ? const Color(0xFFF1F5F9) : SteelColors.ink,
-      outline: dark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-      outlineVariant: dark ? const Color(0xFF22304A) : SteelColors.border,
-      surfaceContainerHighest: dark ? const Color(0xFF17243A) : const Color(0xFFF1F5F9),
+      secondary: SteelColors.industrialAccent,
+      onSecondary: Colors.white,
+      tertiary: SteelColors.industrialAccent,
+      surface: dark ? const Color(0xFF18202A) : Colors.white,
+      onSurface: dark ? const Color(0xFFF1F4F6) : SteelColors.ink,
+      outline: dark ? const Color(0xFF3D4854) : const Color(0xFFCBD2D9),
+      outlineVariant: dark ? const Color(0xFF343E48) : SteelColors.border,
+      surfaceContainerHighest: dark ? const Color(0xFF27313C) : const Color(0xFFF1F4F6),
     );
 
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: dark ? const Color(0xFF07101F) : SteelColors.canvas,
+      scaffoldBackgroundColor: dark ? const Color(0xFF11161C) : SteelColors.canvas,
       fontFamily: 'Roboto',
     );
 
@@ -65,17 +78,17 @@ class AppTheme {
       cardTheme: CardThemeData(
         margin: EdgeInsets.zero,
         elevation: 0,
-        color: dark ? const Color(0xFF111B2E) : Colors.white,
+        color: dark ? const Color(0xFF18202A) : Colors.white,
         shape: RoundedRectangleBorder(
           side: BorderSide(
-            color: dark ? const Color(0xFF24324A) : SteelColors.border,
+            color: dark ? const Color(0xFF343E48) : SteelColors.border,
           ),
           borderRadius: BorderRadius.circular(22),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: dark ? const Color(0xFF0A1425) : const Color(0xFFF8FAFC),
+        fillColor: dark ? const Color(0xFF20272F) : const Color(0xFFF7F8FA),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -84,7 +97,7 @@ class AppTheme {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: dark ? const Color(0xFF263652) : SteelColors.border,
+            color: dark ? const Color(0xFF3D4854) : SteelColors.border,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -94,6 +107,8 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: SteelColors.industrialAccent,
+          foregroundColor: Colors.white,
           minimumSize: const Size(0, 52),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
@@ -104,24 +119,24 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       dividerTheme: DividerThemeData(
-        color: dark ? const Color(0xFF24324A) : SteelColors.border,
+        color: dark ? const Color(0xFF343E48) : SteelColors.border,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: dark ? const Color(0xFF0F1A2D) : Colors.white,
+        backgroundColor: dark ? const Color(0xFF18202A) : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 18,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: dark ? const Color(0xFF152238) : Colors.white,
+        color: dark ? const Color(0xFF20272F) : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 12,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: dark ? const Color(0xFF0F1A2D) : Colors.white,
-        indicatorColor: SteelColors.primary.withValues(alpha: .14),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600)),
+        backgroundColor: dark ? const Color(0xFF18202A) : Colors.white,
+        indicatorColor: SteelColors.industrialAccent.withValues(alpha: .14),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600, color: states.contains(WidgetState.selected) ? SteelColors.industrialAccentDark : null)),
       ),
     );
   }

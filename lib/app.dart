@@ -16,6 +16,7 @@ class SteelControlApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) => MaterialApp(
+        key: ValueKey<bool>(controller.isAuthenticated),
         title: 'SteelControl',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
