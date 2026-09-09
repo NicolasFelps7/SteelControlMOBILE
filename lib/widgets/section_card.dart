@@ -1,38 +1,50 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_theme.dart';
+
 class SectionCard extends StatelessWidget {
   const SectionCard({
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(18),
     this.onTap,
+    this.accent = false,
     super.key,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(14);
     return Container(
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF18202A) : Colors.white,
-        border: Border.all(color: dark ? const Color(0xFF343E48) : const Color(0xFFDDE3E8)),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: dark ? Colors.black.withValues(alpha: .18) : const Color(0xFF11161C).withValues(alpha: .06),
-            blurRadius: 24,
-            offset: const Offset(0, 9),
-          ),
-        ],
+        color: dark ? SteelColors.panelDark : Colors.white,
+        border: Border.all(color: dark ? SteelColors.borderDark : SteelColors.border),
+        borderRadius: radius,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (accent)
+              Container(
+                height: 3,
+                color: SteelColors.industrialAccent,
+              ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(padding: padding, child: child),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -56,28 +68,40 @@ class MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return SectionCard(
+      padding: const EdgeInsets.all(15),
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withValues(alpha: .18), color.withValues(alpha: .07)]),
-              border: Border.all(color: color.withValues(alpha: .16)),
-              borderRadius: BorderRadius.circular(16),
+              color: dark ? const Color(0xFF222B30) : SteelColors.panelLight,
+              border: Border.all(color: dark ? SteelColors.borderDark : SteelColors.border),
+              borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 21),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: dark ? SteelColors.mutedDark : SteelColors.muted),
+                ),
                 const SizedBox(height: 3),
-                Flexible(child: Align(alignment: Alignment.centerLeft, child: Text(value, maxLines: 3, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, height: 1.08)))),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, height: 1.08),
+                ),
                 if (caption != null) ...[
                   const SizedBox(height: 2),
                   Text(caption!, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelSmall),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,9 @@ class AppController extends ChangeNotifier {
   late MachineService machinesApi;
   late CompanyService companyApi;
   SessionEventService? _sessionEvents;
+  StreamSubscription<Map<String, dynamic>>? _machineEvents;
+  Timer? _machineReconnect;
+  int _machineEventGeneration = 0;
 
   Session? session;
   List<Machine> machines = const [];
@@ -34,6 +38,10 @@ class AppController extends ChangeNotifier {
   String? error;
   WelcomeNotice? pendingWelcome;
   String? forcedLogoutNotice;
+  String machineSyncServer = ApiConfig.baseUrl;
+  int? machineSyncCompanyId;
+  int? machineSyncCount;
+  String? machineSyncError;
 
   bool get isAuthenticated => session?.token.isNotEmpty == true;
 
@@ -94,6 +102,10 @@ class AppController extends ChangeNotifier {
     await _acceptSession(json, newAccount: true);
   }
 
+  Future<void> acceptFaceSecondFactorSession(Map<String, dynamic> json) async {
+    await _acceptSession(json, newAccount: false);
+  }
+
   Future<void> _acceptSession(Map<String, dynamic> json, {required bool newAccount}) async {
     final parsed = Session.fromJson(json);
     if (parsed.token.isEmpty) throw ApiException(AppStrings(language).get('invalidSession'));
@@ -105,36 +117,72 @@ class AppController extends ChangeNotifier {
     _startSessionEvents();
   }
 
-  Future<void> loadMachines() async {
-    machines = await machinesApi.list();
-    if (selectedMachine != null) {
-      final selectedId = selectedMachine!.id;
-      Machine? updated;
-      for (final machine in machines) {
-        if (machine.id == selectedId) {
-          updated = machine;
-          break;
-        }
+  Future<void> loadMachines({bool notify = false}) async {
+    final expectedCompanyId = session?.company.id ?? 0;
+    machineSyncServer = ApiConfig.baseUrl;
+
+    try {
+      final snapshot = await machinesApi.sync();
+      machineSyncCompanyId = snapshot.companyId > 0 ? snapshot.companyId : expectedCompanyId;
+      machineSyncCount = snapshot.machines.length;
+      machineSyncError = null;
+
+      if (snapshot.companyId > 0 &&
+          expectedCompanyId > 0 &&
+          snapshot.companyId != expectedCompanyId) {
+        final message = AppStrings(language).get('serverSessionMismatch');
+        machineSyncError = message;
+        await logout(forcedMessage: message);
+        throw ApiException(message, statusCode: 409);
       }
-      selectedMachine = updated;
+
+      machines = snapshot.machines;
+      if (selectedMachine != null) {
+        final selectedId = selectedMachine!.id;
+        Machine? updated;
+        for (final machine in machines) {
+          if (machine.id == selectedId) {
+            updated = machine;
+            break;
+          }
+        }
+        selectedMachine = updated;
+        if (updated == null) _stopMachineEvents();
+      }
+      if (notify) notifyListeners();
+    } on ApiException catch (exception) {
+      machineSyncServer = ApiConfig.baseUrl;
+      machineSyncError = exception.message;
+      machineSyncCount = null;
+      if (notify) notifyListeners();
+
+      if (exception.statusCode == 401 && isAuthenticated) {
+        await logout(
+          forcedMessage: AppStrings(language).get('sessionRevoked'),
+        );
+      }
+      rethrow;
     }
-    notifyListeners();
   }
 
   Future<void> selectMachine(Machine machine) async {
     selectedMachine = machine;
     notifyListeners();
     await refreshSelectedMachine();
+    _startMachineEvents();
   }
 
   void clearSelectedMachine() {
+    _stopMachineEvents();
     selectedMachine = null;
     notifyListeners();
   }
 
   void replaceSelectedMachine(Machine machine) {
+    final changed = selectedMachine?.id != machine.id;
     selectedMachine = machine;
     notifyListeners();
+    if (changed) _startMachineEvents();
   }
 
   Future<void> refreshSelectedMachine() async {
@@ -145,6 +193,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout({String? forcedMessage}) async {
+    _stopMachineEvents();
     await _sessionEvents?.stop();
     _sessionEvents = null;
     await _sessionStore.clear();
@@ -178,6 +227,56 @@ class AppController extends ChangeNotifier {
     service.start();
   }
 
+  void _startMachineEvents() {
+    final machineId = selectedMachine?.id;
+    if (machineId == null || !isAuthenticated) return;
+
+    _stopMachineEvents();
+    final generation = ++_machineEventGeneration;
+
+    late void Function() connect;
+
+    void scheduleReconnect() {
+      if (generation != _machineEventGeneration || selectedMachine?.id != machineId) return;
+      _machineReconnect?.cancel();
+      _machineReconnect = Timer(const Duration(seconds: 2), connect);
+    }
+
+    connect = () {
+      if (generation != _machineEventGeneration || selectedMachine?.id != machineId || !isAuthenticated) return;
+      _machineEvents?.cancel();
+      _machineEvents = machinesApi.events(machineId).listen(
+        (event) {
+          if (generation != _machineEventGeneration || selectedMachine?.id != machineId) return;
+          final raw = event['dados'];
+          if (raw is! Map) return;
+
+          final current = selectedMachine;
+          if (current == null || current.id != machineId) return;
+          final updated = current.mergeRealtime(Map<String, dynamic>.from(raw));
+          selectedMachine = updated;
+          machines = machines
+              .map((item) => item.id == machineId ? updated : item)
+              .toList(growable: false);
+          notifyListeners();
+        },
+        onError: (_) => scheduleReconnect(),
+        onDone: scheduleReconnect,
+        cancelOnError: true,
+      );
+    };
+
+    connect();
+  }
+
+  void _stopMachineEvents() {
+    _machineEventGeneration += 1;
+    _machineReconnect?.cancel();
+    _machineReconnect = null;
+    _machineEvents?.cancel();
+    _machineEvents = null;
+  }
+
   String? consumeForcedLogoutNotice() {
     final value = forcedLogoutNotice;
     forcedLogoutNotice = null;
@@ -208,7 +307,14 @@ class AppController extends ChangeNotifier {
   Future<void> updateApiUrl(String value) async {
     await ApiConfig.save(value);
     _configureServices();
-    if (isAuthenticated) _startSessionEvents();
+    machineSyncServer = ApiConfig.baseUrl;
+    if (isAuthenticated) {
+      // Ao trocar de backend, valida imediatamente a sessão/empresa nesse
+      // servidor. Isso impede mostrar usuário cacheado com lista vazia.
+      await loadMachines();
+      _startSessionEvents();
+      if (selectedMachine != null) _startMachineEvents();
+    }
     notifyListeners();
   }
 
@@ -221,6 +327,7 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopMachineEvents();
     _sessionEvents?.stop();
     super.dispose();
   }

@@ -311,7 +311,7 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: dark ? .35 : .55),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
@@ -324,7 +324,7 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
                     Expanded(
                       child: Text(
                         strings.get('hmiSupervisedControls'),
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     if (pending > 0)
@@ -461,10 +461,11 @@ class _Header extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [SteelColors.ink, SteelColors.primary]),
-            borderRadius: BorderRadius.circular(14),
+            color: SteelColors.graphite,
+            border: Border.all(color: const Color(0xFF364148)),
+            borderRadius: BorderRadius.circular(9),
           ),
-          child: const Icon(Icons.developer_board_rounded, color: Colors.white, size: 27),
+          child: const Icon(Icons.developer_board_rounded, color: Color(0xFFFFB84D), size: 25),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -473,7 +474,7 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 strings.get('hmiTitle'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 2),
               Text(
@@ -549,7 +550,7 @@ class _SafetyBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(9),
         border: Border.all(color: color.withValues(alpha: .24)),
       ),
       child: Row(
@@ -592,13 +593,9 @@ class _ProcessConsole extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF11161C), Color(0xFF27313C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12),
+        color: SteelColors.graphite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF303A40)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,7 +607,7 @@ class _ProcessConsole extends StatelessWidget {
               Expanded(
                 child: Text(
                   strings.get('hmiProcessView'),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                 ),
               ),
               _DarkBadge(label: mode, color: SteelColors.primary),
@@ -692,15 +689,15 @@ class _ProcessNode extends StatelessWidget {
         width: 118,
         padding: const EdgeInsets.all(11),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF3D4854) : Colors.white.withValues(alpha: .055),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: active ? const Color(0xFF9AA6B1) : Colors.white12),
+          color: active ? const Color(0xFF263138) : const Color(0xFF1C2429),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: active ? const Color(0xFFC98212) : const Color(0xFF354047)),
         ),
         child: Column(
           children: [
-            Icon(_safeIcon(icon, fallbackIcon), color: active ? const Color(0xFFBCC5CD) : Colors.white70, size: 26),
+            Icon(_safeIcon(icon, fallbackIcon), color: active ? const Color(0xFFFFB84D) : Colors.white70, size: 26),
             const SizedBox(height: 7),
-            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
             const SizedBox(height: 2),
             Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 9.5)),
           ],
@@ -719,8 +716,8 @@ class _Connector extends StatelessWidget {
         width: 44,
         child: Row(
           children: [
-            Expanded(child: Container(height: 2, color: active ? const Color(0xFF9AA6B1) : Colors.white24)),
-            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: active ? const Color(0xFF9AA6B1) : Colors.white38),
+            Expanded(child: Container(height: 2, color: active ? const Color(0xFFC98212) : Colors.white24)),
+            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: active ? const Color(0xFFC98212) : Colors.white38),
           ],
         ),
       );
@@ -737,7 +734,7 @@ class _Metric extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
@@ -756,7 +753,7 @@ class _Metric extends StatelessWidget {
                 children: [
                   Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 10.5)),
                   const SizedBox(height: 2),
-                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 ],
               ),
             ),
@@ -776,13 +773,13 @@ class _StatusGroup extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .35),
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [Icon(icon, color: SteelColors.primary, size: 19), const SizedBox(width: 7), Text(title, style: const TextStyle(fontWeight: FontWeight.w800))]),
+            Row(children: [Icon(icon, color: SteelColors.primary, size: 19), const SizedBox(width: 7), Text(title, style: const TextStyle(fontWeight: FontWeight.w700))]),
             const SizedBox(height: 9),
             ...children,
           ],
@@ -808,7 +805,7 @@ class _StatusRow extends StatelessWidget {
           Icon(Icons.circle, color: color, size: 9),
           const SizedBox(width: 8),
           Expanded(child: Text(label, style: const TextStyle(fontSize: 11.5))),
-          Text(value == null ? strings.get('hmiNoData') : value! ? positive : negative, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 10.5)),
+          Text(value == null ? strings.get('hmiNoData') : value! ? positive : negative, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 10.5)),
         ],
       ),
     );
@@ -876,7 +873,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(color: color.withValues(alpha: .09), borderRadius: BorderRadius.circular(99), border: Border.all(color: color.withValues(alpha: .22))),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: color, size: 14), const SizedBox(width: 5), Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 9.5))]),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: color, size: 14), const SizedBox(width: 5), Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 9.5))]),
       );
 }
 
@@ -889,7 +886,7 @@ class _DarkBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(color: color.withValues(alpha: .22), borderRadius: BorderRadius.circular(99), border: Border.all(color: color.withValues(alpha: .42))),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 9)),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 9)),
       );
 }
 

@@ -228,7 +228,7 @@ class _AuditScreenState extends State<AuditScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 5),
                   Text(
@@ -343,7 +343,7 @@ class _AuditScreenState extends State<AuditScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 Text(
@@ -416,7 +416,7 @@ class _AuditScreenState extends State<AuditScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               TextButton.icon(
@@ -561,7 +561,7 @@ class _AuditEntryCard extends StatelessWidget {
             children: [
               Text(
                 _auditActionLabel(strings, action),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               _AuditBadge(label: _auditEntityLabel(strings, entity)),
               if (entityId != null) _AuditBadge(label: '#$entityId'),
@@ -649,7 +649,7 @@ class _AuditBadge extends StatelessWidget {
           style: const TextStyle(
             color: SteelColors.primary,
             fontSize: 9,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       );

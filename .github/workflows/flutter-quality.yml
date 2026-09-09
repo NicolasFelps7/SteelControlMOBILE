@@ -1,0 +1,25 @@
+name: Flutter Quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  mobile-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: I18n integrity
+        run: python tool/check_i18n.py
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Debug APK smoke build
+        run: flutter build apk --debug

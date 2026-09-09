@@ -99,7 +99,7 @@ class _ServerConnectionCardState extends State<ServerConnectionCard> {
             .surfaceContainerHighest
             .withValues(alpha: .42),
         border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +122,7 @@ class _ServerConnectionCardState extends State<ServerConnectionCard> {
                   children: [
                     Text(
                       strings.get('serverConnection'),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 2),
                     Text(

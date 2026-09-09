@@ -132,6 +132,10 @@ class _PreferencesButton extends StatelessWidget {
         context: context,
         builder: (dialogContext) {
           final strings = AppStrings.of(dialogContext);
+          final dark = Theme.of(dialogContext).brightness == Brightness.dark;
+          final dialogBorder = dark ? SteelColors.borderDark : const Color(0xFFD3DADF);
+          final optionBackground = dark ? const Color(0xFF20282D) : Colors.white;
+          final optionText = dark ? const Color(0xFFE8ECEE) : SteelColors.ink;
           return Dialog(
           insetPadding: const EdgeInsets.all(24),
           child: ConstrainedBox(
@@ -140,28 +144,58 @@ class _PreferencesButton extends StatelessWidget {
               padding: const EdgeInsets.all(26),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .10), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.tune_rounded, color: SteelColors.industrialAccentDark)),
+                  Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.tune_rounded, color: SteelColors.industrialAccentDark)),
                   const SizedBox(width: 14),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferences'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(height: 2), Text(strings.get('adjustExperience'), style: const TextStyle(color: SteelColors.muted))])),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferences'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)), const SizedBox(height: 2), Text(strings.get('adjustExperience'), style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.steel600))])),
                   IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close_rounded)),
                 ]),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest.withValues(alpha: .55), borderRadius: BorderRadius.circular(17)),
+                  decoration: BoxDecoration(
+                    color: dark ? const Color(0xFF20282D) : const Color(0xFFF7F9FA),
+                    border: Border.all(color: dialogBorder),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: Row(children: [
                     Icon(controller.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, color: SteelColors.industrialAccentDark),
                     const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('appearance'), style: const TextStyle(fontWeight: FontWeight.w800)), Text(strings.get('themeApplied'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('appearance'), style: const TextStyle(fontWeight: FontWeight.w700)), Text(strings.get('themeApplied'), style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.steel600, fontSize: 12))])),
                     SegmentedButton<bool>(segments: [ButtonSegment(value: false, icon: const Icon(Icons.light_mode_outlined), tooltip: strings.get('lightTheme')), ButtonSegment(value: true, icon: const Icon(Icons.dark_mode_outlined), tooltip: strings.get('darkTheme'))], selected: {controller.darkMode}, showSelectedIcon: false, onSelectionChanged: (value) => controller.setDarkMode(value.first)),
                   ]),
                 ),
                 const SizedBox(height: 22),
-                Text(strings.get('interfaceLanguage').toUpperCase(), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                Text(strings.get('interfaceLanguage').toUpperCase(), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
                 const SizedBox(height: 11),
                 Wrap(spacing: 8, runSpacing: 8, children: ['Português', 'English', 'Español', 'Français', 'Deutsch', 'Italiano'].asMap().entries.map((entry) {
                   final selected = controller.language == AppLanguage.values[entry.key];
-                  return ChoiceChip(avatar: Icon(selected ? Icons.check_circle_rounded : Icons.language_rounded, size: 17, color: selected ? SteelColors.industrialAccentDark : SteelColors.muted), label: Text(entry.value), selected: selected, onSelected: (_) => controller.setLanguage(AppLanguage.values[entry.key]));
+                  return ChoiceChip(
+                    avatar: Icon(
+                      selected ? Icons.check_circle_rounded : Icons.language_rounded,
+                      size: 17,
+                      color: selected
+                          ? (dark ? const Color(0xFFFFC66A) : SteelColors.industrialAccentDark)
+                          : (dark ? SteelColors.mutedDark : SteelColors.steel600),
+                    ),
+                    label: Text(entry.value),
+                    selected: selected,
+                    backgroundColor: optionBackground,
+                    selectedColor: dark
+                        ? SteelColors.industrialAccent.withValues(alpha: .18)
+                        : const Color(0xFFFFF4DF),
+                    side: BorderSide(
+                      color: selected ? SteelColors.industrialAccent : dialogBorder,
+                      width: selected ? 1.4 : 1,
+                    ),
+                    labelStyle: TextStyle(
+                      color: selected
+                          ? (dark ? const Color(0xFFFFD38A) : const Color(0xFF714300))
+                          : optionText,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    onSelected: (_) => controller.setLanguage(AppLanguage.values[entry.key]),
+                  );
                 }).toList()),
                 const SizedBox(height: 24),
                 SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(dialogContext), child: Text(strings.get('finish')))),
@@ -215,9 +249,9 @@ class _LoginForm extends StatelessWidget {
             const SizedBox(height: 42),
           ] else
             const SizedBox(height: 12),
-          Text(strings.get('platform'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: SteelColors.industrialAccentDark, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          Text(strings.get('platform'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: SteelColors.industrialAccentDark, fontWeight: FontWeight.w600, letterSpacing: .75)),
           const SizedBox(height: 12),
-          Text(strings.get('accessCompany'), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -1.2)),
+          Text(strings.get('accessCompany'), style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 12),
           Text(strings.get('loginCaption'), style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: SteelColors.muted, height: 1.5)),
           const SizedBox(height: 30),
@@ -253,7 +287,7 @@ class _LoginForm extends StatelessWidget {
             onPressed: busy ? null : onFace,
             icon: const Icon(Icons.face_retouching_natural_rounded),
             label: Text(strings.get('faceSignIn')),
-            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 54), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 54), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
           ),
           const SizedBox(height: 28),
           Row(
@@ -286,12 +320,9 @@ class _IndustrialPanel extends StatelessWidget {
       margin: EdgeInsets.all(compact ? 10 : 18),
       padding: EdgeInsets.all(compact ? 24 : 44),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [SteelColors.ink, Color(0xFF27313C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(compact ? 24 : 30),
+        color: SteelColors.graphite,
+        border: Border.all(color: const Color(0xFF303A40)),
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -324,8 +355,8 @@ class _IndustrialPanel extends StatelessWidget {
                           color: Colors.white,
                           fontSize: veryCompact ? 27 : 37,
                           height: 1.08,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: veryCompact ? -.7 : -1.2,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: veryCompact ? -.25 : -.45,
                         ),
                       ),
                       if (!veryCompact) ...[

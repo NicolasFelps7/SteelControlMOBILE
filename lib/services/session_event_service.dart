@@ -53,7 +53,7 @@ class SessionEventService {
       }
 
       if (response.statusCode == 401) {
-        await onRevoked('Seu acesso ao SteelControl foi encerrado. Entre novamente.');
+        await onRevoked('');
         return;
       }
 

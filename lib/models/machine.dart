@@ -97,6 +97,70 @@ class Machine {
     return value.isNotEmpty && value != 'DOBOT_MAGICIAN' && !value.contains('DOBOT');
   }
 
+  Machine mergeRealtime(Map<String, dynamic> json) {
+    String nextConnection = connection;
+    if (json.containsKey('estadoConexao') || json.containsKey('statusConexao')) {
+      nextConnection = _connection(json);
+    }
+
+    Map<String, dynamic> nextExtraData = extraData;
+    final extras = json['dadosExtras'] ?? json['dadosExtrasAtuais'];
+    if (extras is Map) {
+      nextExtraData = Map<String, dynamic>.from(extras);
+    }
+
+    return Machine(
+      id: id,
+      name: json.containsKey('nome') ? '${json['nome'] ?? name}' : name,
+      sector: json.containsKey('setor') ? '${json['setor'] ?? sector}' : sector,
+      model: json.containsKey('modelo') ? '${json['modelo'] ?? model}' : model,
+      code: json.containsKey('codigo') ? '${json['codigo'] ?? code}' : code,
+      status: json.containsKey('status') ? '${json['status'] ?? status}' : status,
+      temperature: json.containsKey('temperatura') ? _double(json['temperatura']) : temperature,
+      vibration: json.containsKey('vibracao') ? _double(json['vibracao']) : vibration,
+      current: json.containsKey('corrente') ? _double(json['corrente']) : current,
+      production: json.containsKey('producao') ? _int(json['producao']) : production,
+      cycles: json.containsKey('ciclos') ? _int(json['ciclos']) : cycles,
+      energy: json.containsKey('consumoEnergia') ? _double(json['consumoEnergia']) : energy,
+      simulation: json.containsKey('modoSimulacao') ? json['modoSimulacao'] != false : simulation,
+      connection: nextConnection,
+      safetyStop: json.containsKey('paradaSeguranca') ? json['paradaSeguranca'] == true : safetyStop,
+      controller: json.containsKey('controlador') ? json['controlador']?.toString() : controller,
+      protocol: json.containsKey('protocolo') ? json['protocolo']?.toString() : protocol,
+      maintenanceStatus: json.containsKey('manutencao') ? '${json['manutencao'] ?? maintenanceStatus}' : maintenanceStatus,
+      lastMaintenance: json.containsKey('ultimaManutencao') ? '${json['ultimaManutencao'] ?? lastMaintenance}' : lastMaintenance,
+      nextMaintenance: json.containsKey('proximaManutencao') ? '${json['proximaManutencao'] ?? nextMaintenance}' : nextMaintenance,
+      logs: logs,
+      alerts: alerts,
+      extraData: nextExtraData,
+      manufacturer: json.containsKey('fabricante') ? json['fabricante']?.toString() : manufacturer,
+      type: json.containsKey('tipo') ? json['tipo']?.toString() : type,
+      description: json.containsKey('descricao') ? json['descricao']?.toString() : description,
+      host: json.containsKey('host') ? json['host']?.toString() : host,
+      endpoint: json.containsKey('endpoint') ? json['endpoint']?.toString() : endpoint,
+      topic: json.containsKey('topico') ? json['topico']?.toString() : topic,
+      port: json.containsKey('porta') ? (json['porta'] == null ? null : _int(json['porta'])) : port,
+      unitId: json.containsKey('unitId') ? (json['unitId'] == null ? null : _int(json['unitId'])) : unitId,
+      readInterval: json.containsKey('intervaloLeitura') && _int(json['intervaloLeitura']) > 0
+          ? _int(json['intervaloLeitura'])
+          : readInterval,
+      temperatureWarning: json.containsKey('tempAtencao') ? _doubleOr(json['tempAtencao'], temperatureWarning) : temperatureWarning,
+      temperatureCritical: json.containsKey('tempCritica') ? _doubleOr(json['tempCritica'], temperatureCritical) : temperatureCritical,
+      energyWarning: json.containsKey('energiaAtencao') ? _doubleOr(json['energiaAtencao'], energyWarning) : energyWarning,
+      energyCritical: json.containsKey('energiaCritica') ? _doubleOr(json['energiaCritica'], energyCritical) : energyCritical,
+      vibrationWarning: json.containsKey('vibracaoAtencao') ? _doubleOr(json['vibracaoAtencao'], vibrationWarning) : vibrationWarning,
+      vibrationCritical: json.containsKey('vibracaoCritica') ? _doubleOr(json['vibracaoCritica'], vibrationCritical) : vibrationCritical,
+      maintenanceCycles: json.containsKey('ciclosManutencao') && _int(json['ciclosManutencao']) > 0
+          ? _int(json['ciclosManutencao'])
+          : maintenanceCycles,
+      integrationMeta: json['integracaoMeta'] is Map
+          ? Map<String, dynamic>.from(json['integracaoMeta'] as Map)
+          : integrationMeta,
+      signalQuality: json.containsKey('qualidadeSinal') ? _optionalDouble(json['qualidadeSinal']) : signalQuality,
+      latencyMs: json.containsKey('latenciaMs') ? _optionalDouble(json['latenciaMs']) : latencyMs,
+    );
+  }
+
   factory Machine.fromJson(Map<String, dynamic> json) {
     final alertItems = json['alertas'] as List? ?? const [];
     final logItems = json['logs'] as List? ?? const [];

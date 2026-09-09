@@ -1,0 +1,15 @@
+STEELCONTROL MOBILE - FIX LISTA DE MAQUINAS
+
+Correcoes:
+- Central de Maquinas recarrega a lista ao abrir.
+- Recarrega quando o SSE /empresa/stream conecta.
+- Continua atualizando em eventos maquina.*.
+- Fallback de sincronizacao a cada 10 s caso Android/Wi-Fi suspenda SSE.
+- GET /maquinas aceita array direto ou resposta envelopada.
+- Falha temporaria de rede nao limpa a lista ja carregada.
+
+Depois de extrair:
+  flutter pub get
+  flutter analyze
+  flutter test
+  flutter run

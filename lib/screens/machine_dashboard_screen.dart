@@ -134,27 +134,28 @@ class _MachineHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [SteelColors.ink, Color(0xFF3D4854)]),
-        borderRadius: BorderRadius.circular(24),
+        color: SteelColors.graphite,
+        border: Border.all(color: const Color(0xFF303A40)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Container(width: 62, height: 62, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(18)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: Colors.white, size: 33)),
+          Container(width: 54, height: 54, decoration: BoxDecoration(color: const Color(0xFF20282D), border: Border.all(color: const Color(0xFF354047)), borderRadius: BorderRadius.circular(10)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: const Color(0xFFFFB84D), size: 29)),
           const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(strings.get(machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel'), style: const TextStyle(color: Color(0xFFBCC5CD), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.25)),
+                Text(strings.get(machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel'), style: const TextStyle(color: Color(0xFFFFB84D), fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: .85)),
                 const SizedBox(height: 6),
-                Text(machine.name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+                Text(machine.name, style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700)),
                 Text('${machine.controller ?? machine.model} • ${machine.protocol ?? machine.sector}', style: const TextStyle(color: Colors.white70)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .10), borderRadius: BorderRadius.circular(99), border: Border.all(color: Colors.white24)),
+            decoration: BoxDecoration(color: const Color(0xFF20282D), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF354047))),
             child: Row(children: [Icon(Icons.circle, color: online ? const Color(0xFF4ADE80) : const Color(0xFFFCA5A5), size: 10), const SizedBox(width: 7), Text(online ? strings.get('online') : strings.get('waitingTelemetry'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12))]),
           ),
         ],
@@ -247,7 +248,7 @@ class _ControllerDiagnosticsState extends State<_ControllerDiagnostics> {
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 3),
                         Text(
@@ -352,7 +353,7 @@ class _ControllerDiagnosticsState extends State<_ControllerDiagnostics> {
                     ),
                     title: Text(
                       strings.get('extendedDiagnostics'),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     subtitle: Text(
                       strings.get('extendedDiagnosticsCaption'),
@@ -451,7 +452,7 @@ class _DiagnosticTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 fontSize: 13,
               ),
             ),
@@ -489,7 +490,7 @@ class _DiagnosticStatusBadge extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 9,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -877,7 +878,7 @@ class _SimulationPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [const Icon(Icons.science_outlined, color: SteelColors.primary), const SizedBox(width: 10), Text(strings.get('demoMode'), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))]),
+            Row(children: [const Icon(Icons.science_outlined, color: SteelColors.primary), const SizedBox(width: 10), Text(strings.get('demoMode'), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))]),
             const SizedBox(height: 6),
             Text(strings.get('demoCaption'), style: const TextStyle(color: SteelColors.muted)),
             const SizedBox(height: 16),
@@ -937,42 +938,179 @@ class DobotPanel extends StatelessWidget {
     final strings = AppStrings.of(context);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LayoutBuilder(
-          builder: (context, constraints) => GridView.count(
-            crossAxisCount: constraints.maxWidth >= 700 ? 2 : 1,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 180,
-            children: [
-              SectionCard(child: _ValuesBlock(title: strings.get('endEffectorPosition'), labels: axes, values: axes.map((item) => '${_extra('pose', item.toLowerCase()) ?? '--'}').toList())),
-              SectionCard(child: _ValuesBlock(title: strings.get('jointAngles'), labels: joints, values: joints.map((item) => '${_extra('joints', item.toLowerCase()) ?? '--'}').toList())),
-            ],
-          ),
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 760;
+            final pose = _DobotValuesCard(
+              icon: Icons.my_location_rounded,
+              title: strings.get('endEffectorPosition'),
+              labels: axes,
+              values: axes
+                  .map((item) => '${_extra('pose', item.toLowerCase()) ?? '--'}')
+                  .toList(),
+              unit: ['mm', 'mm', 'mm', '°'],
+            );
+            final joint = _DobotValuesCard(
+              icon: Icons.hub_outlined,
+              title: strings.get('jointAngles'),
+              labels: joints,
+              values: joints
+                  .map((item) => '${_extra('joints', item.toLowerCase()) ?? '--'}')
+                  .toList(),
+              unit: const ['°', '°', '°', '°'],
+            );
+            if (wide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: pose),
+                  const SizedBox(width: 12),
+                  Expanded(child: joint),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                pose,
+                const SizedBox(height: 12),
+                joint,
+              ],
+            );
+          },
         ),
         const SizedBox(height: 12),
         SectionCard(
+          accent: true,
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(strings.get('supervisedControl'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              Text(strings.get('secureQueueCaption'), style: const TextStyle(color: SteelColors.muted)),
-              const SizedBox(height: 17),
-              Wrap(
-                spacing: 9,
-                runSpacing: 9,
+              Row(
                 children: [
-                  _DobotCommand(label: 'HOME', command: 'DOBOT_HOME', controller: controller, machine: machine),
-                  _DobotCommand(label: strings.get('stop'), command: 'DOBOT_STOP', controller: controller, machine: machine, danger: true),
-                  _DobotCommand(label: strings.get('clearAlarms'), command: 'DOBOT_CLEAR_ALARMS', controller: controller, machine: machine),
-                  _DobotCommand(label: strings.get('suctionOn'), command: 'DOBOT_SUCTION_ON', controller: controller, machine: machine),
-                  _DobotCommand(label: strings.get('suctionOff'), command: 'DOBOT_SUCTION_OFF', controller: controller, machine: machine),
-                  _DobotCommand(label: strings.get('openGripper'), command: 'DOBOT_GRIPPER_OPEN', controller: controller, machine: machine),
-                  _DobotCommand(label: strings.get('closeGripper'), command: 'DOBOT_GRIPPER_CLOSE', controller: controller, machine: machine),
+                  _DobotIconBox(icon: Icons.tune_rounded),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          strings.get('supervisedControl'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          strings.get('secureQueueCaption'),
+                          style: const TextStyle(
+                            color: SteelColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: SteelColors.success.withValues(alpha: .08),
+                      border: Border.all(color: SteelColors.success.withValues(alpha: .24)),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_outline_rounded, size: 14, color: SteelColors.success),
+                        const SizedBox(width: 6),
+                        Text(
+                          strings.get('safeQueue'),
+                          style: const TextStyle(
+                            color: SteelColors.success,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 15),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 820
+                      ? 4
+                      : constraints.maxWidth >= 560
+                          ? 3
+                          : 2;
+                  final itemWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: 'HOME',
+                        command: 'DOBOT_HOME',
+                        icon: Icons.home_outlined,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('stop'),
+                        command: 'DOBOT_STOP',
+                        icon: Icons.stop_circle_outlined,
+                        controller: controller,
+                        machine: machine,
+                        danger: true,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('clearAlarms'),
+                        command: 'DOBOT_CLEAR_ALARMS',
+                        icon: Icons.notifications_off_outlined,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('suctionOn'),
+                        command: 'DOBOT_SUCTION_ON',
+                        icon: Icons.air_rounded,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('suctionOff'),
+                        command: 'DOBOT_SUCTION_OFF',
+                        icon: Icons.air_outlined,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('openGripper'),
+                        command: 'DOBOT_GRIPPER_OPEN',
+                        icon: Icons.open_with_rounded,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                      _DobotCommandTile(
+                        width: itemWidth,
+                        label: strings.get('closeGripper'),
+                        command: 'DOBOT_GRIPPER_CLOSE',
+                        icon: Icons.compress_rounded,
+                        controller: controller,
+                        machine: machine,
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -980,6 +1118,114 @@ class DobotPanel extends StatelessWidget {
         const SizedBox(height: 12),
         _DobotPtpPanel(controller: controller, machine: machine),
       ],
+    );
+  }
+}
+
+class _DobotIconBox extends StatelessWidget {
+  const _DobotIconBox({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF222B30) : SteelColors.panelLight,
+        border: Border.all(color: dark ? SteelColors.borderDark : SteelColors.border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, color: SteelColors.industrialAccent, size: 20),
+    );
+  }
+}
+
+class _DobotValuesCard extends StatelessWidget {
+  const _DobotValuesCard({
+    required this.icon,
+    required this.title,
+    required this.labels,
+    required this.values,
+    required this.unit,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> labels;
+  final List<String> values;
+  final List<String> unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SectionCard(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _DobotIconBox(icon: icon),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: List.generate(labels.length, (index) {
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: index == labels.length - 1 ? 0 : 7),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: dark ? const Color(0xFF20282D) : const Color(0xFFF5F7F7),
+                    border: Border.all(
+                      color: dark ? SteelColors.borderDark : SteelColors.border,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        labels[index],
+                        style: const TextStyle(
+                          color: SteelColors.industrialAccent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        values[index],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        unit[index],
+                        style: const TextStyle(color: SteelColors.muted, fontSize: 9),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1011,83 +1257,208 @@ class _DobotPtpPanelState extends State<_DobotPtpPanel> {
     super.dispose();
   }
 
-  double? _value(TextEditingController controller) => double.tryParse(controller.text.replaceAll(',', '.'));
+  double? _value(TextEditingController controller) =>
+      double.tryParse(controller.text.replaceAll(',', '.'));
 
   Future<void> _send() async {
     final values = [_value(_x), _value(_y), _value(_z), _value(_r)];
     if (values.any((value) => value == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.of(context).get('ptpFieldsRequired'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).get('ptpFieldsRequired'))),
+      );
       return;
     }
 
     setState(() => _sending = true);
     try {
-      await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, 'DOBOT_PTP', {
-        'x': values[0],
-        'y': values[1],
-        'z': values[2],
-        'r': values[3],
-        'velocidade': _speed.round(),
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.of(context).get('ptpSent'))));
+      await widget.controller.machinesApi.sendDobotCommand(
+        widget.machine.id,
+        'DOBOT_PTP',
+        {
+          'x': values[0],
+          'y': values[1],
+          'z': values[2],
+          'r': values[3],
+          'velocidade': _speed.round(),
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.of(context).get('ptpSent'))),
+        );
+      }
     } on ApiException catch (exception) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(exception.message)),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) { final strings = AppStrings.of(context); return SectionCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.control_camera_rounded, color: SteelColors.primary),
-                const SizedBox(width: 10),
-                Expanded(child: Text(strings.get('ptpMovement'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
-                Chip(label: Text(strings.get('protectedMovement'))),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(strings.get('safetyValidationCaption'), style: const TextStyle(color: SteelColors.muted)),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth >= 720 ? (constraints.maxWidth - 36) / 4 : (constraints.maxWidth - 12) / 2;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SectionCard(
+      accent: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _DobotIconBox(icon: Icons.control_camera_rounded),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _AxisField(width: width, controller: _x, label: 'X (mm)'),
-                    _AxisField(width: width, controller: _y, label: 'Y (mm)'),
-                    _AxisField(width: width, controller: _z, label: 'Z (mm)'),
-                    _AxisField(width: width, controller: _r, label: 'R (°)'),
+                    Text(
+                      strings.get('ptpMovement'),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      strings.get('safetyValidationCaption'),
+                      style: const TextStyle(color: SteelColors.muted, fontSize: 12),
+                    ),
                   ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: SteelColors.industrialAccent.withValues(alpha: .08),
+                  border: Border.all(
+                    color: SteelColors.industrialAccent.withValues(alpha: .28),
+                  ),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.verified_user_outlined,
+                      color: SteelColors.industrialAccent,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      strings.get('protectedMovement'),
+                      style: const TextStyle(
+                        color: SteelColors.industrialAccent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 720 ? 4 : 2;
+              final fieldWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _AxisField(width: fieldWidth, controller: _x, label: 'X', unit: 'mm'),
+                  _AxisField(width: fieldWidth, controller: _y, label: 'Y', unit: 'mm'),
+                  _AxisField(width: fieldWidth, controller: _z, label: 'Z', unit: 'mm'),
+                  _AxisField(width: fieldWidth, controller: _r, label: 'R', unit: '°'),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 560;
+              final slider = Row(
+                children: [
+                  const Icon(Icons.speed_rounded, size: 18, color: SteelColors.industrialAccent),
+                  const SizedBox(width: 8),
+                  Text(
+                    strings.get('speed'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Slider(
+                      value: _speed,
+                      min: 1,
+                      max: 100,
+                      divisions: 99,
+                      label: '${_speed.round()}%',
+                      onChanged: (value) => setState(() => _speed = value),
+                    ),
+                  ),
+                  Container(
+                    width: 50,
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    decoration: BoxDecoration(
+                      color: dark ? const Color(0xFF20282D) : SteelColors.panelLight,
+                      border: Border.all(
+                        color: dark ? SteelColors.borderDark : SteelColors.border,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${_speed.round()}%',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                    ),
+                  ),
+                ],
+              );
+              final send = FilledButton.icon(
+                onPressed: _sending ? null : _send,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(150, 46),
+                  backgroundColor: SteelColors.industrialAccent,
+                  foregroundColor: Colors.white,
+                ),
+                icon: Icon(_sending ? Icons.hourglass_top_rounded : Icons.send_rounded),
+                label: Text(_sending ? strings.get('sending') : strings.get('sendPtp')),
+              );
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [slider, const SizedBox(height: 12), send],
                 );
-              },
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Text(strings.get('speed'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                Expanded(child: Slider(value: _speed, min: 1, max: 100, divisions: 99, label: '${_speed.round()}%', onChanged: (value) => setState(() => _speed = value))),
-                SizedBox(width: 48, child: Text('${_speed.round()}%', textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w800))),
-                const SizedBox(width: 14),
-                FilledButton.icon(onPressed: _sending ? null : _send, icon: const Icon(Icons.send_rounded), label: Text(_sending ? strings.get('sending') : strings.get('sendPtp'))),
-              ],
-            ),
-          ],
-        ),
-      ); }
+              }
+              return Row(
+                children: [Expanded(child: slider), const SizedBox(width: 12), send],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AxisField extends StatelessWidget {
-  const _AxisField({required this.width, required this.controller, required this.label});
+  const _AxisField({
+    required this.width,
+    required this.controller,
+    required this.label,
+    required this.unit,
+  });
+
   final double width;
   final TextEditingController controller;
   final String label;
+  final String unit;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1095,53 +1466,89 @@ class _AxisField extends StatelessWidget {
         child: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          decoration: InputDecoration(labelText: label),
+          decoration: InputDecoration(
+            labelText: label,
+            suffixText: unit,
+            isDense: true,
+          ),
         ),
       );
 }
 
-class _ValuesBlock extends StatelessWidget {
-  const _ValuesBlock({required this.title, required this.labels, required this.values});
-  final String title;
-  final List<String> labels;
-  final List<String> values;
+class _DobotCommandTile extends StatelessWidget {
+  const _DobotCommandTile({
+    required this.width,
+    required this.label,
+    required this.command,
+    required this.icon,
+    required this.controller,
+    required this.machine,
+    this.danger = false,
+  });
 
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 15),
-          Expanded(
-            child: Row(
-              children: List.generate(labels.length, (index) => Expanded(child: Container(margin: EdgeInsets.only(right: index == labels.length - 1 ? 0 : 7), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .07), borderRadius: BorderRadius.circular(13)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(labels[index], style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w800)), const SizedBox(height: 7), Text(values[index], style: const TextStyle(fontWeight: FontWeight.w800))])))),
-            ),
-          ),
-        ],
-      );
-}
-
-class _DobotCommand extends StatelessWidget {
-  const _DobotCommand({required this.label, required this.command, required this.controller, required this.machine, this.danger = false});
+  final double width;
   final String label;
   final String command;
+  final IconData icon;
   final AppController controller;
   final Machine machine;
   final bool danger;
 
   @override
-  Widget build(BuildContext context) => FilledButton.tonal(
-        style: danger ? FilledButton.styleFrom(backgroundColor: const Color(0xFFFEE2E2), foregroundColor: SteelColors.danger) : null,
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = danger ? SteelColors.danger : Theme.of(context).colorScheme.onSurface;
+    final background = danger
+        ? SteelColors.danger.withValues(alpha: dark ? .13 : .07)
+        : (dark ? const Color(0xFF20282D) : const Color(0xFFF6F7F7));
+    final border = danger
+        ? SteelColors.danger.withValues(alpha: .28)
+        : (dark ? SteelColors.borderDark : SteelColors.border);
+
+    return SizedBox(
+      width: width,
+      height: 49,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          backgroundColor: background,
+          foregroundColor: foreground,
+          side: BorderSide(color: border),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
         onPressed: () async {
           try {
             await controller.machinesApi.sendDobotCommand(machine.id, command);
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.of(context).get('commandSent').replaceAll('{command}', label))));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    AppStrings.of(context)
+                        .get('commandSent')
+                        .replaceAll('{command}', label),
+                  ),
+                ),
+              );
+            }
           } on ApiException catch (exception) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(exception.message)),
+              );
+            }
           }
         },
-        child: Text(label),
-      );
+        icon: Icon(icon, size: 18, color: danger ? SteelColors.danger : SteelColors.industrialAccent),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+        ),
+      ),
+    );
+  }
 }
 
 class ProductionSection extends StatefulWidget {
@@ -1172,7 +1579,7 @@ class _ProductionSectionState extends State<ProductionSection> {
 
   Future<void> _refresh() async {
     final next = widget.controller.machinesApi.telemetry(widget.machine.id);
-    setState(() => _telemetry = next);
+    if (mounted) setState(() => _telemetry = next);
     await Future.wait([next, widget.controller.refreshSelectedMachine()]);
   }
 
@@ -1180,51 +1587,89 @@ class _ProductionSectionState extends State<ProductionSection> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     final profile = _operationalProfile(widget.machine, strings);
+    final controllerName = (widget.machine.controller ?? '').toUpperCase();
+    final robotic = controllerName.contains('DOBOT') || controllerName.contains('ROBOT');
+    final operationTitle = robotic ? strings.get('robotArmOperation') : strings.get('equipmentOperation');
+
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _telemetry,
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <Map<String, dynamic>>[];
         final points = _productionPoints(items, widget.machine);
+
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(22),
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
             children: [
               _ProductionHeader(machine: widget.machine, profile: profile),
               const SizedBox(height: 18),
+              Text(
+                operationTitle,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                strings.get('productionSimpleCaption'),
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark ? SteelColors.mutedDark : SteelColors.muted,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 18),
               LayoutBuilder(
                 builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 760;
                   final chart = _ProductionChartCard(
                     profile: profile,
                     points: points,
                     loading: snapshot.connectionState == ConnectionState.waiting,
                   );
-                  final summary = _ProductiveSummary(machine: widget.machine, profile: profile);
-                  if (constraints.maxWidth >= 820) {
-                    return SizedBox(
-                      height: constraints.maxWidth < 1050 ? 510 : 480,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(flex: 2, child: chart),
-                          const SizedBox(width: 14),
-                          Expanded(child: summary),
-                        ],
-                      ),
+                  final summary = _ProductiveSummary(
+                    machine: widget.machine,
+                    profile: profile,
+                  );
+
+                  if (!wide) {
+                    return Column(
+                      children: [
+                        chart,
+                        const SizedBox(height: 14),
+                        summary,
+                      ],
                     );
                   }
-                  return Column(
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: 330, child: chart),
-                      const SizedBox(height: 14),
-                      summary,
+                      Expanded(flex: 2, child: chart),
+                      const SizedBox(width: 14),
+                      Expanded(child: summary),
                     ],
                   );
                 },
               ),
-              const SizedBox(height: 14),
-              _ProductionMetrics(machine: widget.machine, points: points),
+              if (snapshot.hasError) ...[
+                const SizedBox(height: 12),
+                _ProductionNotice(
+                  icon: Icons.cloud_off_outlined,
+                  title: strings.get('noTelemetry'),
+                  message: '${snapshot.error}',
+                  color: SteelColors.warning,
+                ),
+              ] else if (items.isEmpty && !widget.machine.simulation) ...[
+                const SizedBox(height: 12),
+                _ProductionNotice(
+                  icon: Icons.sensors_off_outlined,
+                  title: strings.get('noTelemetry'),
+                  message: strings.get('realStaysOffline'),
+                  color: SteelColors.warning,
+                ),
+              ],
             ],
           ),
         );
@@ -1241,14 +1686,68 @@ class _ProductionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
       children: [
-        Container(width: 52, height: 52, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(16)), child: Icon(profile.icon, color: SteelColors.primary)),
-        const SizedBox(width: 14),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${strings.get('operationTelemetry')} ${profile.name}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 5), Text(strings.get('operationTelemetryCaption'), style: const TextStyle(color: SteelColors.muted))])),
-        const SizedBox(width: 12),
-        _ConnectionBadge(machine: machine),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF2A343A) : const Color(0xFF53616C),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(profile.icon, color: Colors.white, size: 25),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: SteelColors.industrialAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .7,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    machine.name,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    strings.get('productionLinkedToEquipment'),
+                    style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.muted, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: SteelColors.industrialAccent.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Text(
+                machine.simulation ? strings.get('simulation') : strings.get('real'),
+                style: const TextStyle(
+                  color: SteelColors.industrialAccent,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        const Divider(height: 1),
       ],
     );
   }
@@ -1261,18 +1760,34 @@ class _ProductionChartCard extends StatelessWidget {
   final bool loading;
 
   @override
-  Widget build(BuildContext context) => SectionCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(AppStrings.of(context).get('productionChart'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text(profile.chartLabel, style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
-            const SizedBox(height: 15),
-            Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : _ProductionBars(points: points)),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            AppStrings.of(context).get('productionChart'),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            profile.chartLabel,
+            style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.muted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 260,
+            width: double.infinity,
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : _ProductionBars(points: points),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProductiveSummary extends StatelessWidget {
@@ -1283,37 +1798,55 @@ class _ProductiveSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(strings.get('productiveSummary'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 18),
+          Text(strings.get('productiveSummary'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
           _SummaryLine(label: profile.primaryLabel, value: '${machine.production}'),
           _SummaryLine(label: strings.get('cyclesReported'), value: '${machine.cycles}'),
           _SummaryLine(label: strings.get('status'), value: strings.translate(machine.status), color: _statusColor(machine)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .08), border: Border.all(color: SteelColors.primary.withValues(alpha: .18)), borderRadius: BorderRadius.circular(16)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(profile.metricLabel, style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5)),
-              const SizedBox(height: 7),
-              Text(profile.metricValue, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              Text('${strings.get('compatibleModules')}: ${profile.name}.', style: const TextStyle(color: SteelColors.muted, fontSize: 12, height: 1.4)),
-              const SizedBox(height: 12),
-              Wrap(spacing: 7, runSpacing: 7, children: profile.resources
-                    .map(
-                      (item) => Chip(
-                        label: Text(item, style: const TextStyle(fontSize: 11)),
-                        visualDensity: const VisualDensity(horizontal: -2, vertical: -3),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    )
-                    .toList()),
-            ]),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF20292E) : SteelColors.panelLight,
+              border: Border.all(color: dark ? SteelColors.borderDark : SteelColors.border),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.metricLabel,
+                  style: const TextStyle(color: SteelColors.industrialAccent, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: .45),
+                ),
+                const SizedBox(height: 5),
+                Text(profile.metricValue, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: profile.resources
+                      .map(
+                        (item) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: SteelColors.industrialAccent.withValues(alpha: .07),
+                            border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .16)),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Text(item, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1321,35 +1854,33 @@ class _ProductiveSummary extends StatelessWidget {
   }
 }
 
-class _ProductionMetrics extends StatelessWidget {
-  const _ProductionMetrics({required this.machine, required this.points});
-  final Machine machine;
-  final List<_ProductionPoint> points;
+class _ProductionNotice extends StatelessWidget {
+  const _ProductionNotice({required this.icon, required this.title, required this.message, required this.color});
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    final strings = AppStrings.of(context);
-    final values = points.map((point) => point.value).toList();
-    final peak = values.isEmpty ? machine.production.toDouble() : values.reduce((a, b) => a > b ? a : b);
-    final average = values.isEmpty ? machine.production.toDouble() : values.reduce((a, b) => a + b) / values.length;
-    final lastLabel = points.isEmpty ? strings.get('notConfigured') : points.last.label;
-    return LayoutBuilder(builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 700 ? 3 : 1;
-      return GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: columns,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: 128,
-        children: [
-          MetricCard(label: strings.get('productionPeak'), value: peak.toStringAsFixed(0), icon: Icons.trending_up_rounded, color: SteelColors.primary),
-          MetricCard(label: strings.get('productionAverage'), value: average.toStringAsFixed(1), icon: Icons.analytics_outlined, color: SteelColors.success),
-          MetricCard(label: strings.get('lastReading'), value: lastLabel, icon: Icons.schedule_rounded, color: SteelColors.warning),
-        ],
+  Widget build(BuildContext context) => SectionCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(message, style: const TextStyle(color: SteelColors.muted, fontSize: 12.5)),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
-    });
-  }
 }
 
 class _SummaryLine extends StatelessWidget {
@@ -1360,26 +1891,15 @@ class _SummaryLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: SteelColors.muted))), const SizedBox(width: 10), Text(value, style: TextStyle(fontWeight: FontWeight.w800, color: color))]),
+        padding: const EdgeInsets.only(bottom: 11),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(color: SteelColors.muted, fontSize: 12))),
+            const SizedBox(width: 10),
+            Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+          ],
+        ),
       );
-}
-
-class _ConnectionBadge extends StatelessWidget {
-  const _ConnectionBadge({required this.machine});
-  final Machine machine;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppStrings.of(context);
-    final color = machine.isOnline ? SteelColors.success : SteelColors.warning;
-    final label = machine.simulation ? strings.get('simulation') : machine.isOnline ? strings.get('online') : strings.get('offline');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(color: color.withValues(alpha: .10), border: Border.all(color: color.withValues(alpha: .20)), borderRadius: BorderRadius.circular(99)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.circle, size: 9, color: color), const SizedBox(width: 7), Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11))]),
-    );
-  }
 }
 
 class _ProductionBars extends StatelessWidget {
@@ -1585,7 +2105,7 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
           padding: const EdgeInsets.all(22),
           children: [
             LayoutBuilder(builder: (context, constraints) {
-              final copy = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('maintenanceCenter'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${strings.get('maintenanceHistory')} • ${widget.machine.name}', style: const TextStyle(color: SteelColors.muted))]);
+              final copy = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('maintenanceCenter'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text('${strings.get('maintenanceHistory')} • ${widget.machine.name}', style: const TextStyle(color: SteelColors.muted))]);
               final button = FilledButton.icon(onPressed: _busy ? null : _openForm, icon: const Icon(Icons.add_rounded), label: Text(strings.get('register')));
               if (constraints.maxWidth < 520) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [copy, if (_canRegister) ...[const SizedBox(height: 14), button]]);
               return Row(children: [Expanded(child: copy), if (_canRegister) button]);
@@ -1601,9 +2121,9 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
               ]);
             }),
             const SizedBox(height: 14),
-            SectionCard(child: Row(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.handyman_outlined, color: SteelColors.primary)), const SizedBox(width: 13), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('maintenanceCenter'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('maintenancePermission'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])), if (_busy) const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))])),
+            SectionCard(child: Row(children: [Container(width: 48, height: 48, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.handyman_outlined, color: SteelColors.primary)), const SizedBox(width: 13), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('maintenanceCenter'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('maintenancePermission'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])), if (_busy) const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))])),
             const SizedBox(height: 14),
-            Text(strings.get('maintenanceHistory'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            Text(strings.get('maintenanceHistory'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
@@ -1620,7 +2140,7 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
                         children: [
                           Container(width: 44, height: 44, decoration: BoxDecoration(color: SteelColors.warning.withValues(alpha: .10), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.build_outlined, color: SteelColors.warning)),
                           const SizedBox(width: 13),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(strings.translate(item.type), style: const TextStyle(fontWeight: FontWeight.w800))), _MaintenanceId(id: item.id)]), const SizedBox(height: 5), Text(item.description), const SizedBox(height: 9), Wrap(spacing: 14, runSpacing: 5, children: [Text('${strings.get('responsibleTechnician')}: ${item.technician}', style: const TextStyle(color: SteelColors.muted, fontSize: 12)), Text('${item.date} • ${item.time}', style: const TextStyle(color: SteelColors.muted, fontSize: 12)), if (item.cycles != null) Text('${strings.get('cycles')}: ${item.cycles}', style: const TextStyle(color: SteelColors.muted, fontSize: 12))])])),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(strings.translate(item.type), style: const TextStyle(fontWeight: FontWeight.w700))), _MaintenanceId(id: item.id)]), const SizedBox(height: 5), Text(item.description), const SizedBox(height: 9), Wrap(spacing: 14, runSpacing: 5, children: [Text('${strings.get('responsibleTechnician')}: ${item.technician}', style: const TextStyle(color: SteelColors.muted, fontSize: 12)), Text('${item.date} • ${item.time}', style: const TextStyle(color: SteelColors.muted, fontSize: 12)), if (item.cycles != null) Text('${strings.get('cycles')}: ${item.cycles}', style: const TextStyle(color: SteelColors.muted, fontSize: 12))])])),
                           if (_admin) IconButton(tooltip: strings.get('remove'), onPressed: _busy ? null : () => _remove(item), color: SteelColors.danger, icon: const Icon(Icons.delete_outline_rounded)),
                         ],
                       ),
@@ -1665,7 +2185,7 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
   }
 }
 
-class _MaintenanceId extends StatelessWidget { const _MaintenanceId({required this.id}); final int id; @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(99)), child: Text('#$id', style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w800))); }
+class _MaintenanceId extends StatelessWidget { const _MaintenanceId({required this.id}); final int id; @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(99)), child: Text('#$id', style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w700))); }
 
 class _MaintenanceDialog extends StatefulWidget {
   const _MaintenanceDialog({required this.technician});
@@ -1755,7 +2275,7 @@ class _EventList extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(22),
         children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text(subtitle, style: const TextStyle(color: SteelColors.muted)),
           const SizedBox(height: 18),

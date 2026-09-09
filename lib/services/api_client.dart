@@ -8,10 +8,17 @@ import '../core/api_config.dart';
 import '../core/app_strings.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.code,
+    this.data,
+  });
 
   final String message;
   final int? statusCode;
+  final String? code;
+  final Map<String, dynamic>? data;
 
   @override
   String toString() => message;
@@ -78,7 +85,12 @@ class ApiClient {
         final message = decoded is Map
             ? '${decoded['mensagem'] ?? decoded['message'] ?? _text('operationFailed')}'
             : _text('operationFailed');
-        throw ApiException(message, statusCode: response.statusCode);
+        throw ApiException(
+        message,
+        statusCode: response.statusCode,
+        code: decoded is Map ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim() : null,
+        data: decoded is Map ? Map<String, dynamic>.from(decoded) : null,
+      );
       }
 
       await for (final line in response.stream
@@ -155,7 +167,12 @@ class ApiClient {
       final message = decoded is Map
           ? '${decoded['mensagem'] ?? decoded['message'] ?? _text('operationFailed')}'
           : _text('operationFailed');
-      throw ApiException(message, statusCode: response.statusCode);
+      throw ApiException(
+        message,
+        statusCode: response.statusCode,
+        code: decoded is Map ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim() : null,
+        data: decoded is Map ? Map<String, dynamic>.from(decoded) : null,
+      );
     }
 
     return decoded;

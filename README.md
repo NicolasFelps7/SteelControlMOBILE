@@ -1,3 +1,13 @@
+
+## SteelControl Mobile 1.10
+
+- Realtime de telemetria por máquina via SSE (`/maquinas/:id/stream`).
+- Logout remoto e revogação de sessão integrados ao backend Desktop.
+- Limpeza best-effort dos arquivos temporários usados na biometria.
+- Traduções completas para configuração de servidor e sessão revogada.
+- CI Flutter com `analyze`, `test` e build APK debug.
+- Assinatura release preparada para keystore próprio via `android/key.properties`.
+
 # SteelControl Mobile
 
 ## Versão 1.9.0 — IHM / Controle industrial supervisionado

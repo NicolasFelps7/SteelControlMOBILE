@@ -1,0 +1,15 @@
+SteelControl Mobile 1.11.2+21 — correção da Central de Máquinas
+
+Correção aplicada:
+- MachinesScreen agora escuta diretamente as mudanças do AppController.
+- Quando /maquinas atualiza controller.machines, a grade é redesenhada imediatamente.
+- _refreshMachines também força rebuild local após uma carga bem-sucedida.
+- Realtime e fallback de 10 s permanecem ativos.
+
+Depois de extrair:
+  flutter pub get
+  flutter analyze
+  flutter test
+  flutter run
+
+Se a lista ainda vier vazia depois deste patch, o app está recebendo zero máquinas do backend para a empresa da sessão atual; nesse caso compare a empresa/conta e o API_URL usado pelo tablet/emulador.

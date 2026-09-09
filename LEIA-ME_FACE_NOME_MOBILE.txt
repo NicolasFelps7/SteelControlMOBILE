@@ -1,0 +1,15 @@
+SteelControl Mobile 1.12.6+35
+
+Correção/evolução:
+- Antes de cadastrar a facial de um funcionário, o app pede "Nome desta facial".
+- Valor padrão: Principal.
+- O nome é enviado ao backend no campo multipart "nomeFacial".
+- O nome aparece depois em Gerenciar facial.
+- Não altera liveness, múltiplos templates, anti-duplicidade ou segundo fator.
+
+Extraia este ZIP na raiz do projeto Mobile e aceite substituir os arquivos.
+Depois rode:
+  flutter clean
+  flutter pub get
+  flutter analyze
+  flutter run

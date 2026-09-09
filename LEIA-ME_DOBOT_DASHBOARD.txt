@@ -1,0 +1,10 @@
+SteelControl Mobile 1.12.8+37 — Dashboard Dobot Magician
+
+Extraia este ZIP na raiz do projeto Mobile atual e aceite substituir os arquivos.
+Depois rode:
+  flutter clean
+  flutter pub get
+  flutter analyze
+  flutter run
+
+Alteração visual/UX no dashboard Dobot Magician. Nenhuma regra de segurança ou comando do backend foi removida.

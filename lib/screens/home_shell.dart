@@ -46,6 +46,16 @@ class _HomeShellState extends State<HomeShell> {
     final strings = AppStrings.of(context);
     final selected = widget.controller.selectedMachine;
     final admin = widget.controller.session?.user.role.toUpperCase() == 'ADMINISTRADOR';
+    final selectedName = selected == null
+        ? ''
+        : (selected.name.trim().isNotEmpty ? selected.name.trim() : 'Máquina #${selected.id}');
+    final selectedMeta = selected == null
+        ? ''
+        : (selected.sector.trim().isNotEmpty && selected.sector.trim() != '-'
+            ? selected.sector.trim()
+            : ((selected.controller ?? '').trim().isNotEmpty
+                ? selected.controller!.trim()
+                : selected.model.trim()));
     final items = selected == null
         ? <_Destination>[
             _Destination(strings.get('machines'), Icons.precision_manufacturing_outlined, 0),
@@ -96,7 +106,7 @@ class _HomeShellState extends State<HomeShell> {
             appBar: AppBar(
               title: selected == null
                   ? const SteelBrand()
-                  : Text(selected.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  : Text(selected.name, style: const TextStyle(fontWeight: FontWeight.w700)),
               leading: selected == null
                   ? null
                   : IconButton(
@@ -126,47 +136,127 @@ class _HomeShellState extends State<HomeShell> {
             child: Row(
               children: [
                 Container(
-                  width: 240,
-                  margin: const EdgeInsets.all(14),
+                  width: 248,
+                  margin: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF18202A)
-                        : Colors.white,
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(24),
+                    color: SteelColors.graphite,
+                    border: Border.all(color: const Color(0xFF2B353B)),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     children: [
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 24, 16, 20),
+                        padding: EdgeInsets.fromLTRB(16, 22, 16, 14),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
-                            child: SteelBrand(),
+                            child: SteelBrand(light: true),
                           ),
                         ),
                       ),
-                      if (selected != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Container(height: 1, color: const Color(0xFF344047)),
+                      ),
+                      if (selected != null) ...[
+                        const SizedBox(height: 14),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .08), border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .20)), borderRadius: BorderRadius.circular(15)),
-                            child: Column(
+                            constraints: const BoxConstraints(minHeight: 94),
+                            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1B2429),
+                              border: Border.all(color: const Color(0xFF344047)),
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(strings.get('selectedMachine'), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                                const SizedBox(height: 5),
-                                Text(selected.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                Text(selected.sector, style: Theme.of(context).textTheme.bodySmall),
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF232E34),
+                                    border: Border.all(color: const Color(0xFF3C494F)),
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: const Icon(
+                                    Icons.precision_manufacturing_outlined,
+                                    size: 18,
+                                    color: Color(0xFFFFB84D),
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        strings.get('selectedMachine'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF9DA9AF),
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: .75,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        selectedName,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          height: 1.08,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: selected.isOnline
+                                                  ? const Color(0xFF5DB27B)
+                                                  : const Color(0xFF7D898F),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              selectedMeta,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFFB2BDC2),
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ),
-                      const SizedBox(height: 14),
+                      ],
+                      const SizedBox(height: 12),
                       Expanded(
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -174,12 +264,15 @@ class _HomeShellState extends State<HomeShell> {
                           itemBuilder: (context, index) => Padding(
                             padding: const EdgeInsets.only(bottom: 5),
                             child: Material(
-                              color: _index == index ? SteelColors.industrialAccent.withValues(alpha: .14) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
+                              color: _index == index ? const Color(0xFF252E33) : const Color(0xFF151D21),
+                              borderRadius: BorderRadius.circular(7),
                               child: ListTile(
-                                iconColor: _index == index ? SteelColors.industrialAccentDark : Theme.of(context).colorScheme.onSurface,
-                                textColor: _index == index ? SteelColors.industrialAccentDark : Theme.of(context).colorScheme.onSurface,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                iconColor: _index == index ? const Color(0xFFFFB84D) : const Color(0xFFB5BFC4),
+                                textColor: _index == index ? Colors.white : const Color(0xFFD8DEE1),
+                                shape: RoundedRectangleBorder(
+                                  side: _index == index ? const BorderSide(color: Color(0xFF384249)) : BorderSide.none,
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
                                 leading: Icon(items[index].icon),
                                 title: Text(items[index].label, style: const TextStyle(fontWeight: FontWeight.w700)),
                                 onTap: () => setState(() => _index = index),
@@ -191,27 +284,33 @@ class _HomeShellState extends State<HomeShell> {
                       if (selected != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: ListTile(
-                            leading: const Icon(Icons.swap_horiz_rounded),
-                            title: Text(strings.get('switchMachine'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                            onTap: () {
-                              setState(() => _index = 0);
-                              widget.controller.clearSelectedMachine();
-                            },
+                          child: Material(
+                            color: const Color(0xFF151D21),
+                            child: ListTile(
+                              leading: const Icon(Icons.swap_horiz_rounded, color: Color(0xFFB5BFC4)),
+                              title: Text(strings.get('switchMachine'), style: const TextStyle(color: Color(0xFFD8DEE1), fontWeight: FontWeight.w600)),
+                              onTap: () {
+                                setState(() => _index = 0);
+                                widget.controller.clearSelectedMachine();
+                              },
+                            ),
                           ),
                         ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-                        child: ListTile(
-                          textColor: SteelColors.danger,
-                          iconColor: SteelColors.danger,
-                          leading: const Icon(Icons.logout_rounded),
-                          title: Text(strings.get('logout'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                          onTap: () async {
-                            if (await confirmLogout(context) && mounted) {
-                              await widget.controller.logout();
-                            }
-                          },
+                        child: Material(
+                          color: Colors.transparent,
+                          child: ListTile(
+                            textColor: const Color(0xFFFF7D7D),
+                            iconColor: const Color(0xFFFF7D7D),
+                            leading: const Icon(Icons.logout_rounded),
+                            title: Text(strings.get('logout'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                            onTap: () async {
+                              if (await confirmLogout(context) && mounted) {
+                                await widget.controller.logout();
+                              }
+                            },
+                          ),
                         ),
                       ),
                     ],
@@ -228,7 +327,7 @@ class _HomeShellState extends State<HomeShell> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(selected?.name ?? strings.get('centralMachines'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                                  Text(selected?.name ?? strings.get('centralMachines'), style: Theme.of(context).textTheme.headlineSmall),
                                   Text(selected == null ? strings.get('selectEquipment') : '${selected.controller ?? selected.model} • ${selected.isOnline ? strings.get('online') : strings.get('offline')}', style: const TextStyle(color: SteelColors.muted)),
                                 ],
                               ),
@@ -257,6 +356,7 @@ class _HomeShellState extends State<HomeShell> {
         await widget.controller.refreshSelectedMachine();
       } else {
         await widget.controller.loadMachines();
+        if (mounted) setState(() {});
       }
     } catch (exception) {
       if (!mounted) return;
@@ -313,7 +413,7 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
         decoration: BoxDecoration(
           color: dark ? const Color(0xFF20272F) : Colors.white,
           border: Border.all(color: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: dark ? .35 : .14), blurRadius: 32, offset: const Offset(0, 16))],
         ),
         child: Column(
@@ -328,7 +428,7 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
               child: const Icon(Icons.check_rounded, color: Color(0xFF0AA34F), size: 39),
             ),
             const SizedBox(height: 23),
-            Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, height: 1.14, letterSpacing: -.55)),
+            Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.14, letterSpacing: -.55)),
             const SizedBox(height: 12),
             Text(strings.get(captionKey), textAlign: TextAlign.center, style: const TextStyle(color: SteelColors.muted, height: 1.55)),
             const SizedBox(height: 26),

@@ -19,9 +19,11 @@ class MachinesScreen extends StatefulWidget {
 class _MachinesScreenState extends State<MachinesScreen> {
   bool _busy = false;
   bool _discoveryBusy = false;
+  bool _machineListBusy = false;
   List<Map<String, dynamic>> _discovered = <Map<String, dynamic>>[];
   Map<String, dynamic>? _discoveryDiagnostics;
   Timer? _discoveryTimer;
+  Timer? _machinesRefreshTimer;
   StreamSubscription<Map<String, dynamic>>? _companyEvents;
   Timer? _companyEventsReconnect;
   Timer? _companyEventsDebounce;
@@ -62,8 +64,23 @@ class _MachinesScreenState extends State<MachinesScreen> {
     if (!ok) return;
     await _run(() async { final result = await widget.controller.machinesApi.regenerateKey(machine.id); await _showKey('${result['deviceKey'] ?? result['chave'] ?? ''}'); });
   }
-  Future<void> _showKey(String key) => showDialog<void>(context: context, builder: (ctx) { final strings = AppStrings.of(ctx); return AlertDialog(icon: const Icon(Icons.key_rounded, color: SteelColors.primary, size: 40), title: Text(strings.get('deviceKey')), content: SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800)), actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.get('understood')))]); });
+  Future<void> _showKey(String key) => showDialog<void>(context: context, builder: (ctx) { final strings = AppStrings.of(ctx); return AlertDialog(icon: const Icon(Icons.key_rounded, color: SteelColors.primary, size: 40), title: Text(strings.get('deviceKey')), content: SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w700)), actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.get('understood')))]); });
 
+
+  Future<void> _refreshMachines({bool showErrors = false}) async {
+    if (_machineListBusy) return;
+    _machineListBusy = true;
+    try {
+      await widget.controller.loadMachines();
+      if (mounted) setState(() {});
+    } on ApiException catch (e) {
+      if (showErrors) _message(e.message, error: true);
+    } catch (e) {
+      if (showErrors) _message('$e', error: true);
+    } finally {
+      _machineListBusy = false;
+    }
+  }
 
   Future<void> _loadDiscovery({bool showErrors = false}) async {
     if (!_admin) return;
@@ -212,12 +229,13 @@ class _MachinesScreenState extends State<MachinesScreen> {
     _companyEvents = widget.controller.companyApi.events().listen(
       (event) {
         final type = '${event['tipo'] ?? ''}';
-        if (!type.startsWith('maquina.')) return;
+        final shouldRefresh = type == 'conectado' || type.startsWith('maquina.');
+        if (!shouldRefresh) return;
 
         _companyEventsDebounce?.cancel();
         _companyEventsDebounce = Timer(const Duration(milliseconds: 120), () {
           if (!_closingRealtime && mounted) {
-            widget.controller.loadMachines();
+            _refreshMachines();
           }
         });
       },
@@ -237,8 +255,23 @@ class _MachinesScreenState extends State<MachinesScreen> {
   void initState() {
     super.initState();
     _startCompanyRealtime();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_admin || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      // Garante que a Central de Máquinas sempre abra com os dados mais
+      // recentes, inclusive quando o app ficou aberto enquanto uma máquina
+      // foi cadastrada pelo Desktop.
+      await _refreshMachines(showErrors: true);
+      if (!mounted) return;
+
+      // Fallback leve para redes/tablets que suspendem SSE em background.
+      // O realtime continua sendo o caminho principal; este timer só evita
+      // lista antiga quando o stream é interrompido pelo Android/Wi-Fi.
+      _machinesRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (mounted) _refreshMachines();
+      });
+
+      if (!_admin) return;
       _scanDiscovery();
       _discoveryTimer = Timer.periodic(const Duration(seconds: 6), (_) {
         if (!mounted) return;
@@ -255,13 +288,14 @@ class _MachinesScreenState extends State<MachinesScreen> {
     _companyEventsDebounce?.cancel();
     _companyEvents?.cancel();
     _discoveryTimer?.cancel();
+    _machinesRefreshTimer?.cancel();
     _searchController.dispose();
     _discoveryIpController.dispose();
     _discoveryPortController.dispose();
     super.dispose();
   }
 
-  @override Widget build(BuildContext context) => RefreshIndicator(onRefresh: widget.controller.loadMachines, child: LayoutBuilder(builder: (context, constraints) {
+  @override Widget build(BuildContext context) => RefreshIndicator(onRefresh: () => _refreshMachines(showErrors: true), child: LayoutBuilder(builder: (context, constraints) {
     final strings = AppStrings.of(context);
     final columns = constraints.maxWidth >= 1150 ? 3 : constraints.maxWidth >= 680 ? 2 : 1;
     final machines = widget.controller.machines;
@@ -286,6 +320,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
   }));
 }
 
+
 class _EquipmentHero extends StatelessWidget {
   const _EquipmentHero({required this.strings});
   final AppStrings strings;
@@ -294,22 +329,21 @@ class _EquipmentHero extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF18202A), Color(0xFF27313C)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          border: Border.all(color: const Color(0xFF3D4854)),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: const Color(0xFF11161C).withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))],
+          color: SteelColors.graphite,
+          border: Border.all(color: const Color(0xFF303A40)),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: LayoutBuilder(builder: (context, constraints) {
           final wide = constraints.maxWidth >= 650;
           final content = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(strings.get('companyEquipmentTitle'), style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w800, letterSpacing: -.8)),
+            Text(strings.get('companyEquipmentTitle'), style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white)),
             const SizedBox(height: 9),
             ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: Text(strings.get('companyEquipmentCaption'), style: const TextStyle(color: Color(0xFFCBD2D9), height: 1.5))),
             const SizedBox(height: 18),
-            Wrap(spacing: 8, runSpacing: 8, children: [strings.get('centralizedMonitoring'), strings.get('operationalHistory'), strings.get('integratedMaintenance')].map((label) => Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .07), borderRadius: BorderRadius.circular(99), border: Border.all(color: Colors.white.withValues(alpha: .15))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.check_rounded, size: 15, color: Color(0xFF43E58B)), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))]))).toList()),
+            Wrap(spacing: 8, runSpacing: 8, children: [strings.get('centralizedMonitoring'), strings.get('operationalHistory'), strings.get('integratedMaintenance')].map((label) => Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: const Color(0xFF20282D), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF354047))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.check_rounded, size: 15, color: Color(0xFFFFB84D)), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))]))).toList()),
           ]);
           if (!wide) return content;
-          return Row(children: [Expanded(child: content), const SizedBox(width: 20), Container(width: 112, height: 112, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: .07), border: Border.all(color: Colors.white.withValues(alpha: .18))), child: const Icon(Icons.settings_outlined, size: 48, color: Colors.white))]);
+          return Row(children: [Expanded(child: content), const SizedBox(width: 20), Container(width: 96, height: 96, decoration: BoxDecoration(color: const Color(0xFF20282D), border: Border.all(color: const Color(0xFF354047)), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.precision_manufacturing_outlined, size: 42, color: Color(0xFFFFB84D)))]);
         }),
       );
 }
@@ -333,7 +367,7 @@ class _FleetMetrics extends StatelessWidget {
     return LayoutBuilder(builder: (context, constraints) {
       final columns = constraints.maxWidth >= 850 ? 4 : constraints.maxWidth >= 460 ? 2 : 1;
       final ratio = columns == 1 ? 3.2 : columns == 2 ? 2.8 : 2.1;
-      return GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: ratio, children: items.map((item) => SectionCard(child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: item.$4.withValues(alpha: .10), borderRadius: BorderRadius.circular(13)), child: Icon(item.$3, color: item.$4)), const SizedBox(width: 13), Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 11)), Text('${item.$2}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))]))]))).toList());
+      return GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: ratio, children: items.map((item) => SectionCard(child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: item.$4.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: Icon(item.$3, color: item.$4)), const SizedBox(width: 13), Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 11)), Text('${item.$2}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700))]))]))).toList());
     });
   }
 }
@@ -346,7 +380,7 @@ class _EquipmentRegistrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SectionCard(child: LayoutBuilder(builder: (context, constraints) {
-        final copy = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('equipmentManagement'), style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)), const SizedBox(height: 6), Text(strings.get('registerEquipmentTitle'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text(strings.get('registerEquipmentCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))]);
+        final copy = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('equipmentManagement'), style: const TextStyle(color: SteelColors.primary, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)), const SizedBox(height: 6), Text(strings.get('registerEquipmentTitle'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text(strings.get('registerEquipmentCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))]);
         final button = FilledButton.icon(onPressed: busy ? null : onCreate, icon: const Icon(Icons.add_rounded), label: Text(strings.get('newMachine')));
         if (constraints.maxWidth < 570) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [copy, const SizedBox(height: 16), button]);
         return Row(children: [Expanded(child: copy), const SizedBox(width: 18), button]);
@@ -545,7 +579,7 @@ class _DiscoveryCard extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: subtleSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(13)),
+            decoration: BoxDecoration(color: subtleSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(9)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -612,7 +646,7 @@ class _DiscoveryCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Container(
-            decoration: BoxDecoration(color: elevatedSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(13)),
+            decoration: BoxDecoration(color: elevatedSurface, border: Border.all(color: border), borderRadius: BorderRadius.circular(9)),
             child: Theme(
               data: theme.copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
@@ -801,9 +835,9 @@ class _MachinesToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(strings.get('industrialPark'), style: const TextStyle(color: SteelColors.industrialAccent, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+        Text(strings.get('industrialPark'), style: const TextStyle(color: SteelColors.industrialAccent, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
         const SizedBox(height: 6),
-        Text(strings.get('registeredEquipmentTitle'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(strings.get('registeredEquipmentTitle'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 14),
         LayoutBuilder(builder: (context, constraints) {
           final search = TextField(controller: controller, onChanged: onSearch, decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: strings.get('searchEquipment')));
@@ -819,11 +853,11 @@ class _MachineCard extends StatelessWidget {
   const _MachineCard({required this.machine, required this.admin, required this.onOpen, required this.onEdit, required this.onRemove, required this.onKey});
   final Machine machine; final bool admin; final VoidCallback onOpen; final VoidCallback onEdit; final VoidCallback onRemove; final VoidCallback onKey;
   @override Widget build(BuildContext context) { final online = machine.isOnline; final strings = AppStrings.of(context); return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Row(children: [Container(width: 45, height: 45, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(13)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: SteelColors.primary)), const Spacer(), _Status(online: online)]),
-    const SizedBox(height: 13), Text(machine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text('${machine.sector} • ${strings.translate(machine.type ?? machine.controller ?? machine.model)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted)),
+    Row(children: [Container(width: 45, height: 45, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: SteelColors.primary)), const Spacer(), _Status(online: online)]),
+    const SizedBox(height: 13), Text(machine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text('${machine.sector} • ${strings.translate(machine.type ?? machine.controller ?? machine.model)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted)),
     const SizedBox(height: 13), Row(children: [Expanded(child: _Detail(label: strings.get('manufacturer').toUpperCase(), value: machine.manufacturer?.isNotEmpty == true ? machine.manufacturer! : '-')), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('model').toUpperCase(), value: machine.model))]), const SizedBox(height: 8), Row(children: [Expanded(child: _Detail(label: strings.get('code').toUpperCase(), value: machine.code)), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('mode').toUpperCase(), value: machine.simulation ? strings.get('simulation') : strings.get('real')))]),
     const SizedBox(height: 10), Row(children: [Expanded(child: _Metric(icon: Icons.thermostat_rounded, value: '${machine.temperature.toStringAsFixed(1)}°C', label: strings.get('temperature'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.loop_rounded, value: '${machine.cycles}', label: strings.get('cycles'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.bolt_rounded, value: '${machine.energy.toStringAsFixed(0)}%', label: strings.get('load')))]),
-    const Spacer(), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(AppStrings.of(context).get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
+    const SizedBox(height: 18), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(AppStrings.of(context).get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
     if (admin) Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('newKey'), onPressed: onKey, icon: const Icon(Icons.key_outlined)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
   ])); }
 }
@@ -1053,11 +1087,11 @@ class _MachineDialogState extends State<_MachineDialog> {
   Widget disclosure({required String title, required String caption, required IconData icon, required bool expanded, required VoidCallback onTap, required Widget child}) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      decoration: BoxDecoration(color: colors.surfaceContainerLowest, border: Border.all(color: expanded ? SteelColors.industrialAccent.withValues(alpha: .45) : Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: colors.surfaceContainerLowest, border: Border.all(color: expanded ? SteelColors.industrialAccent.withValues(alpha: .45) : Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)),
       child: Column(children: [
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(children: [
@@ -1085,11 +1119,11 @@ class _MachineDialogState extends State<_MachineDialog> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 18, 20),
-            decoration: const BoxDecoration(gradient: LinearGradient(colors: [SteelColors.ink, Color(0xFF46515D)]), borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+            decoration: const BoxDecoration(color: SteelColors.graphite, border: Border(bottom: BorderSide(color: Color(0xFF303A40))), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
             child: Row(children: [
-              Container(width: 48, height: 48, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .13), borderRadius: BorderRadius.circular(15)), child: const Icon(Icons.precision_manufacturing_rounded, color: Colors.white)),
+              Container(width: 44, height: 44, decoration: BoxDecoration(color: const Color(0xFF20282D), border: Border.all(color: const Color(0xFF3A454B)), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.precision_manufacturing_rounded, color: Color(0xFFFFB84D))),
               const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(editing ? strings.get('editEquipment') : strings.get('registerEquipment'), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(strings.get('registerEquipmentCaption'), style: const TextStyle(color: Colors.white70, fontSize: 12))])),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(editing ? strings.get('editEquipment') : strings.get('registerEquipment'), style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text(strings.get('registerEquipmentCaption'), style: const TextStyle(color: Colors.white70, fontSize: 12))])),
               IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: Colors.white)),
             ]),
           ),
@@ -1099,9 +1133,9 @@ class _MachineDialogState extends State<_MachineDialog> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .07), border: Border.all(color: SteelColors.primary.withValues(alpha: .18)), borderRadius: BorderRadius.circular(15)), child: Row(children: [const Icon(Icons.verified_outlined, color: SteelColors.primary), const SizedBox(width: 11), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('quickRegistration'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), const SizedBox(height: 2), Text(strings.get('quickRegistrationCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 10))]))])),
+                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .38), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)), child: Row(children: [const Icon(Icons.verified_outlined, color: SteelColors.primary), const SizedBox(width: 11), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('quickRegistration'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)), const SizedBox(height: 2), Text(strings.get('quickRegistrationCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 10))]))])),
                   const SizedBox(height: 12),
-                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(15)), child: Row(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.precision_manufacturing_rounded, color: SteelColors.primary)), const SizedBox(width: 11), Expanded(child: Text(strings.get('robotTemplateQuestion'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))), OutlinedButton.icon(onPressed: _useRobotTemplate, icon: const Icon(Icons.auto_fix_high_rounded, size: 17), label: Text(strings.get('useTemplate')))])),
+                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)), child: Row(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .09), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.precision_manufacturing_rounded, color: SteelColors.primary)), const SizedBox(width: 11), Expanded(child: Text(strings.get('robotTemplateQuestion'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))), OutlinedButton.icon(onPressed: _useRobotTemplate, icon: const Icon(Icons.auto_fix_high_rounded, size: 17), label: Text(strings.get('useTemplate')))])),
                   const SizedBox(height: 24),
                   _FormSection(icon: Icons.badge_outlined, number: '01', title: strings.get('equipmentIdentification'), caption: strings.get('essentialPanelData')),
                   const SizedBox(height: 16),
@@ -1122,7 +1156,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                   const SizedBox(height: 15),
                   Row(children: [Expanded(child: _ModeCard(title:strings.get('simulation'),caption:strings.get('simulationCaption'),icon:Icons.science_outlined,selected:simulation,onTap:()=>setState(()=>simulation=true))),const SizedBox(width:12),Expanded(child:_ModeCard(title:strings.get('real'),caption:strings.get('realTelemetryCaption'),icon:Icons.memory_rounded,selected:!simulation,onTap:()=>setState(()=>simulation=false)))]),
                   const SizedBox(height: 10),
-                  Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: (simulation ? SteelColors.primary : SteelColors.warning).withValues(alpha: .08), borderRadius: BorderRadius.circular(12)), child: Row(children: [Icon(simulation ? Icons.science_outlined : Icons.info_outline_rounded, color: simulation ? SteelColors.primary : SteelColors.warning, size: 19), const SizedBox(width: 9), Expanded(child: Text(simulation ? strings.get('simulationGenerated') : strings.get('realStaysOffline'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))])),
+                  Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: (simulation ? SteelColors.primary : SteelColors.warning).withValues(alpha: .08), borderRadius: BorderRadius.circular(9)), child: Row(children: [Icon(simulation ? Icons.science_outlined : Icons.info_outline_rounded, color: simulation ? SteelColors.primary : SteelColors.warning, size: 19), const SizedBox(width: 9), Expanded(child: Text(simulation ? strings.get('simulationGenerated') : strings.get('realStaysOffline'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)))])),
                   const SizedBox(height: 25),
                   _FormSection(icon: Icons.lan_outlined, number: '03', title: strings.get('industrialCommunication'), caption: strings.get('communicationCaption')),
                   const SizedBox(height: 16),
@@ -1132,7 +1166,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                   ),
                   if (controller == 'DOBOT_MAGICIAN') ...[
                     const SizedBox(height: 12),
-                    Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .06), border: Border.all(color: SteelColors.primary.withValues(alpha: .20)), borderRadius: BorderRadius.circular(15)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .06), border: Border.all(color: SteelColors.primary.withValues(alpha: .20)), borderRadius: BorderRadius.circular(10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [const Icon(Icons.precision_manufacturing_rounded, color: SteelColors.primary), const SizedBox(width: 9), Text(strings.get('dobotGateway'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))]),
                       const SizedBox(height: 12),
                       pair(input('dobotMode',strings.get('gatewayMode'),icon:Icons.settings_ethernet_rounded,hint:'MOCK / REAL'), input('dobotPort',strings.get('serialPort'),icon:Icons.usb_rounded,hint:'AUTO / COM4')),
@@ -1146,7 +1180,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                       decoration: BoxDecoration(
                         color: SteelColors.primary.withValues(alpha: .06),
                         border: Border.all(color: SteelColors.primary.withValues(alpha: .20)),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1205,9 +1239,9 @@ class _MachineDialogState extends State<_MachineDialog> {
   }
 }
 
-class _FormSection extends StatelessWidget { const _FormSection({required this.icon,required this.number,required this.title,required this.caption}); final IconData icon; final String number,title,caption; @override Widget build(BuildContext context)=>Row(children:[Container(width:43,height:43,decoration:BoxDecoration(color:SteelColors.primary.withValues(alpha:.09),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:SteelColors.primary,size:21)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('$number  $title',style:const TextStyle(fontSize:15,fontWeight:FontWeight.w800)),const SizedBox(height:2),Text(caption,style:const TextStyle(color:SteelColors.muted,fontSize:11))]))]); }
-class _ModeCard extends StatelessWidget { const _ModeCard({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:selected?SteelColors.industrialAccent.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.35),border:Border.all(color:selected?SteelColors.industrialAccent:Theme.of(context).dividerColor,width:selected?1.5:1),borderRadius:BorderRadius.circular(16)),child:Row(children:[Container(width:40,height:40,decoration:BoxDecoration(color:selected?SteelColors.industrialAccentDark:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted,size:20)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:10))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.industrialAccentDark:SteelColors.muted,size:19)]))); }
+class _FormSection extends StatelessWidget { const _FormSection({required this.icon,required this.number,required this.title,required this.caption}); final IconData icon; final String number,title,caption; @override Widget build(BuildContext context)=>Row(children:[Container(width:43,height:43,decoration:BoxDecoration(color:SteelColors.primary.withValues(alpha:.09),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:SteelColors.primary,size:21)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('$number  $title',style:const TextStyle(fontSize:15,fontWeight:FontWeight.w700,letterSpacing:-.05)),const SizedBox(height:2),Text(caption,style:const TextStyle(color:SteelColors.muted,fontSize:11))]))]); }
+class _ModeCard extends StatelessWidget { const _ModeCard({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:selected?SteelColors.industrialAccent.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.35),border:Border.all(color:selected?SteelColors.industrialAccent:Theme.of(context).dividerColor,width:selected?1.5:1),borderRadius:BorderRadius.circular(16)),child:Row(children:[Container(width:40,height:40,decoration:BoxDecoration(color:selected?SteelColors.industrialAccentDark:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(12)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted,size:20)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w700,fontSize:13)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:10))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.industrialAccentDark:SteelColors.muted,size:19)]))); }
 
-class _Status extends StatelessWidget { const _Status({required this.online}); final bool online; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:(online?SteelColors.success:SteelColors.danger).withValues(alpha:.10),borderRadius:BorderRadius.circular(99)),child:Row(children:[Icon(Icons.circle,size:8,color:online?SteelColors.success:SteelColors.danger),const SizedBox(width:6),Text(AppStrings.of(context).get(online?'online':'offline'),style:TextStyle(color:online?SteelColors.success:SteelColors.danger,fontSize:11,fontWeight:FontWeight.w800))])); }
-class _Detail extends StatelessWidget { const _Detail({required this.label,required this.value}); final String label,value; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Theme.of(context).colorScheme.surfaceContainerLowest,border:Border.all(color:Theme.of(context).dividerColor),borderRadius:BorderRadius.circular(10)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:SteelColors.muted,fontSize:9,fontWeight:FontWeight.w700)),const SizedBox(height:2),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w800))])); }
-class _Metric extends StatelessWidget { const _Metric({required this.icon,required this.value,required this.label}); final IconData icon; final String value,label; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(vertical:9,horizontal:5),decoration:BoxDecoration(color:SteelColors.primary.withValues(alpha:.07),borderRadius:BorderRadius.circular(10)),child:Column(children:[Icon(icon,size:16,color:SteelColors.primary),const SizedBox(height:2),Text(value,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w800)),Text(label,style:const TextStyle(fontSize:8,color:SteelColors.muted))])); }
+class _Status extends StatelessWidget { const _Status({required this.online}); final bool online; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:(online?SteelColors.success:SteelColors.danger).withValues(alpha:.10),borderRadius:BorderRadius.circular(99)),child:Row(children:[Icon(Icons.circle,size:8,color:online?SteelColors.success:SteelColors.danger),const SizedBox(width:6),Text(AppStrings.of(context).get(online?'online':'offline'),style:TextStyle(color:online?SteelColors.success:SteelColors.danger,fontSize:11,fontWeight:FontWeight.w700))])); }
+class _Detail extends StatelessWidget { const _Detail({required this.label,required this.value}); final String label,value; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(9),decoration:BoxDecoration(color:Theme.of(context).colorScheme.surfaceContainerLowest,border:Border.all(color:Theme.of(context).dividerColor),borderRadius:BorderRadius.circular(10)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:SteelColors.muted,fontSize:9,fontWeight:FontWeight.w700)),const SizedBox(height:2),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w700))])); }
+class _Metric extends StatelessWidget { const _Metric({required this.icon,required this.value,required this.label}); final IconData icon; final String value,label; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(vertical:9,horizontal:5),decoration:BoxDecoration(color:SteelColors.primary.withValues(alpha:.07),borderRadius:BorderRadius.circular(10)),child:Column(children:[Icon(icon,size:16,color:SteelColors.primary),const SizedBox(height:2),Text(value,style:const TextStyle(fontSize:11,fontWeight:FontWeight.w700)),Text(label,style:const TextStyle(fontSize:8,color:SteelColors.muted))])); }

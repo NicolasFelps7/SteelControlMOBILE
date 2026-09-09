@@ -1,0 +1,12 @@
+STEELCONTROL MOBILE - FIX FLUTTER ANALYZE
+
+Corrigidos os dois apontamentos mostrados no flutter analyze:
+1. unused_field em face_auth_screen.dart
+2. prefer_const_constructors em home_shell.dart
+
+Depois de extrair por cima do projeto, rode:
+  flutter analyze
+  flutter test
+  flutter run
+
+Nenhuma regra funcional foi alterada.

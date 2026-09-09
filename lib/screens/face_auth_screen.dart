@@ -8,12 +8,17 @@ import '../core/app_theme.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 
+class _LivenessTimeoutException implements Exception {
+  const _LivenessTimeoutException();
+}
+
 class FaceAuthScreen extends StatefulWidget {
   FaceAuthScreen({
     required this.controller,
     String? registrationToken,
     Object? registrationId,
     this.userId,
+    this.faceName,
     this.captureOnly = false,
     super.key,
   }) : registrationId = registrationId?.toString() ?? registrationToken;
@@ -21,6 +26,7 @@ class FaceAuthScreen extends StatefulWidget {
   final AppController controller;
   final String? registrationId;
   final int? userId;
+  final String? faceName;
   final bool captureOnly;
 
   bool get isOnboardingRegistration =>
@@ -49,7 +55,8 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   static const _panelSoft = Color(0xFF202831);
   static const _line = Color(0xFF35404A);
   static const _accent = SteelColors.industrialAccent;
-  static const _accentSoft = Color(0xFF6E5A32);
+  static const _livenessTimeout = Duration(seconds: 8);
+  static const _livenessPollDelay = Duration(milliseconds: 550);
 
   @override
   void initState() {
@@ -121,6 +128,8 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       } else {
         await _loginFlow();
       }
+    } on _LivenessTimeoutException {
+      await _handleLivenessTimeout();
     } on ApiException catch (exception) {
       _setError(exception.message);
     } catch (_) {
@@ -130,123 +139,489 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
   Future<void> _existingUserRegistrationFlow() async {
     final strings = AppStrings.of(context);
-    _step(strings.get('lookCamera'), strings.get('keepFaceStill'), .35);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    final image = await _capture();
-    final analysis = await widget.controller.auth.analyzeFace(image);
+    File? first;
+    File? liveness;
+    File? finalImage;
 
-    if (analysis['pronto'] != true) {
-      throw ApiException(
-        '${analysis['orientacao'] ?? strings.get('adjustPosition')}',
+    try {
+      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      await Future<void>.delayed(const Duration(milliseconds: 850));
+      first = await _capture();
+      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
+      if (firstAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
+        );
+      }
+
+      liveness = await _captureLivenessWithTimeout(strings);
+
+      _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      finalImage = await _capture();
+      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
+      if (finalAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
+        );
+      }
+
+      _step(
+        strings.get('qualityConfirmed'),
+        strings.get('protectingBiometrics'),
+        .90,
       );
-    }
 
-    _step(
-      strings.get('qualityConfirmed'),
-      strings.get('protectingBiometrics'),
-      .78,
-    );
-    await widget.controller.companyApi.registerUserFace(widget.userId!, image);
-    _success(
-      strings.get('biometricsRegistered'),
-      strings.get('biometricsLinkedOnce'),
-      result: true,
-    );
+      await widget.controller.companyApi.registerUserFace(
+        widget.userId!,
+        initialImage: first,
+        finalImage: finalImage,
+        livenessImage: liveness,
+        faceName: widget.faceName,
+      );
+
+      _success(
+        strings.get('biometricsRegistered'),
+        strings.get('biometricsLinkedOnce'),
+        result: true,
+      );
+    } finally {
+      await _deleteTemporaryFiles([first, liveness, finalImage]);
+    }
   }
 
   Future<void> _onboardingRegistrationFlow() async {
     final strings = AppStrings.of(context);
+    File? first;
+    File? liveness;
+    File? finalImage;
 
-    _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
-    await Future<void>.delayed(const Duration(milliseconds: 850));
-    final first = await _capture();
-    final firstAnalysis = await widget.controller.auth.analyzeFace(first);
-    if (firstAnalysis['pronto'] != true) {
-      throw ApiException(
-        '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
+    try {
+      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      await Future<void>.delayed(const Duration(milliseconds: 850));
+      first = await _capture();
+      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
+      if (firstAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
+        );
+      }
+
+      liveness = await _captureLivenessWithTimeout(strings);
+
+      _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      finalImage = await _capture();
+      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
+      if (finalAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
+        );
+      }
+
+      _step(
+        strings.get('verifyingIdentity'),
+        strings.get('registrationCreatingAfterFace'),
+        .90,
       );
-    }
 
-    _step(strings.get('liveness'), strings.get('turnHeadSlightly'), .46);
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    final liveness = await _capture();
-    final motionAnalysis = await widget.controller.auth.analyzeFace(liveness);
-    final yaw = _number((motionAnalysis['pose'] as Map?)?['yaw']);
-    if (yaw.abs() < 10) {
-      throw ApiException(strings.get('movementNotDetected'));
-    }
-
-    _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
-    await Future<void>.delayed(const Duration(milliseconds: 1300));
-    final finalImage = await _capture();
-    final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
-    if (finalAnalysis['pronto'] != true) {
-      throw ApiException(
-        '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
+      final session = await widget.controller.auth.completeRegistrationFace(
+        verificationId: widget.registrationId!,
+        initialImage: first,
+        finalImage: finalImage,
+        livenessImage: liveness,
       );
+
+      _success(
+        strings.get('biometricsRegistered'),
+        strings.get('registrationCompleteFace'),
+        result: session,
+      );
+    } finally {
+      await _deleteTemporaryFiles([first, liveness, finalImage]);
     }
-
-    _step(
-      strings.get('verifyingIdentity'),
-      strings.get('registrationCreatingAfterFace'),
-      .90,
-    );
-
-    final session = await widget.controller.auth.completeRegistrationFace(
-      verificationId: widget.registrationId!,
-      finalImage: finalImage,
-      livenessImage: liveness,
-    );
-
-    _success(
-      strings.get('biometricsRegistered'),
-      strings.get('registrationCompleteFace'),
-      result: session,
-    );
   }
 
   Future<void> _loginFlow() async {
     final strings = AppStrings.of(context);
-    _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    final first = await _capture();
-    final firstAnalysis = await widget.controller.auth.analyzeFace(first);
-    if (firstAnalysis['pronto'] != true) {
-      throw ApiException(
-        '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
+    File? first;
+    File? liveness;
+    File? finalImage;
+
+    try {
+      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      first = await _capture();
+      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
+      if (firstAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
+        );
+      }
+
+      liveness = await _captureLivenessWithTimeout(strings);
+
+      _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      finalImage = await _capture();
+      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
+      if (finalAnalysis['pronto'] != true) {
+        throw ApiException(
+          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
+        );
+      }
+
+      _step(
+        strings.get('verifyingIdentity'),
+        strings.get('confirmingAccess'),
+        .90,
       );
-    }
+      try {
+        await widget.controller.loginWithFace(finalImage, liveness);
+      } on ApiException catch (exception) {
+        if (
+          exception.code == 'FACE_AMBIGUOUS' &&
+          exception.data?['segundoFator'] == true &&
+          '${exception.data?['challengeId'] ?? ''}'.isNotEmpty
+        ) {
+          await _handleAmbiguousSecondFactor(
+            '${exception.data!['challengeId']}',
+          );
+          return;
+        }
+        rethrow;
+      }
 
-    _step(strings.get('liveness'), strings.get('turnHeadSlightly'), .45);
-    await Future<void>.delayed(const Duration(milliseconds: 1700));
-    final liveness = await _capture();
-    final motionAnalysis = await widget.controller.auth.analyzeFace(liveness);
-    final yaw = _number((motionAnalysis['pose'] as Map?)?['yaw']);
-    if (yaw.abs() < 10) {
-      throw ApiException(strings.get('movementNotDetected'));
-    }
-
-    _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    final finalImage = await _capture();
-    final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
-    if (finalAnalysis['pronto'] != true) {
-      throw ApiException(
-        '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
+      _success(
+        strings.get('identityConfirmed'),
+        strings.get('welcomeEnvironment'),
+        result: true,
       );
+    } finally {
+      await _deleteTemporaryFiles([first, liveness, finalImage]);
+    }
+  }
+
+  Future<File> _captureLivenessWithTimeout(AppStrings strings) async {
+    final deadline = DateTime.now().add(_livenessTimeout);
+
+    while (mounted && DateTime.now().isBefore(deadline)) {
+      final remainingMs = deadline.difference(DateTime.now()).inMilliseconds;
+      final remainingSeconds = ((remainingMs + 999) ~/ 1000).clamp(1, 8);
+      _step(
+        strings.get('liveness'),
+        strings
+            .get('livenessCountdown')
+            .replaceAll('{seconds}', '$remainingSeconds'),
+        .46,
+      );
+
+      await Future<void>.delayed(_livenessPollDelay);
+      if (!mounted || DateTime.now().isAfter(deadline)) break;
+
+      File? candidate;
+      try {
+        candidate = await _capture();
+        final analysis = await widget.controller.auth.analyzeFace(candidate);
+        final yaw = _number((analysis['pose'] as Map?)?['yaw']);
+        if (yaw.abs() >= 10) {
+          return candidate;
+        }
+      } catch (_) {
+        await _deleteTemporaryFiles([candidate]);
+        rethrow;
+      }
+
+      await _deleteTemporaryFiles([candidate]);
     }
 
-    _step(
-      strings.get('verifyingIdentity'),
-      strings.get('confirmingAccess'),
-      .90,
+    throw const _LivenessTimeoutException();
+  }
+
+  Future<void> _handleLivenessTimeout() async {
+    if (!mounted) return;
+    final strings = AppStrings.of(context);
+
+    setState(() {
+      _title = strings.get('livenessTimeoutTitle');
+      _instruction = strings.get('livenessTimeoutMessage');
+      _progress = 0;
+      _busy = false;
+      _hasError = true;
+    });
+
+    if (widget.isRegistration) {
+      return;
+    }
+
+    final camera = _camera;
+    _camera = null;
+    try {
+      await camera?.dispose();
+    } catch (_) {
+      // A câmera já pode ter sido liberada pelo sistema.
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.get('livenessTimeoutTitle')),
+        content: Text(strings.get('livenessTimeoutMessage')),
+        actions: [
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext),
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(strings.get('retryFaceRecognition')),
+          ),
+        ],
+      ),
     );
-    await widget.controller.loginWithFace(finalImage, liveness);
+
+    if (mounted) Navigator.maybePop(context);
+  }
+
+  Future<void> _handleAmbiguousSecondFactor(String challengeId) async {
+    if (!mounted) return;
+    final strings = AppStrings.of(context);
+
+    final camera = _camera;
+    _camera = null;
+    try {
+      await camera?.dispose();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final emailController = TextEditingController();
+    final codeController = TextEditingController();
+
+    final session = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var stage = 0;
+        var busy = false;
+        String? error;
+        String? maskedEmail;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> sendCode() async {
+              final email = emailController.text.trim().toLowerCase();
+              if (!email.contains('@')) {
+                setDialogState(() => error = strings.get('face2faInvalidEmail'));
+                return;
+              }
+
+              setDialogState(() {
+                busy = true;
+                error = null;
+              });
+
+              try {
+                final result = await widget.controller.auth.requestFaceSecondFactor(
+                  challengeId: challengeId,
+                  email: email,
+                );
+                if (!dialogContext.mounted) return;
+                setDialogState(() {
+                  stage = 1;
+                  maskedEmail = '${result['email'] ?? email}';
+                  busy = false;
+                });
+              } on ApiException catch (exception) {
+                if (!dialogContext.mounted) return;
+                setDialogState(() {
+                  busy = false;
+                  error = exception.message;
+                });
+              }
+            }
+
+            Future<void> verifyCode() async {
+              final email = emailController.text.trim().toLowerCase();
+              final code = codeController.text.replaceAll(RegExp(r'\D'), '');
+              if (code.length != 6) {
+                setDialogState(() => error = strings.get('face2faInvalidCode'));
+                return;
+              }
+
+              setDialogState(() {
+                busy = true;
+                error = null;
+              });
+
+              try {
+                final result = await widget.controller.auth.verifyFaceSecondFactor(
+                  challengeId: challengeId,
+                  email: email,
+                  code: code,
+                );
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext, result);
+              } on ApiException catch (exception) {
+                if (!dialogContext.mounted) return;
+                setDialogState(() {
+                  busy = false;
+                  error = exception.message;
+                });
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: _panel,
+              surfaceTintColor: Colors.transparent,
+              title: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: _accent.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _accent.withValues(alpha: .35)),
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: _accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      strings.get('face2faTitle'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 430,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.get('face2faDescription'),
+                      style: const TextStyle(color: SteelColors.titaniumLight, height: 1.45),
+                    ),
+                    const SizedBox(height: 18),
+                    if (stage == 0) ...[
+                      TextField(
+                        controller: emailController,
+                        enabled: !busy,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: strings.get('face2faEmail'),
+                          labelStyle: const TextStyle(color: SteelColors.titaniumLight),
+                          prefixIcon: const Icon(Icons.alternate_email_rounded),
+                          filled: true,
+                          fillColor: _panelStrong,
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        strings
+                            .get('face2faSent')
+                            .replaceAll('{email}', maskedEmail ?? ''),
+                        style: const TextStyle(color: SteelColors.success, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: codeController,
+                        enabled: !busy,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          letterSpacing: 5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: strings.get('face2faCode'),
+                          labelStyle: const TextStyle(color: SteelColors.titaniumLight),
+                          counterText: '',
+                          filled: true,
+                          fillColor: _panelStrong,
+                        ),
+                      ),
+                    ],
+                    if (error?.isNotEmpty == true) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        error!,
+                        style: const TextStyle(color: SteelColors.danger, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Text(
+                      strings.get('face2faSecurity'),
+                      style: const TextStyle(color: SteelColors.titanium, fontSize: 11, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: busy ? null : () => Navigator.pop(dialogContext),
+                  child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
+                ),
+                FilledButton.icon(
+                  onPressed: busy
+                      ? null
+                      : stage == 0
+                          ? sendCode
+                          : verifyCode,
+                  icon: busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(stage == 0 ? Icons.mail_outline_rounded : Icons.verified_user_rounded),
+                  label: Text(
+                    stage == 0
+                        ? strings.get('face2faSendCode')
+                        : strings.get('face2faVerify'),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    emailController.dispose();
+    codeController.dispose();
+
+    if (!mounted) return;
+
+    if (session == null) {
+      Navigator.maybePop(context);
+      return;
+    }
+
+    await widget.controller.acceptFaceSecondFactorSession(session);
     _success(
       strings.get('identityConfirmed'),
       strings.get('welcomeEnvironment'),
       result: true,
     );
+  }
+
+  Future<void> _deleteTemporaryFiles(Iterable<File?> files) async {
+    for (final file in files) {
+      if (file == null) continue;
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // Limpeza best-effort: nunca derruba o fluxo biométrico por falha no cache.
+      }
+    }
   }
 
   void _step(String title, String instruction, double progress) {
@@ -426,7 +801,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: tablet ? 19 : 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -.2,
                   ),
                 ),
@@ -437,7 +812,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                       color: SteelColors.titanium,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.25,
+                      letterSpacing: .85,
                     ),
                   ),
               ],
@@ -464,15 +839,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       padding: EdgeInsets.all(tablet ? 18 : 12),
       decoration: BoxDecoration(
         color: _panel,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x44000000),
-            blurRadius: 32,
-            offset: Offset(0, 18),
-          ),
-        ],
+        boxShadow: const [],
       ),
       child: Column(
         children: [
@@ -487,7 +856,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: tablet ? 24 : 19,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -.35,
                       ),
                     ),
@@ -511,7 +880,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 height: 48,
                 decoration: BoxDecoration(
                   color: _stateColor.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: _stateColor.withValues(alpha: .34),
                   ),
@@ -524,7 +893,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFF0B1015),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _stateColor.withValues(alpha: .52),
                 width: 1.2,
@@ -534,7 +903,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             child: AspectRatio(
               aspectRatio: tablet ? 16 / 10 : 3 / 4,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(17),
+                borderRadius: BorderRadius.circular(10),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -647,7 +1016,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _panel,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _line),
       ),
       child: Column(
@@ -663,7 +1032,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -699,7 +1068,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: const Color(0xFF13191F),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _line),
             ),
             child: Row(
@@ -823,7 +1192,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -881,7 +1250,7 @@ class _StatusPill extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -921,7 +1290,7 @@ class _TechBadge extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 9,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1.05,
             ),
           ),
@@ -963,7 +1332,7 @@ class _CameraInstructionBar extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 9.5,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 1.15,
               ),
             ),
@@ -997,7 +1366,7 @@ class _ProgressRail extends StatelessWidget {
               style: TextStyle(
                 color: SteelColors.titanium,
                 fontSize: 9,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 1.1,
               ),
             ),
@@ -1007,7 +1376,7 @@ class _ProgressRail extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 10,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

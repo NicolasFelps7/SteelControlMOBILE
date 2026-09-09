@@ -126,9 +126,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(strings.get('startSteelControl'), style: Theme.of(context).textTheme.labelLarge?.copyWith(color: SteelColors.primary, fontWeight: FontWeight.w800)),
+                        Text(strings.get('startSteelControl'), style: Theme.of(context).textTheme.labelLarge?.copyWith(color: SteelColors.primary, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 8),
-                        Text(strings.get('createCompanyWorkspace'), style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+                        Text(strings.get('createCompanyWorkspace'), style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 10),
                         Text(strings.get('registrationIntro')),
                         const SizedBox(height: 28),
@@ -149,7 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 24),
                           _SectionLabel(number: '03', title: strings.get('emailConfirmation')),
                           const SizedBox(height: 14),
-                          TextFormField(controller: _code, maxLength: 6, keyboardType: TextInputType.number, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: 8), decoration: InputDecoration(labelText: strings.get('sixDigitCode'), counterText: '')),
+                          TextFormField(controller: _code, maxLength: 6, keyboardType: TextInputType.number, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 8), decoration: InputDecoration(labelText: strings.get('sixDigitCode'), counterText: '')),
                         ],
                         const SizedBox(height: 24),
                         FilledButton.icon(
@@ -191,10 +191,10 @@ class _SectionLabel extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(10)),
-            child: Text(number, style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w800)),
+            child: Text(number, style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 10),
-          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
         ],
       );
 }

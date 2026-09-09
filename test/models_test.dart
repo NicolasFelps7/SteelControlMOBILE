@@ -60,6 +60,37 @@ void main() {
       expect(machine.latencyMs, 24);
     });
 
+    test('mescla telemetria realtime sem perder configuração estática', () {
+      final machine = Machine.fromJson({
+        'id': 12,
+        'nome': 'Prensa 12',
+        'setor': 'Estamparia',
+        'modelo': 'PX',
+        'codigo': 'P-12',
+        'status': 'Ligada',
+        'modoSimulacao': false,
+        'estadoConexao': {'codigo': 'CONECTADA'},
+        'controlador': 'CLP_PLC',
+        'tempAtencao': 55,
+      });
+
+      final updated = machine.mergeRealtime({
+        'temperatura': 63.2,
+        'producao': 220,
+        'ciclos': 44,
+        'estadoConexao': {'codigo': 'CONECTADA'},
+        'qualidadeSinal': 91,
+      });
+
+      expect(updated.temperature, 63.2);
+      expect(updated.production, 220);
+      expect(updated.cycles, 44);
+      expect(updated.model, 'PX');
+      expect(updated.code, 'P-12');
+      expect(updated.temperatureWarning, 55);
+      expect(updated.signalQuality, 91);
+    });
+
     test('habilita IHM industrial para controladores não-Dobot', () {
       final machine = Machine.fromJson({
         'id': 9,
@@ -122,6 +153,9 @@ void main() {
         expect(strings.get('confirmLogoutTitle'), isNotEmpty);
         expect(strings.get('hmiTitle'), isNotEmpty);
         expect(strings.get('hmiEnableRemoteReal'), isNotEmpty);
+        expect(strings.get('sessionRevoked'), isNotEmpty);
+        expect(strings.get('serverConnection'), isNotEmpty);
+        expect(strings.get('saveAndTest'), isNotEmpty);
       }
       expect(AppStrings(AppLanguage.en).get('maintenanceCenter'), 'Maintenance center');
       expect(AppStrings(AppLanguage.es).get('editCompany'), 'Editar empresa');

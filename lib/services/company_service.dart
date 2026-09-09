@@ -112,10 +112,25 @@ class CompanyService {
     return items.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
-  Future<void> registerUserFace(int userId, File image) => client.multipart(
-        '/empresa/usuarios/$userId/face-image',
-        files: {'imagem': image},
-      );
+  Future<void> registerUserFace(
+    int userId, {
+    required File initialImage,
+    required File finalImage,
+    required File livenessImage,
+    String? faceName,
+  }) async {
+    await client.multipart(
+      '/empresa/usuarios/$userId/face-image',
+      files: {
+        'imagem': finalImage,
+        'inicial': initialImage,
+        'liveness': livenessImage,
+      },
+      fields: {
+        if (faceName?.trim().isNotEmpty == true) 'nomeFacial': faceName!.trim(),
+      },
+    );
+  }
 
   Future<void> removeFace(int userId, int faceId) =>
       client.delete('/empresa/usuarios/$userId/faces/$faceId');

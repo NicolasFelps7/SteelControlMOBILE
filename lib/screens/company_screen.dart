@@ -223,7 +223,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
       children: [
         Text(
           company.name,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
@@ -231,9 +231,27 @@ class _CompanyScreenState extends State<CompanyScreen> {
           style: const TextStyle(color: SteelColors.muted),
         ),
         const SizedBox(height: 8),
-        Chip(
-          avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success),
-          label: Text(strings.get('activeCompany')),
+        Builder(
+          builder: (context) {
+            final dark = Theme.of(context).brightness == Brightness.dark;
+            return Chip(
+              avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success),
+              label: Text(strings.get('activeCompany')),
+              backgroundColor: dark
+                  ? SteelColors.success.withValues(alpha: .14)
+                  : const Color(0xFFEAF7F0),
+              side: BorderSide(
+                color: dark
+                    ? SteelColors.success.withValues(alpha: .38)
+                    : const Color(0xFFAEDBC4),
+              ),
+              labelStyle: TextStyle(
+                color: dark ? const Color(0xFFBDEBD2) : const Color(0xFF176B45),
+                fontWeight: FontWeight.w700,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            );
+          },
         ),
       ],
     );
@@ -388,10 +406,36 @@ class _CompanyScreenState extends State<CompanyScreen> {
     });
   }
 
+  Future<String?> _askFaceName(Map<String, dynamic> user) async {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => _FaceNameDialog(userName: '${user['nome'] ?? ''}'),
+    );
+  }
+
   Future<void> _registerFace(Map<String, dynamic> user) async {
     final strings = AppStrings.of(context);
     if (user['facialCadastrada'] == true || _asInt(user['quantidadeFaces']) > 0) { _message(strings.get('faceAlreadyRegistered'), error: true); return; }
-    final completed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => FaceAuthScreen(controller: widget.controller, userId: _asInt(user['id']))));
+
+    final faceName = await _askFaceName(user);
+    if (!mounted || faceName == null) return;
+
+    // Aguarda o AlertDialog concluir totalmente a animação de saída antes de
+    // abrir a rota da câmera. Isso evita frames de erro/red screen causados por
+    // sobreposição de rotas e por widgets do diálogo ainda em desmontagem.
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+
+    final completed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => FaceAuthScreen(
+          controller: widget.controller,
+          userId: _asInt(user['id']),
+          faceName: faceName,
+        ),
+      ),
+    );
     if (completed == true) {
       await _setUserFaceInstant(_asInt(user['id']), active: true);
       _message(strings.get('faceLinked').replaceAll('{name}', '${user['nome']}'));
@@ -437,16 +481,16 @@ class _CompanyScreenState extends State<CompanyScreen> {
     final data = snapshot.data!;
     final location = [data.company.address, data.company.number, data.company.district, data.company.city, data.company.state, data.company.zipCode, data.company.country].where((item) => item?.trim().isNotEmpty == true).join(' • ');
     return RefreshIndicator(onRefresh: _refresh, child: ListView(padding: const EdgeInsets.all(22), children: [
-      Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('company'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 5), Text(strings.get('companyTeamCaption'), style: const TextStyle(color: SteelColors.muted))])), if (_isAdmin) ...[OutlinedButton.icon(onPressed: _working ? null : () => _editCompany(data.company), icon: const Icon(Icons.edit_outlined), label: Text(strings.get('editCompany'))), const SizedBox(width: 9), FilledButton.icon(onPressed: _working ? null : _createUser, icon: const Icon(Icons.person_add_alt_1_rounded), label: Text(strings.get('newEmployee')))] ]),
+      Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('company'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 5), Text(strings.get('companyTeamCaption'), style: const TextStyle(color: SteelColors.muted))])), if (_isAdmin) ...[OutlinedButton.icon(onPressed: _working ? null : () => _editCompany(data.company), icon: const Icon(Icons.edit_outlined), label: Text(strings.get('editCompany'))), const SizedBox(width: 9), FilledButton.icon(onPressed: _working ? null : _createUser, icon: const Icon(Icons.person_add_alt_1_rounded), label: Text(strings.get('newEmployee')))] ]),
       const SizedBox(height: 18),
       _companyHero(data.company, strings),
       const SizedBox(height: 14),
       LayoutBuilder(builder: (context, constraints) => GridView.count(crossAxisCount: constraints.maxWidth >= 680 ? 2 : 1, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 12, mainAxisSpacing: 12, mainAxisExtent: 124, children: [MetricCard(label: strings.get('activeEmployees'), value: '${data.users.length}', icon: Icons.groups_outlined, color: SteelColors.primary), MetricCard(label: strings.get('withBiometrics'), value: '${data.users.where((u) => u['facialCadastrada'] == true || _asInt(u['quantidadeFaces']) > 0).length}', icon: Icons.face_retouching_natural_rounded, color: SteelColors.success)])),
       const SizedBox(height: 14),
-      SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('institutionalInfo'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 16), _InfoRow(icon: Icons.mail_outline, label: strings.get('email'), value: data.company.email ?? '-'), _InfoRow(icon: Icons.phone_outlined, label: strings.get('phone'), value: data.company.phone ?? '-'), _InfoRow(icon: Icons.location_on_outlined, label: strings.get('location'), value: location.isEmpty ? strings.get('notProvided') : location), if (data.company.website?.isNotEmpty == true) _InfoRow(icon: Icons.language_rounded, label: strings.get('website'), value: data.company.website!)])),
+      SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('institutionalInfo'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 16), _InfoRow(icon: Icons.mail_outline, label: strings.get('email'), value: data.company.email ?? '-'), _InfoRow(icon: Icons.phone_outlined, label: strings.get('phone'), value: data.company.phone ?? '-'), _InfoRow(icon: Icons.location_on_outlined, label: strings.get('location'), value: location.isEmpty ? strings.get('notProvided') : location), if (data.company.website?.isNotEmpty == true) _InfoRow(icon: Icons.language_rounded, label: strings.get('website'), value: data.company.website!)])),
       const SizedBox(height: 14),
-      SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(strings.get('teamAccess'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))), if (_working) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))]), const SizedBox(height: 8), ...data.users.map((user) => _UserTile(user: user, admin: _isAdmin, currentUserId: widget.controller.session?.user.id, onEdit: () => _editUser(user), onDismiss: () => _dismissUser(user), onRegisterFace: () => _registerFace(user), onFaces: () => _manageFaces(user)))])),
-      if (data.audit.isNotEmpty) ...[const SizedBox(height: 14), SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('recentAudit'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)), const SizedBox(height: 8), ...data.audit.take(10).map((item) { final actor = item['usuario'] is Map ? item['usuario'] as Map : const {}; return ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.verified_user_outlined, color: SteelColors.primary), title: Text('${_auditPreviewAction(strings, item['acao'])} • ${_auditPreviewEntity(strings, item['entidade'])}', style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${actor['nome'] ?? actor['email'] ?? strings.get('system')}'), trailing: Text(_date(item['criadoEm']), style: const TextStyle(color: SteelColors.muted, fontSize: 11))); })]))],
+      SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(strings.get('teamAccess'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700))), if (_working) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))]), const SizedBox(height: 8), ...data.users.map((user) => _UserTile(user: user, admin: _isAdmin, currentUserId: widget.controller.session?.user.id, onEdit: () => _editUser(user), onDismiss: () => _dismissUser(user), onRegisterFace: () => _registerFace(user), onFaces: () => _manageFaces(user)))])),
+      if (data.audit.isNotEmpty) ...[const SizedBox(height: 14), SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('recentAudit'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 8), ...data.audit.take(10).map((item) { final actor = item['usuario'] is Map ? item['usuario'] as Map : const {}; return ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.verified_user_outlined, color: SteelColors.primary), title: Text('${_auditPreviewAction(strings, item['acao'])} • ${_auditPreviewEntity(strings, item['entidade'])}', style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${actor['nome'] ?? actor['email'] ?? strings.get('system')}'), trailing: Text(_date(item['criadoEm']), style: const TextStyle(color: SteelColors.muted, fontSize: 11))); })]))],
     ]));
   });
   }
@@ -510,12 +554,12 @@ class _UserTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(14, 13, 10, 13),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .32), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(17)),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .32), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)),
       child: Row(children: [
-        Container(width: 46, height: 46, alignment: Alignment.center, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEEF1F4), Color(0xFFF7F8FA)]), borderRadius: BorderRadius.circular(14)), child: Text(_initial('${user['nome'] ?? 'U'}'), style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w900, fontSize: 16))),
+        Container(width: 46, height: 46, alignment: Alignment.center, decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(9)), child: Text(_initial('${user['nome'] ?? 'U'}'), style: const TextStyle(color: SteelColors.primary, fontWeight: FontWeight.w700, fontSize: 16))),
         const SizedBox(width: 13),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Flexible(child: Text('${user['nome'] ?? strings.get('notProvided')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))), if (own) Padding(padding: const EdgeInsets.only(left: 8), child: _MiniBadge(label: strings.get('you'), color: SteelColors.primary, icon: Icons.person_rounded))]),
+          Row(children: [Flexible(child: Text('${user['nome'] ?? strings.get('notProvided')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))), if (own) Padding(padding: const EdgeInsets.only(left: 8), child: _MiniBadge(label: strings.get('you'), color: SteelColors.primary, icon: Icons.person_rounded))]),
           const SizedBox(height: 3),
           Text('${user['email'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
           const SizedBox(height: 8),
@@ -530,7 +574,110 @@ class _UserTile extends StatelessWidget {
   }
 }
 
-class _MiniBadge extends StatelessWidget { const _MiniBadge({required this.label,required this.color,required this.icon}); final String label; final Color color; final IconData icon; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:5),decoration:BoxDecoration(color:color.withValues(alpha:.09),border:Border.all(color:color.withValues(alpha:.16)),borderRadius:BorderRadius.circular(99)),child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(icon,size:12,color:color),const SizedBox(width:5),Text(label,style:TextStyle(color:color,fontSize:9,fontWeight:FontWeight.w800,letterSpacing:.25))])); }
+class _MiniBadge extends StatelessWidget { const _MiniBadge({required this.label,required this.color,required this.icon}); final String label; final Color color; final IconData icon; @override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:5),decoration:BoxDecoration(color:color.withValues(alpha:.09),border:Border.all(color:color.withValues(alpha:.16)),borderRadius:BorderRadius.circular(99)),child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(icon,size:12,color:color),const SizedBox(width:5),Text(label,style:TextStyle(color:color,fontSize:9,fontWeight:FontWeight.w700,letterSpacing:.25))])); }
+
+class _FaceNameDialog extends StatefulWidget {
+  const _FaceNameDialog({required this.userName});
+
+  final String userName;
+
+  @override
+  State<_FaceNameDialog> createState() => _FaceNameDialogState();
+}
+
+class _FaceNameDialogState extends State<_FaceNameDialog> {
+  late final TextEditingController _controller;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller.text.isEmpty) {
+      _controller.text = AppStrings.of(context).get('faceNameDefault');
+      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    final strings = AppStrings.of(context);
+    final value = _controller.text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (value.length < 2) {
+      setState(() => _validationError = strings.get('faceNameRequired'));
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return AlertDialog(
+      icon: const Icon(
+        Icons.face_retouching_natural_rounded,
+        color: SteelColors.primary,
+        size: 38,
+      ),
+      title: Text(strings.get('faceNameTitle')),
+      content: SizedBox(
+        width: 430,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.get('faceNameDescription').replaceAll('{name}', widget.userName),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              maxLength: 40,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: strings.get('faceNameLabel'),
+                hintText: strings.get('faceNameHint'),
+                helperText: strings.get('faceNameHelper'),
+                errorText: _validationError,
+                prefixIcon: const Icon(Icons.badge_outlined),
+              ),
+              onChanged: (_) {
+                if (_validationError != null) {
+                  setState(() => _validationError = null);
+                }
+              },
+              onSubmitted: (_) => _continue(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.get('cancel')),
+        ),
+        FilledButton.icon(
+          onPressed: _continue,
+          icon: const Icon(Icons.camera_alt_outlined),
+          label: Text(strings.get('continueFaceCapture')),
+        ),
+      ],
+    );
+  }
+}
 
 class _UserDialog extends StatefulWidget { const _UserDialog({this.user}); final Map<String, dynamic>? user; @override State<_UserDialog> createState() => _UserDialogState(); }
 class _UserDialogState extends State<_UserDialog> {

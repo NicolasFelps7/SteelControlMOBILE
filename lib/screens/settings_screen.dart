@@ -22,11 +22,11 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(gradient: const LinearGradient(colors: [SteelColors.ink, Color(0xFF3D4854)]), borderRadius: BorderRadius.circular(24)),
+            decoration: BoxDecoration(color: SteelColors.graphite, border: Border.all(color: const Color(0xFF303A40)), borderRadius: BorderRadius.circular(14)),
             child: Row(children: [
               const _HeaderIcon(),
               const SizedBox(width: 17),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferencesTitle'), style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800, letterSpacing: -.5)), const SizedBox(height: 5), Text(strings.get('preferencesCaption'), style: const TextStyle(color: Colors.white70))])),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferencesTitle'), style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700, letterSpacing: -.5)), const SizedBox(height: 5), Text(strings.get('preferencesCaption'), style: const TextStyle(color: Colors.white70))])),
             ]),
           ),
           const SizedBox(height: 18),
@@ -57,13 +57,13 @@ class SettingsScreen extends StatelessWidget {
                   itemBuilder: (_, index) {
                     final selected = controller.language == AppLanguage.values[index];
                     return InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(9),
                       onTap: () => controller.setLanguage(AppLanguage.values[index]),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(color: selected ? SteelColors.industrialAccent.withValues(alpha: .10) : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .45), border: Border.all(color: selected ? SteelColors.industrialAccent : Theme.of(context).dividerColor, width: selected ? 1.5 : 1), borderRadius: BorderRadius.circular(14)),
-                        child: Row(children: [Icon(selected ? Icons.check_circle_rounded : Icons.language_rounded, color: selected ? SteelColors.industrialAccentDark : SteelColors.muted, size: 20), const SizedBox(width: 9), Expanded(child: Text(names[index], style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600)))]),
+                        decoration: BoxDecoration(color: selected ? SteelColors.industrialAccent.withValues(alpha: .10) : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .45), border: Border.all(color: selected ? SteelColors.industrialAccent : Theme.of(context).dividerColor, width: selected ? 1.5 : 1), borderRadius: BorderRadius.circular(9)),
+                        child: Row(children: [Icon(selected ? Icons.check_circle_rounded : Icons.language_rounded, color: selected ? SteelColors.industrialAccentDark : SteelColors.muted, size: 20), const SizedBox(width: 9), Expanded(child: Text(names[index], style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w600)))]),
                       ),
                     );
                   },
@@ -93,9 +93,9 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 14),
           SectionCard(
             child: Row(children: [
-              Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.danger.withValues(alpha: .09), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.logout_rounded, color: SteelColors.danger)),
+              Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.danger.withValues(alpha: .09), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.logout_rounded, color: SteelColors.danger)),
               const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('endSession'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('endSessionCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('endSession'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('endSessionCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
               OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: SteelColors.danger, side: BorderSide(color: SteelColors.danger.withValues(alpha: .35))), onPressed: () async { if (await confirmLogout(context) && context.mounted) await controller.logout(); }, icon: const Icon(Icons.logout_rounded, size: 18), label: Text(strings.get('logout'))),
             ]),
           ),
@@ -113,16 +113,26 @@ class _CompanySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .42), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(17)),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .42), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)),
         child: Row(children: [
           CompanyLogo(company: company, token: token, size: 56),
           const SizedBox(width: 13),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(company.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)), const SizedBox(height: 3), Text('CNPJ: ${formatCnpj(company.cnpj)}', style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
-          Chip(avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success), label: Text(strings.get('activeCompany'))),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(company.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)), const SizedBox(height: 3), Text('CNPJ: ${formatCnpj(company.cnpj)}', style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
+          Builder(builder: (context) {
+            final dark = Theme.of(context).brightness == Brightness.dark;
+            return Chip(
+              avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success),
+              label: Text(strings.get('activeCompany')),
+              backgroundColor: dark ? SteelColors.success.withValues(alpha: .14) : const Color(0xFFEAF7F0),
+              side: BorderSide(color: dark ? SteelColors.success.withValues(alpha: .38) : const Color(0xFFAEDBC4)),
+              labelStyle: TextStyle(color: dark ? const Color(0xFFBDEBD2) : const Color(0xFF176B45), fontWeight: FontWeight.w700),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            );
+          }),
         ]),
       );
 }
 
-class _HeaderIcon extends StatelessWidget { const _HeaderIcon(); @override Widget build(BuildContext context) => Container(width: 58, height: 58, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .12), border: Border.all(color: Colors.white24), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.tune_rounded, color: Colors.white, size: 29)); }
-class _SectionTitle extends StatelessWidget { const _SectionTitle({required this.icon, required this.eyebrow, required this.title, required this.caption}); final IconData icon; final String eyebrow,title,caption; @override Widget build(BuildContext context) => Row(children: [Container(width: 48,height:48,decoration:BoxDecoration(color:SteelColors.industrialAccent.withValues(alpha:.09),borderRadius:BorderRadius.circular(15)),child:Icon(icon,color:SteelColors.industrialAccentDark)),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:SteelColors.industrialAccentDark,fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.2)),const SizedBox(height:3),Text(title,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:2),Text(caption,style:const TextStyle(color:SteelColors.muted,fontSize:12))]))]); }
-class _ThemeOption extends StatelessWidget { const _ThemeOption({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(16),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:selected?SteelColors.industrialAccent.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.42),border:Border.all(color:selected?SteelColors.industrialAccent:Theme.of(context).dividerColor,width:selected?1.6:1),borderRadius:BorderRadius.circular(16)),child:Row(children:[Container(width:42,height:42,decoration:BoxDecoration(color:selected?SteelColors.industrialAccentDark:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(13)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w800)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:11))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.industrialAccentDark:SteelColors.muted,size:20)]))); }
+class _HeaderIcon extends StatelessWidget { const _HeaderIcon(); @override Widget build(BuildContext context) => Container(width: 52, height: 52, decoration: BoxDecoration(color: const Color(0xFF20282D), border: Border.all(color: const Color(0xFF354047)), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.tune_rounded, color: Color(0xFFFFB84D), size: 26)); }
+class _SectionTitle extends StatelessWidget { const _SectionTitle({required this.icon, required this.eyebrow, required this.title, required this.caption}); final IconData icon; final String eyebrow,title,caption; @override Widget build(BuildContext context) => Row(children: [Container(width: 48,height:48,decoration:BoxDecoration(color:SteelColors.industrialAccent.withValues(alpha:.09),borderRadius:BorderRadius.circular(10)),child:Icon(icon,color:SteelColors.industrialAccentDark)),const SizedBox(width:13),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(eyebrow,style:const TextStyle(color:SteelColors.industrialAccentDark,fontSize:9,fontWeight:FontWeight.w700,letterSpacing:.75)),const SizedBox(height:3),Text(title,style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:2),Text(caption,style:const TextStyle(color:SteelColors.muted,fontSize:12))]))]); }
+class _ThemeOption extends StatelessWidget { const _ThemeOption({required this.title,required this.caption,required this.icon,required this.selected,required this.onTap}); final String title,caption; final IconData icon; final bool selected; final VoidCallback onTap; @override Widget build(BuildContext context)=>InkWell(onTap:onTap,borderRadius:BorderRadius.circular(10),child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:selected?SteelColors.industrialAccent.withValues(alpha:.09):Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:.42),border:Border.all(color:selected?SteelColors.industrialAccent:Theme.of(context).dividerColor,width:selected?1.6:1),borderRadius:BorderRadius.circular(10)),child:Row(children:[Container(width:42,height:42,decoration:BoxDecoration(color:selected?SteelColors.industrialAccentDark:SteelColors.muted.withValues(alpha:.1),borderRadius:BorderRadius.circular(9)),child:Icon(icon,color:selected?Colors.white:SteelColors.muted)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontWeight:FontWeight.w700)),const SizedBox(height:2),Text(caption,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:SteelColors.muted,fontSize:11))])),Icon(selected?Icons.check_circle_rounded:Icons.circle_outlined,color:selected?SteelColors.industrialAccentDark:SteelColors.muted,size:20)]))); }

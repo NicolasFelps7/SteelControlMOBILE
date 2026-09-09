@@ -1,23 +1,88 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/machine.dart';
 import 'api_client.dart';
+
+class MachineSyncSnapshot {
+  const MachineSyncSnapshot({
+    required this.companyId,
+    required this.userId,
+    required this.machines,
+  });
+
+  final int companyId;
+  final int userId;
+  final List<Machine> machines;
+}
 
 class MachineService {
   MachineService(this.client);
 
   final ApiClient client;
 
-  Future<List<Machine>> list() async {
-    final result = await client.get('/maquinas') as List;
-    return result
+  List<Machine> _parseMachines(dynamic result) {
+    final List<dynamic> items;
+    if (result is List) {
+      items = result;
+    } else if (result is Map) {
+      final raw = result['maquinas'] ?? result['items'] ?? result['dados'];
+      items = raw is List ? raw : const <dynamic>[];
+    } else {
+      items = const <dynamic>[];
+    }
+
+    return items
         .whereType<Map>()
         .map((json) => Machine.fromJson(Map<String, dynamic>.from(json)))
-        .toList();
+        .where((machine) => machine.id > 0)
+        .toList(growable: false);
   }
+
+  Future<MachineSyncSnapshot> sync() async {
+    // Usa o endpoint estável que existe em todas as versões atuais do
+    // SteelControl Desktop. A Central de Máquinas não depende de uma rota
+    // auxiliar para conseguir listar equipamentos.
+    final result = await client.get('/maquinas');
+    final machines = _parseMachines(result);
+    if (kDebugMode) {
+      final ids = machines.map((machine) => machine.id).join(',');
+      debugPrint('[SteelControl][machines] GET /maquinas -> ${machines.length} item(ns) [${ids.isEmpty ? '-' : ids}]');
+    }
+
+    // A identificação da empresa é apenas diagnóstica. Uma falha não deve
+    // esconder uma lista de máquinas que já foi carregada com sucesso.
+    var companyId = 0;
+    try {
+      final companyResult = await client.get('/empresa/me');
+      if (companyResult is Map) {
+        final map = Map<String, dynamic>.from(companyResult);
+        final company = map['empresa'];
+        companyId = company is Map
+            ? _intValue(company['id'])
+            : _intValue(map['id']);
+      }
+    } on ApiException catch (exception) {
+      // Sessão inválida continua sendo tratada pelo AppController.
+      if (exception.statusCode == 401) rethrow;
+      // Para qualquer outra falha de /empresa/me, preserva a lista já
+      // recebida em /maquinas e usa o empresaId da sessão como fallback.
+    }
+
+    return MachineSyncSnapshot(
+      companyId: companyId,
+      userId: 0,
+      machines: machines,
+    );
+  }
+
+  Future<List<Machine>> list() async => (await sync()).machines;
 
   Future<Machine> find(int id) async {
     final result = await client.get('/maquinas/$id');
     return Machine.fromJson(Map<String, dynamic>.from(result as Map));
   }
+
+  Stream<Map<String, dynamic>> events(int id) => client.sse('/maquinas/$id/stream');
 
   Future<List<MaintenanceRecord>> maintenance(int machineId) async {
     final result = await client.get('/maquinas/$machineId/manutencoes') as List;
@@ -128,3 +193,5 @@ class MachineService {
         await client.post('/maquinas/$id/device-key/regenerar') as Map,
       );
 }
+
+int _intValue(dynamic value) => value is int ? value : int.tryParse('$value') ?? 0;

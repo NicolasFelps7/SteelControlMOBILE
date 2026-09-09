@@ -1,0 +1,12 @@
+STEELCONTROL MOBILE 1.12.4+33 — MULTI-TEMPLATE + SEGUNDO FATOR
+
+1) Extraia o patch na raiz do projeto Flutter e aceite substituir.
+2) Use junto com o Desktop/Backend Face V13.
+3) Rode:
+   flutter clean
+   flutter pub get
+   flutter analyze
+   flutter test
+   flutter run
+4) O ambiente usado para gerar este pacote não possui Flutter SDK, portanto analyze/test/build precisam ser confirmados no seu PC.
+5) Biometrias antigas continuam válidas; para obter 3 templates, recadastre a facial.
