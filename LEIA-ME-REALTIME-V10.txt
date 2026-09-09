@@ -1,9 +1,0 @@
-STEELCONTROL MOBILE REALTIME V10
-
-Substitua os arquivos mantendo as mesmas pastas.
-Depois rode:
-flutter clean
-flutter pub get
-flutter run
-
-O app passa a receber eventos em tempo real da empresa e atualizar funcionários/empresa/máquinas sem refresh manual.

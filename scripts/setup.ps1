@@ -41,4 +41,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "Aplicativo preparado com sucesso." -ForegroundColor Green
-Write-Host "Ative a Depuracao USB no Galaxy Tab A9 e execute .\INICIAR_TABLET.ps1" -ForegroundColor White
+Write-Host "Ative a Depuracao USB no Galaxy Tab A9 e execute .\scripts\run-tablet.ps1" -ForegroundColor White

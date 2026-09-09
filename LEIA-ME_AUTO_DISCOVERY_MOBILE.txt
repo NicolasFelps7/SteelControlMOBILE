@@ -1,9 +1,0 @@
-STEELCONTROL MOBILE - PATCH DESCOBERTA AUTOMATICA
-
-1. Extraia este ZIP na RAIZ do projeto Flutter SteelControl Mobile.
-2. Substitua os arquivos existentes.
-3. Use junto com o backend/Desktop AUTO_DISCOVERY atualizado.
-4. Rode flutter pub get, flutter analyze e flutter test no seu PC.
-5. Administradores verao Descoberta automatica na tela Maquinas.
-
-A varredura e feita pelo backend; o app nao controla START nem abre UDP diretamente.

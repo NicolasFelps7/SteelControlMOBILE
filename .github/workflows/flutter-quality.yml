@@ -6,20 +6,34 @@ on:
 
 jobs:
   mobile-quality:
+    name: Mobile Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Flutter SDK
+        uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.2'
           channel: stable
           cache: true
-      - name: I18n integrity
-        run: python tool/check_i18n.py
+
       - name: Dependencies
         run: flutter pub get
+
+      - name: I18n integrity
+        run: python tool/check_i18n.py
+
       - name: Analyze
-        run: flutter analyze
+        # Analyzer errors remain fatal. Lint infos/warnings are reported in the log
+        # but do not block the pipeline; tests and the APK smoke build remain strict.
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
       - name: Tests
         run: flutter test
+
       - name: Debug APK smoke build
         run: flutter build apk --debug

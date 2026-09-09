@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-  throw "Flutter nao foi encontrado. Execute PREPARAR_APP.ps1 depois de instalar o Flutter."
+  throw "Flutter nao foi encontrado. Execute scripts\setup.ps1 depois de instalar o Flutter."
 }
 
 Write-Host "Dispositivos encontrados:" -ForegroundColor Cyan
