@@ -1,0 +1,6 @@
+SteelControl Mobile — permissões em sessão em tempo real
+
+- recebe do backend alterações de cargo/nome/e-mail do usuário conectado;
+- atualiza a sessão local sem logout/login;
+- widgets que dependem de cargo são reconstruídos imediatamente;
+- sessão continua sendo revogada para desativação ou troca de senha.

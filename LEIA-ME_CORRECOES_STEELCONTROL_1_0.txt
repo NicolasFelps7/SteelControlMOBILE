@@ -1,0 +1,40 @@
+SteelControl Mobile — pacote de estabilização 1.0
+Versão: 1.12.9+38
+
+CORREÇÕES INCLUÍDAS
+1. Multipart facial envia MIME correto (JPEG/PNG/WEBP), validando também a assinatura real do arquivo.
+2. Card de máquina ganhou espaço suficiente para eliminar o Bottom Overflow.
+3. Editar máquina agora respeita SafeArea, teclado e altura disponível.
+4. Diálogos de gerar/exibir Device Key ficaram roláveis e responsivos.
+5. Cadastro de funcionário + facial virou um fluxo obrigatório único.
+6. Se a facial for cancelada/falhar e o usuário sair da captura, o funcionário recém-criado é desativado automaticamente.
+7. API_URL informada por --dart-define tem prioridade sobre URL salva. Sem override, o app tenta: URL salva -> 10.0.2.2:3000 -> 127.0.0.1:3000.
+8. Rodada de responsividade em cadastro de funcionário, nome da facial, configurações e máquinas.
+9. GETs têm uma nova tentativa curta em falhas transitórias; SSE de máquinas/empresa já reconecta automaticamente.
+
+COMO APLICAR O ZIP DE PATCH
+Extraia o conteúdo deste ZIP na RAIZ da pasta SteelControlMOBILE e aceite substituir os arquivos.
+
+DEPOIS RODE
+flutter clean
+flutter pub get
+
+EMULADOR PIXEL TABLET DO ANDROID STUDIO
+flutter run -d emulator-5554 --dart-define=API_URL=http://10.0.2.2:3000
+
+TABLET FÍSICO VIA USB/ADB REVERSE
+$adb="$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb -s RX2X8020AAT reverse tcp:3000 tcp:3000
+flutter run -d RX2X8020AAT --dart-define=API_URL=http://127.0.0.1:3000
+
+VALIDAÇÃO FEITA NESTE PACOTE
+- check_i18n.py: OK, 649 chaves.
+- Revisão estática dos fluxos alterados.
+- O ambiente que gerou este pacote não possui Flutter SDK, então flutter analyze/test/build NÃO foram executados aqui.
+
+TESTE RECOMENDADO NO APP
+A) Máquinas: abrir card -> Editar -> teclado aberto -> salvar/cancelar.
+B) Máquinas: Nova chave -> confirmar -> verificar chave exibida.
+C) Funcionário: Novo funcionário -> preencher -> facial obrigatória -> concluir.
+D) Repetir C e cancelar a facial: funcionário não deve permanecer ativo.
+E) Desligar backend por alguns segundos e religar: telas com SSE devem reconectar; GETs têm 1 retry transitório.

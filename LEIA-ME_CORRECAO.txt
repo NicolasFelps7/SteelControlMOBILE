@@ -1,0 +1,26 @@
+STEELCONTROL MOBILE - CORRECAO FACIAL + BOTTOM OVERFLOW
+
+Como aplicar:
+1. Feche o app/Flutter no VS Code.
+2. Extraia este ZIP na RAIZ da pasta SteelControlMOBILE.
+3. Quando o Windows perguntar, escolha substituir os arquivos existentes.
+4. No PowerShell, dentro da pasta do projeto, execute:
+
+   flutter clean
+   flutter pub get
+   flutter run -d RX2X8020AAT --dart-define=API_URL=http://127.0.0.1:3000
+
+Se estiver usando o backend do PC via USB, antes do flutter run execute:
+
+   $adb="$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+   & $adb -s RX2X8020AAT reverse tcp:3000 tcp:3000
+
+Correcoes aplicadas:
+- Imagens da camera agora sao enviadas no multipart com MIME real (image/jpeg, image/png ou image/webp), evitando rejeicao do backend como "Formato de imagem facial invalido".
+- Cartao de maquina ganhou altura suficiente para os controles de Editar / Nova chave / Excluir sem Bottom Overflowed by 5.0 pixels.
+- Dialogo Editar Maquina foi protegido com SafeArea e passou a considerar o teclado (viewInsets), mantendo o formulario rolavel.
+- Dialogos de gerar/exibir Device Key agora sao rolaveis e protegidos por SafeArea.
+
+Arquivos substituidos:
+- lib/services/api_client.dart
+- lib/screens/machines_screen.dart

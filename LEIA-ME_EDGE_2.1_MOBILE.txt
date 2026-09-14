@@ -1,0 +1,7 @@
+STEELCONTROL MOBILE + EDGE 2.1
+
+A tela de descoberta agora representa duas origens:
+- REDE/LAN: dispositivos encontrados na rede local.
+- EDGE: hardware USB/Serial encontrado por um SteelControl Edge.
+
+O cadastro pode ser aprovado pelo Mobile. Quando a origem for EDGE, o backend entrega automaticamente Machine ID + Device Key ao Edge. Não é necessário abrir código ou editar .env.

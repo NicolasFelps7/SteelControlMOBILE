@@ -1,7 +1,7 @@
 name: steelcontrol_mobile
 description: Aplicativo móvel oficial do SteelControl integrado ao backend do TCC.
 publish_to: "none"
-version: 1.12.8+37
+version: 1.12.9+38
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

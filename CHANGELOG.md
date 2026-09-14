@@ -1,3 +1,13 @@
+# 1.12.9+38 — estabilização SteelControl 1.0
+
+- Corrige MIME real no multipart de imagens faciais (JPEG/PNG/WEBP).
+- Cadastro de funcionário agora exige facial no mesmo fluxo; cancelamento/falha desativa automaticamente o cadastro criado.
+- Corrige overflow em cards de máquinas, edição e diálogos de Device Key.
+- Melhora responsividade de diálogos, teclado e ações em telas menores.
+- Resolve automaticamente entre backend salvo, emulador Android (`10.0.2.2`) e tablet físico com ADB reverse (`127.0.0.1`).
+- `--dart-define=API_URL=...` passa a ter prioridade sobre URL salva.
+- GETs recebem uma nova tentativa curta em falhas transitórias de conexão.
+
 # Changelog — SteelControl Mobile
 
 ## 1.12.8+37 — 2026-09-09

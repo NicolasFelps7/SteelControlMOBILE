@@ -1,0 +1,8 @@
+STEELCONTROL MOBILE — COMPATIBILIDADE EDGE 2.0
+==============================================
+
+- Cadastro de máquinas agora inclui Modbus RTU e Serial genérica / JSON.
+- Ao criar ou renovar uma Device Key, o Mobile pode copiar um pacote pronto
+  para o SteelControl Edge contendo servidor, ID da máquina e Device Key.
+- O Edge 2.0 permanece instalado no computador industrial/servidor; o Mobile
+  serve para cadastrar/administrar máquinas e gerar o provisionamento.

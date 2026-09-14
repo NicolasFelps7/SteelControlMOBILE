@@ -92,12 +92,18 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           SectionCard(
-            child: Row(children: [
-              Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.danger.withValues(alpha: .09), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.logout_rounded, color: SteelColors.danger)),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('endSession'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('endSessionCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
-              OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: SteelColors.danger, side: BorderSide(color: SteelColors.danger.withValues(alpha: .35))), onPressed: () async { if (await confirmLogout(context) && context.mounted) await controller.logout(); }, icon: const Icon(Icons.logout_rounded, size: 18), label: Text(strings.get('logout'))),
-            ]),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final info = Row(children: [
+                Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.danger.withValues(alpha: .09), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.logout_rounded, color: SteelColors.danger)),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('endSession'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)), const SizedBox(height: 3), Text(strings.get('endSessionCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
+              ]);
+              final button = OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: SteelColors.danger, side: BorderSide(color: SteelColors.danger.withValues(alpha: .35))), onPressed: () async { if (await confirmLogout(context) && context.mounted) await controller.logout(); }, icon: const Icon(Icons.logout_rounded, size: 18), label: Text(strings.get('logout')));
+              if (constraints.maxWidth < 560) {
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [info, const SizedBox(height: 14), button]);
+              }
+              return Row(children: [Expanded(child: info), const SizedBox(width: 16), button]);
+            }),
           ),
         ],
       );

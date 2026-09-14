@@ -17,6 +17,13 @@ class UserProfile {
         email: '${json['email'] ?? ''}',
         role: '${json['cargo'] ?? 'Visitante'}',
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nome': name,
+        'email': email,
+        'cargo': role,
+      };
 }
 
 class Company {
@@ -68,6 +75,23 @@ class Company {
         country: json['pais']?.toString(),
         website: json['site']?.toString(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nome': name,
+        'cnpj': cnpj,
+        'logoUrl': logoUrl,
+        'email': email,
+        'telefone': phone,
+        'cidade': city,
+        'estado': state,
+        'endereco': address,
+        'numero': number,
+        'bairro': district,
+        'cep': zipCode,
+        'pais': country,
+        'site': website,
+      };
 }
 
 class Session {
@@ -90,6 +114,12 @@ class Session {
           Map<String, dynamic>.from(json['empresa'] as Map? ?? const {}),
         ),
       );
+
+  Map<String, dynamic> toJson() => {
+        'token': token,
+        'usuario': user.toJson(),
+        'empresa': company.toJson(),
+      };
 }
 
 int _integer(dynamic value) => value is int ? value : int.tryParse('$value') ?? 0;

@@ -222,6 +222,27 @@ class AppController extends ChangeNotifier {
               : reason,
         );
       },
+      onProfile: (userJson) async {
+        final current = session;
+        if (current == null || !isAuthenticated) return;
+
+        final updatedUser = UserProfile.fromJson(userJson);
+        if (updatedUser.id != current.user.id || updatedUser.id <= 0) return;
+
+        final changed = updatedUser.name != current.user.name ||
+            updatedUser.email != current.user.email ||
+            updatedUser.role != current.user.role;
+        if (!changed) return;
+
+        session = Session(
+          token: current.token,
+          user: updatedUser,
+          company: current.company,
+        );
+        await _sessionStore.save(session!.toJson());
+        _configureServices();
+        notifyListeners();
+      },
     );
     _sessionEvents = service;
     service.start();

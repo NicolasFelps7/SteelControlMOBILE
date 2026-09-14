@@ -9,10 +9,12 @@ class SessionEventService {
   SessionEventService({
     required this.token,
     required this.onRevoked,
+    required this.onProfile,
   });
 
   final String token;
   final Future<void> Function(String reason) onRevoked;
+  final Future<void> Function(Map<String, dynamic> user) onProfile;
 
   http.Client? _client;
   StreamSubscription<String>? _subscription;
@@ -95,6 +97,15 @@ class SessionEventService {
                 // Mantém a mensagem padrão.
               }
               await onRevoked(reason);
+            } else if (currentEvent == 'ready' || currentEvent == 'profile') {
+              try {
+                final payload = jsonDecode(currentData ?? '{}');
+                if (payload is Map && payload['usuario'] is Map) {
+                  await onProfile(Map<String, dynamic>.from(payload['usuario'] as Map));
+                }
+              } catch (_) {
+                // O próximo evento/reconnect sincroniza novamente.
+              }
             }
             currentEvent = null;
             currentData = null;

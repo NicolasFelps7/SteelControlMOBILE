@@ -323,24 +323,97 @@ class _CompanyScreenState extends State<CompanyScreen> {
   }
 
   Future<void> _createUser() async {
-    final successMessage = AppStrings.of(context).get('employeeCreated');
-    final result = await showDialog<_UserFormResult>(context: context, builder: (_) => const _UserDialog());
-    if (result == null) return;
-    await _run(() async {
+    final strings = AppStrings.of(context);
+    final result = await showDialog<_UserFormResult>(
+      context: context,
+      builder: (_) => const _UserDialog(),
+    );
+    if (result == null || !mounted) return;
+
+    final faceName = await showDialog<String>(
+      context: context,
+      builder: (_) => _FaceNameDialog(userName: result.name),
+    );
+    if (faceName == null || !mounted) {
+      _message(strings.get('employeeFaceRequired'), error: true);
+      return;
+    }
+
+    if (_working) return;
+    setState(() => _working = true);
+
+    int? createdUserId;
+    try {
       final response = await widget.controller.companyApi.createUser(
         name: result.name,
         email: result.email,
         password: result.password ?? '',
         role: result.role,
       );
-      final user = response['usuario'];
-      if (user is Map) {
-        await _upsertUserInstant(Map<String, dynamic>.from(user));
-      } else {
-        await _refresh();
+      final rawUser = response['usuario'];
+      if (rawUser is! Map) {
+        throw ApiException(strings.get('invalidServerResponse'));
       }
-      _message(successMessage);
-    });
+
+      final user = Map<String, dynamic>.from(rawUser);
+      createdUserId = _asInt(user['id']);
+      if (createdUserId <= 0) {
+        throw ApiException(strings.get('invalidServerResponse'));
+      }
+
+      if (mounted) setState(() => _working = false);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+
+      final completed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => FaceAuthScreen(
+            controller: widget.controller,
+            userId: createdUserId,
+            faceName: faceName,
+          ),
+        ),
+      );
+
+      if (completed == true) {
+        user['facialCadastrada'] = true;
+        user['quantidadeFaces'] = 1;
+        await _upsertUserInstant(user);
+        _message(strings.get('employeeCreated'));
+        return;
+      }
+
+      try {
+        await widget.controller.companyApi.dismissUser(createdUserId);
+        await _removeUserInstant(createdUserId);
+        _message(strings.get('employeeRegistrationCancelled'), error: true);
+      } on ApiException {
+        await _refresh();
+        _message(strings.get('employeeRollbackFailed'), error: true);
+      }
+    } on ApiException catch (e) {
+      if (createdUserId != null) {
+        try {
+          await widget.controller.companyApi.dismissUser(createdUserId);
+          await _removeUserInstant(createdUserId);
+        } catch (_) {
+          await _refresh();
+        }
+      }
+      _message(e.message, error: true);
+    } catch (e) {
+      if (createdUserId != null) {
+        try {
+          await widget.controller.companyApi.dismissUser(createdUserId);
+          await _removeUserInstant(createdUserId);
+        } catch (_) {
+          await _refresh();
+        }
+      }
+      _message('$e', error: true);
+    } finally {
+      if (mounted && _working) setState(() => _working = false);
+    }
   }
 
   Future<void> _editUser(Map<String, dynamic> user) async {
@@ -631,6 +704,8 @@ class _FaceNameDialogState extends State<_FaceNameDialog> {
         size: 38,
       ),
       title: Text(strings.get('faceNameTitle')),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      scrollable: true,
       content: SizedBox(
         width: 430,
         child: Column(
@@ -681,10 +756,63 @@ class _FaceNameDialogState extends State<_FaceNameDialog> {
 
 class _UserDialog extends StatefulWidget { const _UserDialog({this.user}); final Map<String, dynamic>? user; @override State<_UserDialog> createState() => _UserDialogState(); }
 class _UserDialogState extends State<_UserDialog> {
-  final key = GlobalKey<FormState>(); late final TextEditingController name; late final TextEditingController email; final password = TextEditingController(); late String role; bool get editing => widget.user != null;
-  @override void initState() { super.initState(); name = TextEditingController(text: '${widget.user?['nome'] ?? ''}'); email = TextEditingController(text: '${widget.user?['email'] ?? ''}'); role = '${widget.user?['cargo'] ?? 'OPERADOR'}'; }
-  @override void dispose() { name.dispose(); email.dispose(); password.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) { final strings = AppStrings.of(context); return AlertDialog(title: Text(editing ? strings.get('editAccess') : strings.get('registerEmployee')), content: SizedBox(width: 520, child: Form(key: key, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: name, decoration: InputDecoration(labelText: strings.get('fullName'), prefixIcon: const Icon(Icons.person_outline)), validator: _required), const SizedBox(height: 12), TextFormField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: strings.get('accessEmail'), prefixIcon: const Icon(Icons.mail_outline)), validator: (v) => v?.contains('@') == true ? null : strings.get('validEmail')), const SizedBox(height: 12), DropdownButtonFormField<String>(initialValue: role, decoration: InputDecoration(labelText: strings.get('role'), prefixIcon: const Icon(Icons.badge_outlined)), items: const ['ADMINISTRADOR','SUPERVISOR','TECNICO','OPERADOR','VISITANTE'].map((r) => DropdownMenuItem(value: r, child: Text(_roleLabel(strings, r)))).toList(), onChanged: (v) => role = v!), const SizedBox(height: 12), TextFormField(controller: password, obscureText: true, decoration: InputDecoration(labelText: editing ? strings.get('newPasswordOptional') : strings.get('initialPassword'), prefixIcon: const Icon(Icons.lock_outline)), validator: (v) => !editing && (v?.length ?? 0) < 8 ? strings.get('minimumPassword') : (editing && v!.isNotEmpty && v.length < 8 ? strings.get('minimumPassword') : null))])))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(strings.get('cancel'))), FilledButton(onPressed: () { if (!key.currentState!.validate()) return; Navigator.pop(context, _UserFormResult(name.text, email.text, password.text.isEmpty ? null : password.text, role)); }, child: Text(editing ? strings.get('saveChanges') : strings.get('register')))]); }
+  final key = GlobalKey<FormState>();
+  late final TextEditingController name;
+  late final TextEditingController email;
+  final password = TextEditingController();
+  late String role;
+  bool get editing => widget.user != null;
+
+  @override
+  void initState() {
+    super.initState();
+    name = TextEditingController(text: '${widget.user?['nome'] ?? ''}');
+    email = TextEditingController(text: '${widget.user?['email'] ?? ''}');
+    role = '${widget.user?['cargo'] ?? 'OPERADOR'}';
+  }
+
+  @override
+  void dispose() {
+    name.dispose();
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      scrollable: true,
+      title: Text(editing ? strings.get('editAccess') : strings.get('registerEmployee')),
+      contentPadding: EdgeInsets.fromLTRB(24, 18, 24, bottomInset > 0 ? 8 : 20),
+      content: SizedBox(
+        width: 520,
+        child: Form(
+          key: key,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(controller: name, decoration: InputDecoration(labelText: strings.get('fullName'), prefixIcon: const Icon(Icons.person_outline)), validator: _required),
+              const SizedBox(height: 12),
+              TextFormField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: strings.get('accessEmail'), prefixIcon: const Icon(Icons.mail_outline)), validator: (v) => v?.contains('@') == true ? null : strings.get('validEmail')),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(initialValue: role, isExpanded: true, decoration: InputDecoration(labelText: strings.get('role'), prefixIcon: const Icon(Icons.badge_outlined)), items: const ['ADMINISTRADOR','SUPERVISOR','TECNICO','OPERADOR','VISITANTE'].map((r) => DropdownMenuItem(value: r, child: Text(_roleLabel(strings, r), overflow: TextOverflow.ellipsis))).toList(), onChanged: (v) => role = v!),
+              const SizedBox(height: 12),
+              TextFormField(controller: password, obscureText: true, decoration: InputDecoration(labelText: editing ? strings.get('newPasswordOptional') : strings.get('initialPassword'), prefixIcon: const Icon(Icons.lock_outline)), validator: (v) => !editing && (v?.length ?? 0) < 8 ? strings.get('minimumPassword') : (editing && v!.isNotEmpty && v.length < 8 ? strings.get('minimumPassword') : null)),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(strings.get('cancel'))),
+        FilledButton(onPressed: () { if (!key.currentState!.validate()) return; FocusScope.of(context).unfocus(); Navigator.pop(context, _UserFormResult(name.text, email.text, password.text.isEmpty ? null : password.text, role)); }, child: Text(editing ? strings.get('saveChanges') : strings.get('register'))),
+      ],
+    );
+  }
+
   String? _required(String? v) => v?.trim().isNotEmpty == true ? null : AppStrings.of(context).get('requiredField');
 }
 

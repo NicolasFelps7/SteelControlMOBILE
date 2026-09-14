@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../core/api_config.dart';
 import '../core/app_strings.dart';
 import '../core/app_theme.dart';
 import '../models/machine.dart';
@@ -41,7 +44,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     final successMessage = AppStrings.of(context).get('machineCreated');
     final data = await showDialog<Map<String, dynamic>>(context: context, builder: (_) => const _MachineDialog());
     if (data == null) return;
-    await _run(() async { final result = await widget.controller.machinesApi.create(data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) await _showKey('${result['deviceKey']}'); });
+    await _run(() async { final result = await widget.controller.machinesApi.create(data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) { final rawMachine = result['maquina']; final machineId = rawMachine is Map ? int.tryParse('${rawMachine['id']}') : null; await _showKey('${result['deviceKey']}', machineId: machineId); } });
   }
   Future<void> _edit(Machine machine) async {
     final successMessage = AppStrings.of(context).get('machineUpdated');
@@ -49,7 +52,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     if (!mounted) return;
     final data = await showDialog<Map<String, dynamic>>(context: context, builder: (_) => _MachineDialog(machine: full));
     if (data == null) return;
-    await _run(() async { final result = await widget.controller.machinesApi.update(machine.id, data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) await _showKey('${result['deviceKey']}'); });
+    await _run(() async { final result = await widget.controller.machinesApi.update(machine.id, data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) await _showKey('${result['deviceKey']}', machineId: machine.id); });
   }
   Future<void> _remove(Machine machine) async {
     final strings = AppStrings.of(context);
@@ -60,11 +63,76 @@ class _MachinesScreenState extends State<MachinesScreen> {
   }
   Future<void> _key(Machine machine) async {
     final strings = AppStrings.of(context);
-    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text(strings.get('generateNewKeyTitle')), content: Text(strings.get('generateNewKey')), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(strings.get('cancel'))), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(strings.get('generateNewKey')))])) ?? false;
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            scrollable: true,
+            title: Text(strings.get('generateNewKeyTitle')),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Text(strings.get('generateNewKey')),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(strings.get('cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(strings.get('generateNewKey'))),
+            ],
+          ),
+        ) ??
+        false;
     if (!ok) return;
-    await _run(() async { final result = await widget.controller.machinesApi.regenerateKey(machine.id); await _showKey('${result['deviceKey'] ?? result['chave'] ?? ''}'); });
+    await _run(() async {
+      final result = await widget.controller.machinesApi.regenerateKey(machine.id);
+      await _showKey('${result['deviceKey'] ?? result['chave'] ?? ''}', machineId: machine.id);
+    });
   }
-  Future<void> _showKey(String key) => showDialog<void>(context: context, builder: (ctx) { final strings = AppStrings.of(ctx); return AlertDialog(icon: const Icon(Icons.key_rounded, color: SteelColors.primary, size: 40), title: Text(strings.get('deviceKey')), content: SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w700)), actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.get('understood')))]); });
+
+  Future<void> _showKey(String key, {int? machineId}) => showDialog<void>(
+        context: context,
+        builder: (ctx) {
+          final strings = AppStrings.of(ctx);
+          return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            scrollable: true,
+            icon: const Icon(Icons.key_rounded, color: SteelColors.primary, size: 40),
+            title: Text(strings.get('deviceKey')),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w700)),
+                  if (machineId != null) ...[
+                    const SizedBox(height: 12),
+                    Text('ID da máquina: $machineId', style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    const Text('Você pode copiar um pacote pronto para importar no SteelControl Edge 2.0.', style: TextStyle(fontSize: 12)),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              if (machineId != null)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final package = jsonEncode({
+                      'steelControlEdge': 2,
+                      'server': ApiConfig.baseUrl,
+                      'machineId': machineId,
+                      'deviceKey': key,
+                    });
+                    await Clipboard.setData(ClipboardData(text: package));
+                    if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Pacote do SteelControl Edge copiado.')));
+                  },
+                  icon: const Icon(Icons.copy_all_rounded),
+                  label: const Text('Copiar para Edge'),
+                ),
+              FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(strings.get('understood'))),
+            ],
+          );
+        },
+      );
 
 
   Future<void> _refreshMachines({bool showErrors = false}) async {
@@ -315,7 +383,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentRegistrationCard(strings: strings, busy: _busy, onCreate: _create))),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _DiscoveryCard(strings: strings, devices: _discovered, diagnostics: _discoveryDiagnostics, busy: _discoveryBusy, ipController: _discoveryIpController, portController: _discoveryPortController, onScan: _scanDiscovery, onProbeIp: _discoverByIp, onApprove: _approveDiscovery))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _MachinesToolbar(strings: strings, controller: _searchController, types: types, typeFilter: _typeFilter, statusFilter: _statusFilter, onSearch: (_) => setState(() {}), onType: (value) => setState(() => _typeFilter = value), onStatus: (value) => setState(() => _statusFilter = value)))),
-      if (machines.isEmpty) SliverFillRemaining(hasScrollBody: false, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany')), if (_admin) TextButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: Text(strings.get('firstMachine')))]))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 36), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 28), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: 468), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
+      if (machines.isEmpty) SliverFillRemaining(hasScrollBody: false, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany')), if (_admin) TextButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: Text(strings.get('firstMachine')))]))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 36), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 28), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: _admin ? 500 : 452), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
     ]);
   }));
 }
@@ -882,7 +950,7 @@ class _MachineDialogState extends State<_MachineDialog> {
   String equipmentType = '';
 
   static const controllers = ['', 'ESP32', 'DOBOT_MAGICIAN', 'CLP_PLC', 'CONTROLADOR_ROBOTICO', 'CNC', 'GATEWAY_INDUSTRIAL', 'OUTRO'];
-  static const protocols = ['', 'MODBUS_TCP', 'OPC_UA', 'MQTT', 'HTTP_REST', 'USB_SERIAL', 'TCP_IP', 'OUTRO'];
+  static const protocols = ['', 'MODBUS_TCP', 'MODBUS_RTU', 'OPC_UA', 'MQTT', 'HTTP_REST', 'USB_SERIAL', 'SERIAL_JSON', 'TCP_IP', 'OUTRO'];
   static const equipmentTypes = ['', 'Braço robótico', 'Robô industrial', 'Esteira industrial', 'Prensa', 'Torno', 'Solda', 'Corte', 'Embalagem', 'CNC', 'Impressora 3D', 'Outro'];
   static const recommendedProtocols = <String, String>{
     'ESP32': 'HTTP_REST',
@@ -957,9 +1025,11 @@ class _MachineDialogState extends State<_MachineDialog> {
       'CONTROLADOR_ROBOTICO': 'Controlador robótico',
       'GATEWAY_INDUSTRIAL': 'Gateway industrial',
       'MODBUS_TCP': 'Modbus TCP',
+      'MODBUS_RTU': 'Modbus RTU',
       'OPC_UA': 'OPC UA',
       'HTTP_REST': 'HTTP / REST',
       'USB_SERIAL': 'USB / Serial',
+      'SERIAL_JSON': 'Serial genérica / JSON',
       'TCP_IP': 'TCP/IP',
       'OUTRO': 'Outro',
     };
@@ -1110,12 +1180,16 @@ class _MachineDialogState extends State<_MachineDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.machine != null;
-    final size = MediaQuery.sizeOf(context);
+    final media = MediaQuery.of(context);
+    final size = media.size;
+    final keyboard = media.viewInsets.bottom;
     final strings = AppStrings.of(context);
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: size.width < 700 ? 12 : 32, vertical: 22),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 840, maxHeight: size.height * .94),
+    final availableHeight = (size.height - keyboard - 20).clamp(0.0, size.height).toDouble();
+    return SafeArea(
+      child: Dialog(
+        insetPadding: EdgeInsets.symmetric(horizontal: size.width < 700 ? 10 : 28, vertical: 10),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 840, maxHeight: availableHeight),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 18, 20),
@@ -1229,13 +1303,22 @@ class _MachineDialogState extends State<_MachineDialog> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
             decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
-            child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [TextButton(onPressed:()=>Navigator.pop(context),child:Text(strings.get('cancel'))),const SizedBox(width:8),FilledButton.icon(onPressed:_submit,icon:Icon(editing?Icons.save_outlined:Icons.add_rounded),label:Text(editing?strings.get('saveChanges'):strings.get('registerEquipment')))]),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton(onPressed: () => Navigator.pop(context), child: Text(strings.get('cancel'))),
+                FilledButton.icon(onPressed: _submit, icon: Icon(editing ? Icons.save_outlined : Icons.add_rounded), label: Text(editing ? strings.get('saveChanges') : strings.get('registerEquipment'))),
+              ],
+            ),
           ),
         ]),
-      ),
-    );
+          ),
+        ),
+      );
   }
 }
 
