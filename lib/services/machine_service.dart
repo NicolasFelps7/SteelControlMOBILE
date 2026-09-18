@@ -138,11 +138,17 @@ class MachineService {
     return result.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
-  Future<void> sendDobotCommand(int id, String command, [Map<String, dynamic>? data]) async {
-    await client.post(
+  Future<Map<String, dynamic>> sendDobotCommand(int id, String command, [Map<String, dynamic>? data]) async {
+    final result = await client.post(
       '/maquinas/$id/comandos',
       body: {'comando': command, 'payload': data ?? <String, dynamic>{}},
     );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> dobotCommandStatus(int machineId, int commandId) async {
+    final result = await client.get('/maquinas/$machineId/comandos/$commandId');
+    return Map<String, dynamic>.from(result as Map);
   }
 
   Future<Map<String, dynamic>> sendHmiCommand(int id, String command) async {

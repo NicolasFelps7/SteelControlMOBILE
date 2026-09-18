@@ -1,0 +1,11 @@
+STEELCONTROL MOBILE - DOBOT MANUAL + AUTOMATICO
+
+Extraia este ZIP na raiz do SteelControlMOBILE aceitando substituir arquivos.
+Depois execute flutter pub get e flutter run normalmente.
+
+No painel do Dobot:
+- MANUAL: PTP, HOME, ventosa, garra e STOP.
+- AUTOMATICO: ensine P0 a P4 pela posicao atual e execute pick-and-place.
+
+Comece com 1 ciclo e 10-15% de velocidade. Mantenha a area do robo livre.
+PAUSAR atua entre etapas; PARAR envia DOBOT_STOP.

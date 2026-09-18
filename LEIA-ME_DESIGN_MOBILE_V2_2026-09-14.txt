@@ -1,0 +1,23 @@
+SteelControl Mobile - Redesign responsivo V2
+
+Alteracoes VISUAIS:
+- Navegacao de tablet trocada por NavigationRail compacta e responsiva.
+- O menu nao ocupa mais ~250 px em tablets medios.
+- Cabecalho da maquina e usuario reorganizados.
+- Dashboard da Impressora 3D agora segue tema claro/escuro do app.
+- Fontes da IHM 3D aumentadas e alinhadas ao restante do SteelControl.
+- Camera e trabalho atual ficam lado a lado quando houver espaco.
+- Cards, eixos, temperaturas, conexao e seguranca usam o tema Material do app.
+- Cabecalho da maquina tambem segue o tema claro/escuro.
+
+Nao foi alterada a logica de:
+- API/backend
+- comandos Dobot
+- ciclo automatico
+- telemetria
+- banco de dados
+- autenticacao
+
+Arquivos alterados:
+- lib/screens/home_shell.dart
+- lib/screens/machine_dashboard_screen.dart

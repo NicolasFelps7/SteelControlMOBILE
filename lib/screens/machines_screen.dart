@@ -949,7 +949,7 @@ class _MachineDialogState extends State<_MachineDialog> {
   String protocol = '';
   String equipmentType = '';
 
-  static const controllers = ['', 'ESP32', 'DOBOT_MAGICIAN', 'CLP_PLC', 'CONTROLADOR_ROBOTICO', 'CNC', 'GATEWAY_INDUSTRIAL', 'OUTRO'];
+  static const controllers = ['', 'ESP32', 'DOBOT_MAGICIAN', 'CLP_PLC', 'CONTROLADOR_ROBOTICO', 'CNC', 'IMPRESSORA_3D', 'GATEWAY_INDUSTRIAL', 'OUTRO'];
   static const protocols = ['', 'MODBUS_TCP', 'MODBUS_RTU', 'OPC_UA', 'MQTT', 'HTTP_REST', 'USB_SERIAL', 'SERIAL_JSON', 'TCP_IP', 'OUTRO'];
   static const equipmentTypes = ['', 'Braço robótico', 'Robô industrial', 'Esteira industrial', 'Prensa', 'Torno', 'Solda', 'Corte', 'Embalagem', 'CNC', 'Impressora 3D', 'Outro'];
   static const recommendedProtocols = <String, String>{
@@ -958,6 +958,7 @@ class _MachineDialogState extends State<_MachineDialog> {
     'CLP_PLC': 'MODBUS_TCP',
     'CONTROLADOR_ROBOTICO': 'OPC_UA',
     'CNC': 'TCP_IP',
+    'IMPRESSORA_3D': 'HTTP_REST',
     'GATEWAY_INDUSTRIAL': 'MQTT',
   };
 
@@ -1023,6 +1024,7 @@ class _MachineDialogState extends State<_MachineDialog> {
       'DOBOT_MAGICIAN': 'Dobot Magician',
       'CLP_PLC': 'CLP / PLC',
       'CONTROLADOR_ROBOTICO': 'Controlador robótico',
+      'IMPRESSORA_3D': 'Impressora 3D — IHM dedicada',
       'GATEWAY_INDUSTRIAL': 'Gateway industrial',
       'MODBUS_TCP': 'Modbus TCP',
       'MODBUS_RTU': 'Modbus RTU',
@@ -1073,6 +1075,7 @@ class _MachineDialogState extends State<_MachineDialog> {
     final current = Map<String, dynamic>.from(widget.machine?.integrationMeta ?? const <String, dynamic>{});
     if (controller == 'DOBOT_MAGICIAN') {
       current.remove('hmi');
+      current.remove('impressora3d');
       current['dobot'] = {
         'enabled': true,
         'mode': fields['dobotMode']!.text.trim().toUpperCase(),
@@ -1083,7 +1086,20 @@ class _MachineDialogState extends State<_MachineDialog> {
       };
       return current;
     }
+    if (controller == 'IMPRESSORA_3D') {
+      current.remove('hmi');
+      current.remove('dobot');
+      current['impressora3d'] = {
+        'enabled': true,
+        'schema': 'steelcontrol-printer3d-v1',
+        'technology': 'AUTO',
+        'ecosystem': 'AUTO',
+        'readOnly': true,
+      };
+      return current;
+    }
     current.remove('dobot');
+    current.remove('impressora3d');
     final existingHmi = current['hmi'] is Map
         ? Map<String, dynamic>.from(current['hmi'] as Map)
         : <String, dynamic>{};

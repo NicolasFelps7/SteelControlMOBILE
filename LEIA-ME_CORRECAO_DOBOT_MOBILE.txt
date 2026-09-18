@@ -1,0 +1,18 @@
+SteelControl Mobile - Correcao de telemetria Dobot
+Data: 2026-09-14
+
+Corrige a leitura no painel mobile de:
+- Posicao do efetuador: X, Y, Z e R
+- Angulos das juntas: J1, J2, J3 e J4
+
+Causa corrigida:
+O SteelControl Edge envia os dados reais do Dobot dentro de:
+dadosExtras.dobot.pose
+dadosExtras.dobot.joints
+
+O Mobile procurava pose/joints diretamente em dadosExtras.
+A correcao aceita o formato real do Edge e mantem compatibilidade com o formato antigo.
+
+Instalacao:
+Extraia este ZIP dentro da raiz do SteelControlMOBILE e aceite substituir o arquivo.
+Depois execute flutter run novamente.

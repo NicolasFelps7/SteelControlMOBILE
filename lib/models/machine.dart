@@ -92,9 +92,14 @@ class Machine {
     return simulation || normalized == 'online' || normalized == 'conectada';
   }
   bool get isDobot => (controller ?? '').toLowerCase().contains('dobot');
+  bool get is3DPrinter {
+    final c = (controller ?? '').trim().toUpperCase();
+    final t = (type ?? '').trim().toUpperCase();
+    return c == 'IMPRESSORA_3D' || t.contains('IMPRESSORA 3D') || t.contains('3D PRINTER');
+  }
   bool get hasIndustrialHmi {
     final value = (controller ?? '').trim().toUpperCase();
-    return value.isNotEmpty && value != 'DOBOT_MAGICIAN' && !value.contains('DOBOT');
+    return value.isNotEmpty && value != 'DOBOT_MAGICIAN' && value != 'IMPRESSORA_3D' && !value.contains('DOBOT');
   }
 
   Machine mergeRealtime(Map<String, dynamic> json) {

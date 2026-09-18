@@ -1,5 +1,10 @@
 # 1.12.9+38 — estabilização SteelControl 1.0
 
+## 2026-09-14 — IHM dedicada para impressora 3D
+- Dashboard de impressora 3D redesenhado como IHM exclusiva e responsiva.
+- O painel genérico deixa de aparecer quando o equipamento é uma impressora 3D.
+- Suporte visual adaptativo para filamento, resina, SLS e integrações proprietárias.
+
 - Corrige MIME real no multipart de imagens faciais (JPEG/PNG/WEBP).
 - Cadastro de funcionário agora exige facial no mesmo fluxo; cancelamento/falha desativa automaticamente o cadastro criado.
 - Corrige overflow em cards de máquinas, edição e diálogos de Device Key.

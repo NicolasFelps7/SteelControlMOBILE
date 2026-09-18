@@ -1,0 +1,4 @@
+SteelControl Mobile - correção final 2026-09-14
+- Automático do Dobot acompanha confirmação real do comando no backend/Edge.
+- Movimento só avança depois de CONCLUIDO e confirmação da pose.
+- IHM da impressora 3D exibe câmera quando a telemetria fornecer stream/snapshot HTTP(S).

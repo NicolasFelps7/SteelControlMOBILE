@@ -131,187 +131,285 @@ class _HomeShellState extends State<HomeShell> {
           );
         }
 
+        final railExtended = constraints.maxWidth >= 1420;
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final dark = theme.brightness == Brightness.dark;
+        final railBackground = dark ? const Color(0xFF151B1F) : Colors.white;
+        final railBorder = dark ? SteelColors.borderDark : SteelColors.border;
+        final railMuted = dark ? SteelColors.mutedDark : SteelColors.muted;
+
         return Scaffold(
           body: SafeArea(
             child: Row(
               children: [
                 Container(
-                  width: 248,
-                  margin: const EdgeInsets.all(12),
+                  width: railExtended ? 224 : 88,
+                  margin: const EdgeInsets.fromLTRB(12, 12, 0, 12),
                   decoration: BoxDecoration(
-                    color: SteelColors.graphite,
-                    border: Border.all(color: const Color(0xFF2B353B)),
+                    color: railBackground,
+                    border: Border.all(color: railBorder),
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 22, 16, 14),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          railExtended ? 18 : 12,
+                          18,
+                          railExtended ? 18 : 12,
+                          14,
+                        ),
                         child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: SteelBrand(light: true),
-                          ),
+                          alignment: railExtended ? Alignment.centerLeft : Alignment.center,
+                          child: SteelBrand(compact: !railExtended),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Container(height: 1, color: const Color(0xFF344047)),
-                      ),
+                      Divider(height: 1, color: railBorder),
                       if (selected != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 10),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Container(
-                            width: double.infinity,
-                            constraints: const BoxConstraints(minHeight: 94),
-                            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1B2429),
-                              border: Border.all(color: const Color(0xFF344047)),
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 34,
-                                  height: 34,
+                          padding: EdgeInsets.symmetric(horizontal: railExtended ? 12 : 8),
+                          child: railExtended
+                              ? Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF232E34),
-                                    border: Border.all(color: const Color(0xFF3C494F)),
-                                    borderRadius: BorderRadius.circular(7),
+                                    color: scheme.surfaceContainerLow,
+                                    border: Border.all(color: railBorder),
+                                    borderRadius: BorderRadius.circular(11),
                                   ),
-                                  child: const Icon(
-                                    Icons.precision_manufacturing_outlined,
-                                    size: 18,
-                                    color: Color(0xFFFFB84D),
-                                  ),
-                                ),
-                                const SizedBox(width: 11),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        strings.get('selectedMachine'),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Color(0xFF9DA9AF),
-                                          fontSize: 8.5,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: .75,
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: SteelColors.industrialAccent.withValues(alpha: .10),
+                                          borderRadius: BorderRadius.circular(9),
+                                        ),
+                                        child: const Icon(
+                                          Icons.precision_manufacturing_outlined,
+                                          color: SteelColors.industrialAccent,
+                                          size: 20,
                                         ),
                                       ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        selectedName,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          height: 1.08,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -.2,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 6,
-                                            height: 6,
-                                            decoration: BoxDecoration(
-                                              color: selected.isOnline
-                                                  ? const Color(0xFF5DB27B)
-                                                  : const Color(0xFF7D898F),
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: Text(
-                                              selectedMeta,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              strings.get('selectedMachine'),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Color(0xFFB2BDC2),
-                                                fontSize: 10.5,
-                                                fontWeight: FontWeight.w500,
+                                              style: TextStyle(
+                                                color: railMuted,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: .55,
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              selectedName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.textTheme.titleSmall?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 7,
+                                                  height: 7,
+                                                  decoration: BoxDecoration(
+                                                    color: selected.isOnline
+                                                        ? SteelColors.success
+                                                        : SteelColors.steel500,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    selectedMeta,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: railMuted,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
+                                )
+                              : Tooltip(
+                                  message: '$selectedName\n$selectedMeta',
+                                  child: Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerLow,
+                                      border: Border.all(color: railBorder),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.precision_manufacturing_outlined,
+                                          color: SteelColors.industrialAccent,
+                                          size: 24,
+                                        ),
+                                        Positioned(
+                                          right: 8,
+                                          bottom: 8,
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: selected.isOnline
+                                                  ? SteelColors.success
+                                                  : SteelColors.steel500,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: railBackground, width: 1.5),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) => Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: Material(
-                              color: _index == index ? const Color(0xFF252E33) : const Color(0xFF151D21),
-                              borderRadius: BorderRadius.circular(7),
-                              child: ListTile(
-                                iconColor: _index == index ? const Color(0xFFFFB84D) : const Color(0xFFB5BFC4),
-                                textColor: _index == index ? Colors.white : const Color(0xFFD8DEE1),
-                                shape: RoundedRectangleBorder(
-                                  side: _index == index ? const BorderSide(color: Color(0xFF384249)) : BorderSide.none,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                leading: Icon(items[index].icon),
-                                title: Text(items[index].label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                onTap: () => setState(() => _index = index),
-                              ),
-                            ),
+                        child: NavigationRail(
+                          extended: railExtended,
+                          minWidth: 86,
+                          minExtendedWidth: 216,
+                          backgroundColor: Colors.transparent,
+                          selectedIndex: _index,
+                          onDestinationSelected: (value) => setState(() => _index = value),
+                          groupAlignment: -0.82,
+                          labelType: railExtended
+                              ? NavigationRailLabelType.none
+                              : NavigationRailLabelType.selected,
+                          useIndicator: true,
+                          indicatorColor: SteelColors.industrialAccent.withValues(alpha: dark ? .18 : .12),
+                          selectedIconTheme: const IconThemeData(
+                            color: SteelColors.industrialAccent,
+                            size: 24,
                           ),
+                          unselectedIconTheme: IconThemeData(
+                            color: railMuted,
+                            size: 23,
+                          ),
+                          selectedLabelTextStyle: theme.textTheme.labelMedium?.copyWith(
+                            color: dark
+                                ? const Color(0xFFFFC66A)
+                                : SteelColors.industrialAccentDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          unselectedLabelTextStyle: theme.textTheme.labelMedium?.copyWith(
+                            color: railMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          destinations: items
+                              .map(
+                                (item) => NavigationRailDestination(
+                                  icon: Tooltip(
+                                    message: item.label,
+                                    child: Icon(item.icon),
+                                  ),
+                                  selectedIcon: Icon(item.icon),
+                                  label: Text(item.label),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ),
                       if (selected != null)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Material(
-                            color: const Color(0xFF151D21),
-                            child: ListTile(
-                              leading: const Icon(Icons.swap_horiz_rounded, color: Color(0xFFB5BFC4)),
-                              title: Text(strings.get('switchMachine'), style: const TextStyle(color: Color(0xFFD8DEE1), fontWeight: FontWeight.w600)),
-                              onTap: () {
-                                setState(() => _index = 0);
-                                widget.controller.clearSelectedMachine();
-                              },
-                            ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: railExtended ? 12 : 8,
+                            vertical: 4,
                           ),
+                          child: railExtended
+                              ? ListTile(
+                                  dense: true,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  leading: const Icon(Icons.swap_horiz_rounded),
+                                  title: Text(
+                                    strings.get('switchMachine'),
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  onTap: () {
+                                    setState(() => _index = 0);
+                                    widget.controller.clearSelectedMachine();
+                                  },
+                                )
+                              : Tooltip(
+                                  message: strings.get('switchMachine'),
+                                  child: IconButton(
+                                    onPressed: () {
+                                      setState(() => _index = 0);
+                                      widget.controller.clearSelectedMachine();
+                                    },
+                                    icon: const Icon(Icons.swap_horiz_rounded),
+                                  ),
+                                ),
                         ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: ListTile(
-                            textColor: const Color(0xFFFF7D7D),
-                            iconColor: const Color(0xFFFF7D7D),
-                            leading: const Icon(Icons.logout_rounded),
-                            title: Text(strings.get('logout'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                            onTap: () async {
-                              if (await confirmLogout(context) && mounted) {
-                                await widget.controller.logout();
-                              }
-                            },
-                          ),
+                        padding: EdgeInsets.fromLTRB(
+                          railExtended ? 12 : 8,
+                          2,
+                          railExtended ? 12 : 8,
+                          12,
                         ),
+                        child: railExtended
+                            ? ListTile(
+                                dense: true,
+                                textColor: SteelColors.danger,
+                                iconColor: SteelColors.danger,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                leading: const Icon(Icons.logout_rounded),
+                                title: Text(
+                                  strings.get('logout'),
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                onTap: () async {
+                                  if (await confirmLogout(context) && mounted) {
+                                    await widget.controller.logout();
+                                  }
+                                },
+                              )
+                            : Tooltip(
+                                message: strings.get('logout'),
+                                child: IconButton(
+                                  color: SteelColors.danger,
+                                  onPressed: () async {
+                                    if (await confirmLogout(context) && mounted) {
+                                      await widget.controller.logout();
+                                    }
+                                  },
+                                  icon: const Icon(Icons.logout_rounded),
+                                ),
+                              ),
                       ),
                     ],
                   ),
@@ -319,22 +417,56 @@ class _HomeShellState extends State<HomeShell> {
                 Expanded(
                   child: Column(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 14, 22, 8),
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: scheme.surface,
+                          border: Border.all(color: railBorder),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
                           children: [
+                            if (!railExtended) ...[
+                              const SteelBrand(compact: true),
+                              const SizedBox(width: 12),
+                            ],
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(selected?.name ?? strings.get('centralMachines'), style: Theme.of(context).textTheme.headlineSmall),
-                                  Text(selected == null ? strings.get('selectEquipment') : '${selected.controller ?? selected.model} • ${selected.isOnline ? strings.get('online') : strings.get('offline')}', style: const TextStyle(color: SteelColors.muted)),
+                                  Text(
+                                    selected?.name ?? strings.get('centralMachines'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    selected == null
+                                        ? strings.get('selectEquipment')
+                                        : '${selected.controller ?? selected.model} • ${selected.isOnline ? strings.get('online') : strings.get('offline')}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: railMuted,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            _UserBadge(controller: widget.controller),
                             const SizedBox(width: 10),
-                            IconButton.filledTonal(onPressed: () => _refresh(selected != null), icon: const Icon(Icons.refresh_rounded)),
+                            if (constraints.maxWidth >= 1080) ...[
+                              _UserBadge(controller: widget.controller),
+                              const SizedBox(width: 8),
+                            ],
+                            IconButton.filledTonal(
+                              tooltip: strings.get('refresh'),
+                              onPressed: () => _refresh(selected != null),
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
                           ],
                         ),
                       ),

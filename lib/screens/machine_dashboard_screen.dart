@@ -62,7 +62,8 @@ class OverviewSection extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
                 sliver: SliverToBoxAdapter(child: _MachineHero(machine: machine)),
               ),
-              SliverPadding(
+              if (!machine.is3DPrinter)
+                SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -79,14 +80,20 @@ class OverviewSection extends StatelessWidget {
                   ]),
                 ),
               ),
-              if (machine.hasIndustrialHmi)
+              if (machine.hasIndustrialHmi && !machine.is3DPrinter)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
                   sliver: SliverToBoxAdapter(
                     child: IndustrialHmiPanel(controller: controller, machine: machine),
                   ),
                 ),
-              SliverPadding(
+              if (machine.is3DPrinter)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                  sliver: SliverToBoxAdapter(child: _Printer3DDashboard(machine: machine)),
+                ),
+              if (!machine.is3DPrinter)
+                SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
                 sliver: SliverToBoxAdapter(
                   child: _ControllerDiagnostics(
@@ -102,7 +109,7 @@ class OverviewSection extends StatelessWidget {
                     child: DobotPanel(controller: controller, machine: machine),
                   ),
                 ),
-              if (machine.simulation)
+              if (machine.simulation && !machine.is3DPrinter)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
                   sliver: SliverToBoxAdapter(child: _SimulationPanel(controller: controller, machine: machine)),
@@ -125,41 +132,1240 @@ class OverviewSection extends StatelessWidget {
 
 class _MachineHero extends StatelessWidget {
   const _MachineHero({required this.machine});
+
   final Machine machine;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
     final online = machine.isOnline;
     final strings = AppStrings.of(context);
+    final border = scheme.outlineVariant;
+
     return Container(
-      padding: const EdgeInsets.all(25),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: SteelColors.graphite,
-        border: Border.all(color: const Color(0xFF303A40)),
-        borderRadius: BorderRadius.circular(16),
+        color: scheme.surface,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
         children: [
-          Container(width: 54, height: 54, decoration: BoxDecoration(color: const Color(0xFF20282D), border: Border.all(color: const Color(0xFF354047)), borderRadius: BorderRadius.circular(10)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: const Color(0xFFFFB84D), size: 29)),
-          const SizedBox(width: 18),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: SteelColors.industrialAccent.withValues(alpha: .10),
+              border: Border.all(
+                color: SteelColors.industrialAccent.withValues(alpha: .24),
+              ),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              machine.isDobot
+                  ? Icons.precision_manufacturing_rounded
+                  : machine.is3DPrinter
+                      ? Icons.view_in_ar_rounded
+                      : Icons.factory_outlined,
+              color: SteelColors.industrialAccent,
+              size: 25,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(strings.get(machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel'), style: const TextStyle(color: Color(0xFFFFB84D), fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: .85)),
-                const SizedBox(height: 6),
-                Text(machine.name, style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w700)),
-                Text('${machine.controller ?? machine.model} • ${machine.protocol ?? machine.sector}', style: const TextStyle(color: Colors.white70)),
+                Text(
+                  strings.get(
+                    machine.isDobot ? 'robotCellPanel' : 'machineExclusivePanel',
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: SteelColors.industrialAccent,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .65,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  machine.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${machine.controller ?? machine.model} • ${machine.protocol ?? machine.sector}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                ),
               ],
             ),
           ),
+          const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            decoration: BoxDecoration(color: const Color(0xFF20282D), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF354047))),
-            child: Row(children: [Icon(Icons.circle, color: online ? const Color(0xFF4ADE80) : const Color(0xFFFCA5A5), size: 10), const SizedBox(width: 7), Text(online ? strings.get('online') : strings.get('waitingTelemetry'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12))]),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            decoration: BoxDecoration(
+              color: online
+                  ? SteelColors.success.withValues(alpha: .08)
+                  : SteelColors.danger.withValues(alpha: .07),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: online
+                    ? SteelColors.success.withValues(alpha: .28)
+                    : SteelColors.danger.withValues(alpha: .24),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.circle,
+                  color: online ? SteelColors.success : SteelColors.danger,
+                  size: 9,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  online ? strings.get('online') : strings.get('waitingTelemetry'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: online ? SteelColors.success : SteelColors.danger,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Printer3DDashboard extends StatelessWidget {
+  const _Printer3DDashboard({required this.machine});
+  final Machine machine;
+
+  dynamic _first(List<dynamic> values) {
+    for (final value in values) {
+      if (value != null && '$value'.trim().isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  double? _number(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value');
+  Map<String, dynamic> _map(dynamic value) => value is Map ? Map<String, dynamic>.from(value) : const <String, dynamic>{};
+  String _text(dynamic value) => value == null || '$value'.trim().isEmpty ? '--' : '$value';
+  String _temp(dynamic value) { final n = _number(value); return n == null ? '--' : '${n.toStringAsFixed(n % 1 == 0 ? 0 : 1)} °C'; }
+  String _percent(dynamic value) { final n = _number(value); if (n == null) return '--'; final p = n >= 0 && n <= 1 ? n * 100 : n; return '${p.clamp(0, 100).round()}%'; }
+  String _duration(dynamic value) { final n = _number(value); if (n == null || n < 0) return '--'; final seconds = n.round().clamp(0, 1 << 30); final h = seconds ~/ 3600; final m = (seconds % 3600) ~/ 60; final sec = seconds % 60; return h > 0 ? '${h}h ${m.toString().padLeft(2, '0')}m' : '${m}m ${sec.toString().padLeft(2, '0')}s'; }
+  String _axis(dynamic value) { final n = _number(value); return n == null ? '--' : n.toStringAsFixed(1); }
+
+  String _mode(String technology) {
+    final value = technology.toLowerCase();
+    if (value.contains('sla') || value.contains('msla') || value.contains('dlp') || value.contains('resin') || value.contains('resina') || value.contains('lcd')) return 'resin';
+    if (value.contains('sls') || value.contains('powder') || value.contains('pó')) return 'powder';
+    if (value.contains('fdm') || value.contains('fff') || value.contains('filament') || value.contains('filamento') || value.contains('marlin') || value.contains('klipper')) return 'fdm';
+    return 'universal';
+  }
+
+  ({String primary, String bed, String chamber, String mode}) _labels(String mode) {
+    return switch (mode) {
+      'resin' => (primary: 'Resina / processo', bed: 'Plataforma', chamber: 'Câmara / ambiente', mode: 'Resina • SLA/MSLA/DLP'),
+      'powder' => (primary: 'Leito / processo', bed: 'Plataforma', chamber: 'Câmara', mode: 'Pó • SLS'),
+      'fdm' => (primary: 'Bico / extrusor', bed: 'Mesa aquecida', chamber: 'Câmara', mode: 'Filamento • FDM/FFF'),
+      _ => (primary: 'Processo térmico', bed: 'Plataforma', chamber: 'Câmara / material', mode: 'Tecnologia universal'),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final extras = machine.extraData;
+    final p = _map(extras['impressora3d'] ?? extras['printer3d'] ?? extras['printer']);
+    final nozzle = _map(p['nozzle'] ?? p['extruder']);
+    final bed = _map(p['bed'] ?? p['buildPlate']);
+    final chamber = _map(p['chamber'] ?? (p['resin'] is Map ? p['resin'] : null));
+    final processTemperature = _map(p['processTemperature'] ?? p['processTemp']);
+    final job = _map(p['job'] ?? p['print']);
+    final layer = _map(p['layer'] ?? job['layer']);
+    final motion = _map(p['motion'] ?? p['position'] ?? p['axes']);
+    final position = _map(motion['position'] ?? motion['axes'] ?? motion);
+    final process = _map(p['process'] ?? p['parameters']);
+    final materialInfo = _map(p['materialInfo'] ?? p['materialData']);
+    final safety = _map(p['safety'] ?? p['interlocks']);
+    final camera = _map(p['camera'] ?? p['webcam'] ?? p['video']);
+    final rawCameraUrl = _first([camera['streamUrl'], camera['stream'], camera['snapshotUrl'], camera['snapshot'], camera['imageUrl'], p['cameraStreamUrl'], p['cameraSnapshotUrl']]);
+    final parsedCameraUri = rawCameraUrl == null ? null : Uri.tryParse('$rawCameraUrl');
+    final cameraUrl = parsedCameraUri != null && (parsedCameraUri.scheme == 'http' || parsedCameraUri.scheme == 'https') ? parsedCameraUri.toString() : null;
+
+    final technology = '${_first([p['technology'], p['tecnologia'], machine.integrationMeta['impressora3d'] is Map ? (machine.integrationMeta['impressora3d'] as Map)['technology'] : null, machine.type]) ?? 'Universal'}';
+    final mode = _mode(technology);
+    final labels = _labels(mode);
+    final ecosystem = '${_first([p['ecosystem'], p['ecossistema'], p['platform'], machine.protocol]) ?? 'Universal'}';
+    final state = '${_first([p['state'], p['status'], job['state'], machine.status]) ?? 'Aguardando dados'}'.replaceAll('_', ' ');
+    final file = '${_first([p['filename'], p['file'], job['filename'], job['file']]) ?? 'Sem arquivo'}';
+    final progressRaw = _first([p['progress'], job['progress']]);
+    final progressNumber = _number(progressRaw);
+    final progress = ((progressNumber ?? 0) >= 0 && (progressNumber ?? 0) <= 1 ? (progressNumber ?? 0) * 100 : (progressNumber ?? 0)).clamp(0, 100).toDouble();
+
+    final primaryCurrent = mode == 'resin'
+        ? _first([processTemperature['current'], processTemperature['actual'], p['resinTemperature'], chamber['current'], chamber['actual']])
+        : mode == 'powder'
+            ? _first([processTemperature['current'], processTemperature['actual'], p['powderTemperature'], chamber['current']])
+            : _first([nozzle['current'], nozzle['actual'], nozzle['temperature'], p['nozzleTemp'], p['hotendTemp']]);
+    final primaryTarget = mode == 'resin'
+        ? _first([processTemperature['target'], processTemperature['setpoint'], p['resinTarget'], chamber['target']])
+        : mode == 'powder'
+            ? _first([processTemperature['target'], processTemperature['setpoint'], p['powderTarget'], chamber['target']])
+            : _first([nozzle['target'], nozzle['setpoint'], p['nozzleTarget'], p['hotendTarget']]);
+
+    final flowLabel = mode == 'resin' ? 'Elevação / lift' : mode == 'powder' ? 'Alimentação de pó' : 'Fluxo';
+    final flowValue = mode == 'resin'
+        ? (_number(_first([p['liftSpeed'], process['liftSpeed']])) == null ? '--' : '${_number(_first([p['liftSpeed'], process['liftSpeed']]))!.toStringAsFixed(1)} mm/s')
+        : mode == 'powder'
+            ? _percent(_first([p['powderFeedPercent'], p['powderFeed'], process['powderFeedPercent']]))
+            : _percent(_first([p['flowPercent'], p['flow'], process['flowPercent']]));
+    final processLabel = mode == 'resin' ? 'Exposição / UV' : mode == 'powder' ? 'Potência laser' : 'Potência / carga';
+    final exposure = _number(_first([p['exposureSeconds'], p['exposureTime'], process['exposureSeconds'], process['exposureTime']]));
+    final processValue = mode == 'resin'
+        ? exposure != null ? '${exposure.toStringAsFixed(exposure % 1 == 0 ? 0 : 1)} s' : _percent(_first([p['uvPowerPercent'], p['uvPower'], process['uvPowerPercent']]))
+        : mode == 'powder'
+            ? _percent(_first([p['laserPowerPercent'], p['laserPower'], process['laserPowerPercent']]))
+            : _percent(_first([p['powerPercent'], p['power'], process['powerPercent']]));
+
+    final material = _first([p['material'] is String ? p['material'] : null, p['filament'], p['resin'] is String ? p['resin'] : null, job['material'], materialInfo['type'], materialInfo['name']]);
+    final materialUsed = _first([p['materialUsed'], p['filamentUsed'], p['resinUsed'], job['materialUsed'], materialInfo['used']]);
+    final materialRemaining = _first([p['materialRemaining'], p['filamentRemaining'], p['resinRemaining'], materialInfo['remaining'], materialInfo['remainingPercent']]);
+    final alarm = _first([p['alarm'], p['error'], p['message'], safety['alarm'], safety['error']]);
+    final doorOpen = _first([p['doorOpen'], safety['doorOpen']]) == true || '${_first([p['door'], safety['door']])}'.toLowerCase() == 'open';
+    final emergency = _first([p['emergency'], p['emergencyStop'], safety['emergency'], safety['emergencyStop']]) == true;
+    final safetyText = emergency ? 'Emergência ativa' : doorOpen ? 'Porta / tampa aberta' : alarm != null ? '$alarm' : 'Nenhum alarme informado';
+
+    final axisItems = <({String label, String value})>[
+      (label: 'X', value: _axis(_first([position['x'], p['x'], p['axisX']]))),
+      (label: 'Y', value: _axis(_first([position['y'], p['y'], p['axisY']]))),
+      (label: 'Z', value: _axis(_first([position['z'], p['z'], p['axisZ']]))),
+      (label: 'E', value: _axis(_first([position['e'], position['extruder'], p['e'], p['axisE']]))),
+    ];
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final border = scheme.outlineVariant;
+    final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
+    final accent = SteelColors.industrialAccent;
+    final statusColor = machine.isOnline ? SteelColors.success : SteelColors.warning;
+    final printing = state.toLowerCase().contains('print') || state.toLowerCase().contains('imprim');
+
+    Widget cameraPanel() {
+      return _HmiPanel(
+        title: 'VISÃO REMOTA',
+        subtitle: cameraUrl == null ? 'Câmera não informada pelo Edge' : 'Câmera da impressão',
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF0C1114) : const Color(0xFFF0F3F4),
+              border: Border.all(color: border),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: cameraUrl == null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.videocam_off_outlined,
+                          color: muted,
+                          size: 34,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sem câmera configurada',
+                          style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                        ),
+                      ],
+                    ),
+                  )
+                : Image.network(
+                    cameraUrl,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.broken_image_outlined,
+                            color: SteelColors.warning,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Câmera indisponível',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      );
+    }
+
+    Widget jobPanel() {
+      final jobItems = <({String label, String value})>[
+        (
+          label: 'Camada',
+          value:
+              '${_text(_first([layer['current'], layer['number'], p['currentLayer']]))} / ${_text(_first([layer['total'], p['totalLayers']]))}'
+        ),
+        (
+          label: 'Decorrido',
+          value: _duration(_first([p['elapsedSeconds'], p['elapsed'], job['elapsedSeconds']]))
+        ),
+        (
+          label: 'Restante',
+          value: _duration(_first([p['remainingSeconds'], p['remaining'], job['remainingSeconds']]))
+        ),
+        (label: 'Tecnologia', value: labels.mode),
+      ];
+
+      return _HmiPanel(
+        title: 'TRABALHO ATUAL',
+        subtitle: file,
+        trailing: Text(
+          _percent(progress),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: accent,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress / 100,
+                minHeight: 9,
+                backgroundColor:
+                    dark ? const Color(0xFF0F1518) : const Color(0xFFE3E8EA),
+                color: accent,
+              ),
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final count = constraints.maxWidth >= 620 ? 4 : 2;
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: count,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: count == 4 ? 2.15 : 2.0,
+                  children: jobItems
+                      .map((item) => _HmiValueBox(label: item.label, value: item.value))
+                      .toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    final thermalPanel = _HmiPanel(
+      title: 'PROCESSO TÉRMICO',
+      subtitle: 'Temperaturas específicas da impressora',
+      child: Column(
+        children: [
+          _HmiThermal(
+            label: labels.primary,
+            current: _temp(primaryCurrent),
+            target: 'Alvo: ${_temp(primaryTarget)}',
+            icon: Icons.thermostat_rounded,
+          ),
+          const SizedBox(height: 8),
+          _HmiThermal(
+            label: labels.bed,
+            current: _temp(_first([
+              bed['current'],
+              bed['actual'],
+              bed['temperature'],
+              p['bedTemp'],
+            ])),
+            target:
+                'Alvo: ${_temp(_first([bed['target'], bed['setpoint'], p['bedTarget']]))}',
+            icon: Icons.grid_4x4_rounded,
+          ),
+          const SizedBox(height: 8),
+          _HmiThermal(
+            label: labels.chamber,
+            current: _temp(_first([
+              chamber['current'],
+              chamber['actual'],
+              chamber['temperature'],
+              p['chamberTemp'],
+              p['ambientTemp'],
+            ])),
+            target:
+                'Alvo: ${_temp(_first([chamber['target'], chamber['setpoint'], p['chamberTarget']]))}',
+            icon: Icons.inventory_2_outlined,
+          ),
+        ],
+      ),
+    );
+
+    final parametersPanel = _HmiPanel(
+      title: 'PARÂMETROS DE IMPRESSÃO',
+      subtitle: 'Processo em tempo real',
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final count = c.maxWidth >= 520 ? 3 : 2;
+          final items = <({IconData icon, String label, String value})>[
+            (
+              icon: Icons.speed_rounded,
+              label: 'Velocidade',
+              value: _percent(_first([
+                p['speedPercent'],
+                p['speed'],
+                process['speedPercent'],
+              ])),
+            ),
+            (
+              icon: Icons.air_rounded,
+              label: 'Ventoinha',
+              value: _percent(_first([
+                p['fanPercent'],
+                p['fan'],
+                process['fanPercent'],
+              ])),
+            ),
+            (icon: Icons.water_drop_outlined, label: flowLabel, value: flowValue),
+            (icon: Icons.bolt_rounded, label: processLabel, value: processValue),
+            (icon: Icons.category_outlined, label: 'Material', value: _text(material)),
+            (
+              icon: Icons.inventory_2_outlined,
+              label: 'Restante',
+              value: _text(materialRemaining),
+            ),
+          ];
+          return GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: count,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: count == 3 ? 1.7 : 1.65,
+            children: items
+                .map(
+                  (item) => _HmiProcessValue(
+                    icon: item.icon,
+                    label: item.label,
+                    value: item.value,
+                  ),
+                )
+                .toList(),
+          );
+        },
+      ),
+    );
+
+    final machinePanel = _HmiPanel(
+      title: 'IHM DA MÁQUINA',
+      subtitle: labels.mode,
+      child: _PrinterMimic(state: state, printing: printing),
+    );
+
+    final axesPanel = _HmiPanel(
+      title: 'POSIÇÃO DOS EIXOS',
+      subtitle: 'Coordenadas recebidas',
+      child: Row(
+        children: axisItems
+            .map(
+              (item) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _HmiAxis(label: item.label, value: item.value),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    final connectionPanel = _HmiPanel(
+      title: 'CONEXÃO',
+      subtitle: 'Integração da impressora',
+      child: Column(
+        children: [
+          _HmiInfoRow(label: 'Ecossistema', value: ecosystem),
+          _HmiInfoRow(
+            label: 'Fonte',
+            value: _text(_first([p['source'], p['origin'], machine.protocol])),
+          ),
+          _HmiInfoRow(
+            label: 'Firmware',
+            value: _text(_first([p['firmware'], p['firmwareVersion']])),
+          ),
+          _HmiInfoRow(
+            label: 'Host / IP',
+            value: _text(_first([p['host'], p['hostname'], p['ip']])),
+          ),
+          _HmiInfoRow(label: 'Material usado', value: _text(materialUsed)),
+        ],
+      ),
+    );
+
+    final safetyPanel = Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: emergency
+            ? SteelColors.danger.withValues(alpha: .08)
+            : doorOpen || alarm != null
+                ? SteelColors.warning.withValues(alpha: .08)
+                : SteelColors.success.withValues(alpha: .08),
+        border: Border.all(
+          color: emergency
+              ? SteelColors.danger.withValues(alpha: .40)
+              : doorOpen || alarm != null
+                  ? SteelColors.warning.withValues(alpha: .40)
+                  : SteelColors.success.withValues(alpha: .35),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.shield_outlined,
+            size: 22,
+            color: emergency
+                ? SteelColors.danger
+                : doorOpen || alarm != null
+                    ? SteelColors.warning
+                    : SteelColors.success,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SEGURANÇA / INTERTRAVAMENTO',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: muted,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .55,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  safetyText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: dark
+            ? const []
+            : const [
+                BoxShadow(
+                  color: Color(0x120F1418),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              border: Border(bottom: BorderSide(color: border)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: .10),
+                    border: Border.all(color: accent.withValues(alpha: .28)),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(
+                    Icons.view_in_ar_rounded,
+                    color: SteelColors.industrialAccent,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'IHM • PRODUÇÃO ADITIVA',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .8,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Impressora 3D',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$technology • $ecosystem • IHM dedicada',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _HmiBadge(
+                  icon: Icons.circle,
+                  label: state,
+                  color: statusColor,
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 820) {
+                      return Column(
+                        children: [
+                          jobPanel(),
+                          const SizedBox(height: 12),
+                          cameraPanel(),
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 5, child: jobPanel()),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 4, child: cameraPanel()),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 820) {
+                      return Column(
+                        children: [
+                          thermalPanel,
+                          const SizedBox(height: 12),
+                          parametersPanel,
+                          const SizedBox(height: 12),
+                          machinePanel,
+                          const SizedBox(height: 12),
+                          axesPanel,
+                          const SizedBox(height: 12),
+                          connectionPanel,
+                          const SizedBox(height: 12),
+                          safetyPanel,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 5,
+                          child: Column(
+                            children: [
+                              thermalPanel,
+                              const SizedBox(height: 12),
+                              parametersPanel,
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 4,
+                          child: Column(
+                            children: [
+                              machinePanel,
+                              const SizedBox(height: 12),
+                              axesPanel,
+                              const SizedBox(height: 12),
+                              connectionPanel,
+                              const SizedBox(height: 12),
+                              safetyPanel,
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: SteelColors.industrialAccent,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'IHM exclusiva para impressoras 3D. Adapta-se a FDM/FFF, SLA/MSLA/DLP, SLS e controladores proprietários. Campos sem telemetria permanecem como “--”.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiBadge extends StatelessWidget {
+  const _HmiBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final border = theme.colorScheme.outlineVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 11),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: dark ? Colors.white : SteelColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiPanel extends StatelessWidget {
+  const _HmiPanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .55,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                trailing!,
+              ],
+            ],
+          ),
+          const SizedBox(height: 11),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiValueBox extends StatelessWidget {
+  const _HmiValueBox({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiThermal extends StatelessWidget {
+  const _HmiThermal({
+    required this.label,
+    required this.current,
+    required this.target,
+    required this.icon,
+  });
+
+  final String label;
+  final String current;
+  final String target;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: SteelColors.industrialAccent.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              icon,
+              color: SteelColors.industrialAccent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  current,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  target,
+                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiProcessValue extends StatelessWidget {
+  const _HmiProcessValue({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: SteelColors.industrialAccent,
+            size: 18,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiAxis extends StatelessWidget {
+  const _HmiAxis({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: SteelColors.industrialAccent,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            'mm',
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HmiInfoRow extends StatelessWidget {
+  const _HmiInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(color: muted),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrinterMimic extends StatelessWidget {
+  const _PrinterMimic({required this.state, required this.printing});
+
+  final String state;
+  final bool printing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final border = theme.colorScheme.outlineVariant;
+    final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
+
+    return Column(
+      children: [
+        Container(
+          height: 155,
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF0D1316) : const Color(0xFFF0F3F4),
+            border: Border.all(color: border, width: 1.5),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 14,
+                right: 14,
+                top: 33,
+                child: Container(
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: dark
+                        ? const Color(0xFF53626A)
+                        : const Color(0xFFAAB5BA),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 30,
+                right: 30,
+                bottom: 24,
+                child: Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: dark
+                        ? const Color(0xFF526067)
+                        : const Color(0xFFADB7BC),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 70,
+                right: 70,
+                bottom: 34,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                    4,
+                    (_) => Container(
+                      height: 5,
+                      margin: const EdgeInsets.only(top: 3),
+                      decoration: BoxDecoration(
+                        color: SteelColors.industrialAccent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: printing ? 115 : 82,
+                top: 40,
+                child: Container(
+                  width: 34,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    border: Border.all(color: border),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      color: SteelColors.industrialAccent,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                state,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.circle,
+              color: printing ? SteelColors.industrialAccent : SteelColors.success,
+              size: 8,
+            ),
+            const SizedBox(width: 2),
+            Text(
+              printing ? 'Em impressão' : 'Pronta',
+              style: theme.textTheme.bodySmall?.copyWith(color: muted),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -927,8 +2133,18 @@ class DobotPanel extends StatelessWidget {
   final Machine machine;
 
   dynamic _extra(String group, String key) {
-    final value = machine.extraData[group];
-    return value is Map ? value[key] : null;
+    final root = machine.extraData;
+    final nestedDobot = root['dobot'];
+    final source = nestedDobot is Map ? nestedDobot : root;
+    final value = source[group];
+    if (value is! Map) return null;
+    return value[key] ?? value[key.toUpperCase()];
+  }
+
+  String _dobotNumber(dynamic value) {
+    if (value == null) return '--';
+    final number = value is num ? value.toDouble() : double.tryParse('$value');
+    return number == null ? '$value' : number.toStringAsFixed(2);
   }
 
   @override
@@ -947,40 +2163,195 @@ class DobotPanel extends StatelessWidget {
               icon: Icons.my_location_rounded,
               title: strings.get('endEffectorPosition'),
               labels: axes,
-              values: axes
-                  .map((item) => '${_extra('pose', item.toLowerCase()) ?? '--'}')
-                  .toList(),
+              values: axes.map((item) => _dobotNumber(_extra('pose', item.toLowerCase()))).toList(),
               unit: ['mm', 'mm', 'mm', '°'],
             );
             final joint = _DobotValuesCard(
               icon: Icons.hub_outlined,
               title: strings.get('jointAngles'),
               labels: joints,
-              values: joints
-                  .map((item) => '${_extra('joints', item.toLowerCase()) ?? '--'}')
-                  .toList(),
+              values: joints.map((item) => _dobotNumber(_extra('joints', item.toLowerCase()))).toList(),
               unit: const ['°', '°', '°', '°'],
             );
             if (wide) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: pose),
-                  const SizedBox(width: 12),
-                  Expanded(child: joint),
-                ],
+                children: [Expanded(child: pose), const SizedBox(width: 12), Expanded(child: joint)],
               );
             }
-            return Column(
-              children: [
-                pose,
-                const SizedBox(height: 12),
-                joint,
-              ],
-            );
+            return Column(children: [pose, const SizedBox(height: 12), joint]);
           },
         ),
         const SizedBox(height: 12),
+        _DobotControlModePanel(controller: controller, machine: machine),
+      ],
+    );
+  }
+}
+
+class _DobotControlModePanel extends StatefulWidget {
+  const _DobotControlModePanel({required this.controller, required this.machine});
+  final AppController controller;
+  final Machine machine;
+
+  @override
+  State<_DobotControlModePanel> createState() => _DobotControlModePanelState();
+}
+
+class _DobotControlModePanelState extends State<_DobotControlModePanel> {
+  bool _automaticMode = false;
+  bool _automaticRunning = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionCard(
+          accent: true,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const _DobotIconBox(icon: Icons.settings_suggest_outlined),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Modo de operação', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        SizedBox(height: 2),
+                        Text('Manual para ajuste e ensino; automático para o ciclo industrial.', style: TextStyle(color: SteelColors.muted, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _automaticRunning ? SteelColors.warning.withValues(alpha: .10) : SteelColors.success.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      _automaticRunning ? 'MANUAL INTERTRAVADO' : 'PRONTO',
+                      style: TextStyle(color: _automaticRunning ? SteelColors.warning : SteelColors.success, fontSize: 9, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModeButton(
+                      active: !_automaticMode,
+                      enabled: !_automaticRunning,
+                      icon: Icons.pan_tool_alt_outlined,
+                      title: 'MANUAL',
+                      subtitle: 'PTP, HOME e efetuador',
+                      onTap: () => setState(() => _automaticMode = false),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ModeButton(
+                      active: _automaticMode,
+                      enabled: true,
+                      icon: Icons.autorenew_rounded,
+                      title: 'AUTOMÁTICO',
+                      subtitle: 'Pick-and-place',
+                      onTap: () => setState(() => _automaticMode = true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        IndexedStack(
+          index: _automaticMode ? 1 : 0,
+          children: [
+            _DobotManualControls(controller: widget.controller, machine: widget.machine),
+            _DobotAutomaticPanel(
+              controller: widget.controller,
+              machine: widget.machine,
+              onRunningChanged: (running) {
+                if (!mounted || _automaticRunning == running) return;
+                setState(() => _automaticRunning = running);
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({required this.active, required this.enabled, required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final bool active;
+  final bool enabled;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: active
+          ? SteelColors.industrialAccent.withValues(alpha: .10)
+          : dark ? const Color(0xFF20282D) : const Color(0xFFF7F8F8),
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(11),
+        child: AnimatedOpacity(
+          opacity: enabled ? 1 : .5,
+          duration: const Duration(milliseconds: 150),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: active ? SteelColors.industrialAccent : dark ? SteelColors.borderDark : SteelColors.border),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: SteelColors.industrialAccent),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+                      Text(subtitle, style: const TextStyle(color: SteelColors.muted, fontSize: 9)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DobotManualControls extends StatelessWidget {
+  const _DobotManualControls({required this.controller, required this.machine});
+  final AppController controller;
+  final Machine machine;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         SectionCard(
           accent: true,
           padding: const EdgeInsets.all(16),
@@ -989,125 +2360,41 @@ class DobotPanel extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _DobotIconBox(icon: Icons.tune_rounded),
+                  const _DobotIconBox(icon: Icons.tune_rounded),
                   const SizedBox(width: 11),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          strings.get('supervisedControl'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
+                        Text(strings.get('supervisedControl'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 2),
-                        Text(
-                          strings.get('secureQueueCaption'),
-                          style: const TextStyle(
-                            color: SteelColors.muted,
-                            fontSize: 12,
-                          ),
-                        ),
+                        Text(strings.get('secureQueueCaption'), style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
                       ],
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: SteelColors.success.withValues(alpha: .08),
-                      border: Border.all(color: SteelColors.success.withValues(alpha: .24)),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.lock_outline_rounded, size: 14, color: SteelColors.success),
-                        const SizedBox(width: 6),
-                        Text(
-                          strings.get('safeQueue'),
-                          style: const TextStyle(
-                            color: SteelColors.success,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
+                    decoration: BoxDecoration(color: SteelColors.success.withValues(alpha: .08), border: Border.all(color: SteelColors.success.withValues(alpha: .24)), borderRadius: BorderRadius.circular(9)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.lock_open_rounded, size: 14, color: SteelColors.success), const SizedBox(width: 6), Text(strings.get('safeQueue'), style: const TextStyle(color: SteelColors.success, fontWeight: FontWeight.w700, fontSize: 11))]),
                   ),
                 ],
               ),
               const SizedBox(height: 15),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final columns = constraints.maxWidth >= 820
-                      ? 4
-                      : constraints.maxWidth >= 560
-                          ? 3
-                          : 2;
+                  final columns = constraints.maxWidth >= 820 ? 4 : constraints.maxWidth >= 560 ? 3 : 2;
                   final itemWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
                   return Wrap(
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: 'HOME',
-                        command: 'DOBOT_HOME',
-                        icon: Icons.home_outlined,
-                        controller: controller,
-                        machine: machine,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('stop'),
-                        command: 'DOBOT_STOP',
-                        icon: Icons.stop_circle_outlined,
-                        controller: controller,
-                        machine: machine,
-                        danger: true,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('clearAlarms'),
-                        command: 'DOBOT_CLEAR_ALARMS',
-                        icon: Icons.notifications_off_outlined,
-                        controller: controller,
-                        machine: machine,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('suctionOn'),
-                        command: 'DOBOT_SUCTION_ON',
-                        icon: Icons.air_rounded,
-                        controller: controller,
-                        machine: machine,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('suctionOff'),
-                        command: 'DOBOT_SUCTION_OFF',
-                        icon: Icons.air_outlined,
-                        controller: controller,
-                        machine: machine,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('openGripper'),
-                        command: 'DOBOT_GRIPPER_OPEN',
-                        icon: Icons.open_with_rounded,
-                        controller: controller,
-                        machine: machine,
-                      ),
-                      _DobotCommandTile(
-                        width: itemWidth,
-                        label: strings.get('closeGripper'),
-                        command: 'DOBOT_GRIPPER_CLOSE',
-                        icon: Icons.compress_rounded,
-                        controller: controller,
-                        machine: machine,
-                      ),
+                      _DobotCommandTile(width: itemWidth, label: 'HOME', command: 'DOBOT_HOME', icon: Icons.home_outlined, controller: controller, machine: machine),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('stop'), command: 'DOBOT_STOP', icon: Icons.stop_circle_outlined, controller: controller, machine: machine, danger: true),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('clearAlarms'), command: 'DOBOT_CLEAR_ALARMS', icon: Icons.notifications_off_outlined, controller: controller, machine: machine),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('suctionOn'), command: 'DOBOT_SUCTION_ON', icon: Icons.air_rounded, controller: controller, machine: machine),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('suctionOff'), command: 'DOBOT_SUCTION_OFF', icon: Icons.air_outlined, controller: controller, machine: machine),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('openGripper'), command: 'DOBOT_GRIPPER_OPEN', icon: Icons.open_with_rounded, controller: controller, machine: machine),
+                      _DobotCommandTile(width: itemWidth, label: strings.get('closeGripper'), command: 'DOBOT_GRIPPER_CLOSE', icon: Icons.compress_rounded, controller: controller, machine: machine),
                     ],
                   );
                 },
@@ -1120,6 +2407,382 @@ class DobotPanel extends StatelessWidget {
       ],
     );
   }
+}
+
+class _DobotAutomaticPanel extends StatefulWidget {
+  const _DobotAutomaticPanel({required this.controller, required this.machine, required this.onRunningChanged});
+  final AppController controller;
+  final Machine machine;
+  final ValueChanged<bool> onRunningChanged;
+
+  @override
+  State<_DobotAutomaticPanel> createState() => _DobotAutomaticPanelState();
+}
+
+class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
+  final Map<String, Map<String, double>> _points = {};
+  double _speed = 15;
+  int _cycles = 1;
+  int _completed = 0;
+  bool _running = false;
+  bool _paused = false;
+  bool _stopRequested = false;
+  String _status = 'Pronto para ensinar';
+  String _step = 'Capture P0 a P4 usando a posição real do robô.';
+  double _progress = 0;
+
+  static const _labels = <String, String>{
+    'P0': 'Espera',
+    'P1': 'Acima da peça',
+    'P2': 'Coleta',
+    'P3': 'Acima do destino',
+    'P4': 'Entrega',
+  };
+
+  Machine get _latestMachine => widget.controller.selectedMachine?.id == widget.machine.id ? widget.controller.selectedMachine! : widget.machine;
+
+  Map<String, double>? _poseOf(Machine machine) {
+    final root = machine.extraData;
+    final nested = root['dobot'];
+    final source = nested is Map ? nested : root;
+    final pose = source['pose'];
+    if (pose is! Map) return null;
+    final result = <String, double>{};
+    for (final key in const ['x', 'y', 'z', 'r']) {
+      final raw = pose[key] ?? pose[key.toUpperCase()];
+      final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
+      if (value == null) return null;
+      result[key] = value;
+    }
+    return result;
+  }
+
+  Future<Map<String, double>?> _refreshPose() async {
+    final machine = await widget.controller.machinesApi.find(widget.machine.id);
+    widget.controller.replaceSelectedMachine(machine);
+    return _poseOf(machine);
+  }
+
+  String _fmt(Map<String, double>? pose) {
+    if (pose == null) return 'Não ensinado';
+    return 'X ${pose['x']!.toStringAsFixed(1)}  Y ${pose['y']!.toStringAsFixed(1)}\nZ ${pose['z']!.toStringAsFixed(1)}  R ${pose['r']!.toStringAsFixed(1)}';
+  }
+
+  Future<void> _capture(String point) async {
+    if (_running) return;
+    try {
+      final pose = _poseOf(_latestMachine) ?? await _refreshPose();
+      if (pose == null) throw const ApiException('A posição atual do Dobot ainda não está disponível.');
+      if (!mounted) return;
+      setState(() {
+        _points[point] = Map<String, double>.from(pose);
+        _status = '$point • ${_labels[point]} ensinado';
+      });
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+    }
+  }
+
+  bool _reached(Map<String, double>? actual, Map<String, double> target) {
+    if (actual == null) return false;
+    return (actual['x']! - target['x']!).abs() <= 3 &&
+        (actual['y']! - target['y']!).abs() <= 3 &&
+        (actual['z']! - target['z']!).abs() <= 3 &&
+        (actual['r']! - target['r']!).abs() <= 4;
+  }
+
+  Future<void> _waitPaused() async {
+    while (_running && _paused && !_stopRequested) {
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+    if (_stopRequested) throw const _DobotCycleStopped();
+  }
+
+  Future<void> _move(String point) async {
+    await _waitPaused();
+    final target = _points[point];
+    if (target == null) throw ApiException('$point ainda não foi ensinado.');
+    final queued = await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, 'DOBOT_PTP', {
+      ...target,
+      'velocidade': _speed.round(),
+    });
+    final command = queued['comando'];
+    final commandId = command is Map ? int.tryParse('${command['id']}') : null;
+    if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
+    final deadline = DateTime.now().add(const Duration(seconds: 40));
+    while (DateTime.now().isBefore(deadline)) {
+      if (_stopRequested) throw const _DobotCycleStopped();
+      final statusData = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
+      final status = '${statusData['status'] ?? ''}'.toUpperCase();
+      if (status == 'CONCLUIDO') {
+        final actual = await _refreshPose();
+        if (_reached(actual, target)) return;
+        throw ApiException('$point foi processado pelo Edge, mas a posição recebida não confirmou o alvo.');
+      }
+      if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') {
+        throw ApiException('O Edge informou ${status.toLowerCase()} para o movimento. Consulte Diagnóstico / logs.');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+    }
+    throw const ApiException('O Edge não confirmou a execução do movimento dentro do tempo esperado.');
+  }
+
+  Future<void> _command(String command) async {
+    await _waitPaused();
+    final queued = await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, command);
+    final item = queued['comando'];
+    final commandId = item is Map ? int.tryParse('${item['id']}') : null;
+    if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
+    while (DateTime.now().isBefore(deadline)) {
+      if (_stopRequested) throw const _DobotCycleStopped();
+      final statusData = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
+      final status = '${statusData['status'] ?? ''}'.toUpperCase();
+      if (status == 'CONCLUIDO') return;
+      if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') throw ApiException('O Edge informou ${status.toLowerCase()} para $command.');
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+    }
+    throw ApiException('O Edge não confirmou $command dentro do tempo esperado.');
+  }
+
+  Future<void> _setStep(String label, double progress) async {
+    if (!mounted) return;
+    setState(() {
+      _step = label;
+      _progress = progress.clamp(0.0, 1.0).toDouble();
+    });
+  }
+
+  Future<void> _start() async {
+    if (_running) return;
+    final missing = _labels.keys.where((point) => !_points.containsKey(point)).toList();
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ensine todos os pontos antes de iniciar. Faltam: ${missing.join(', ')}.')));
+      return;
+    }
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Iniciar ciclo automático?'),
+        content: Text('Serão executados $_cycles ciclo(s) de pick-and-place a ${_speed.round()}%. Confirme que P0–P4 estão livres de colisão e que a área do Dobot está desimpedida.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('INICIAR')),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+
+    setState(() {
+      _running = true;
+      _paused = false;
+      _stopRequested = false;
+      _completed = 0;
+      _progress = 0;
+      _status = 'Ciclo em execução';
+      _step = 'Preparando sequência';
+    });
+    widget.onRunningChanged(true);
+
+    final sequence = <MapEntry<String, Future<void> Function()>>[
+      MapEntry('Ir para espera', () => _move('P0')),
+      MapEntry('Aproximar da peça', () => _move('P1')),
+      MapEntry('Descer para coleta', () => _move('P2')),
+      MapEntry('Fixar peça • Ventosa ON', () => _command('DOBOT_SUCTION_ON')),
+      MapEntry('Elevar peça', () => _move('P1')),
+      MapEntry('Transportar ao destino', () => _move('P3')),
+      MapEntry('Descer para entrega', () => _move('P4')),
+      MapEntry('Liberar peça • Ventosa OFF', () => _command('DOBOT_SUCTION_OFF')),
+      MapEntry('Recuar do destino', () => _move('P3')),
+      MapEntry('Retornar à espera', () => _move('P0')),
+    ];
+
+    try {
+      for (var cycle = 0; cycle < _cycles; cycle++) {
+        for (var index = 0; index < sequence.length; index++) {
+          if (_stopRequested) throw const _DobotCycleStopped();
+          await _waitPaused();
+          final item = sequence[index];
+          final current = cycle * sequence.length + index;
+          await _setStep(item.key, current / (_cycles * sequence.length));
+          if (mounted) setState(() => _status = 'Ciclo ${cycle + 1} de $_cycles');
+          await item.value();
+        }
+        if (mounted) {
+          setState(() {
+            _completed = cycle + 1;
+            _progress = _completed / _cycles;
+            _status = 'Ciclo $_completed concluído';
+          });
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _status = 'Sequência concluída';
+          _step = 'Pronto para novo ciclo';
+          _progress = 1;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$_completed ciclo(s) automático(s) concluído(s).')));
+      }
+    } on _DobotCycleStopped {
+      if (mounted) setState(() { _status = 'Parado pelo operador'; _step = 'Movimento interrompido'; });
+    } on ApiException catch (exception) {
+      try { await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, 'DOBOT_STOP'); } catch (_) {}
+      if (mounted) {
+        setState(() { _status = 'Ciclo interrompido'; _step = exception.message; });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _running = false; _paused = false; _stopRequested = false; });
+      }
+      widget.onRunningChanged(false);
+    }
+  }
+
+  Future<void> _stop() async {
+    if (!_running) return;
+    setState(() { _stopRequested = true; _paused = false; _status = 'Parando'; _step = 'Enviando DOBOT_STOP'; });
+    try {
+      await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, 'DOBOT_STOP');
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+    }
+  }
+
+  void _pause() {
+    if (!_running) return;
+    setState(() {
+      _paused = !_paused;
+      _status = _paused ? 'Pausado após a etapa atual' : 'Ciclo retomado';
+      _step = _paused ? 'Aguardando operador' : 'Retomando sequência';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SectionCard(
+      accent: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const _DobotIconBox(icon: Icons.precision_manufacturing_outlined),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ciclo automático industrial', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                    SizedBox(height: 2),
+                    Text('Ensine 5 pontos reais e execute um pick-and-place repetível.', style: TextStyle(color: SteelColors.muted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)),
+                child: Text(_status, style: const TextStyle(color: SteelColors.industrialAccent, fontSize: 9, fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 850 ? 5 : constraints.maxWidth >= 560 ? 2 : 1;
+              final width = columns == 1 ? constraints.maxWidth : (constraints.maxWidth - (columns - 1) * 9) / columns;
+              return Wrap(
+                spacing: 9,
+                runSpacing: 9,
+                children: _labels.entries.map((entry) {
+                  final taught = _points[entry.key];
+                  return SizedBox(
+                    width: width,
+                    child: Container(
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: taught != null ? SteelColors.success.withValues(alpha: dark ? .08 : .05) : dark ? const Color(0xFF20282D) : const Color(0xFFF7F8F8),
+                        border: Border.all(color: taught != null ? SteelColors.success.withValues(alpha: .35) : dark ? SteelColors.borderDark : SteelColors.border),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(children: [Text(entry.key, style: const TextStyle(color: SteelColors.industrialAccent, fontWeight: FontWeight.w900)), const SizedBox(width: 7), Expanded(child: Text(entry.value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 10)))]),
+                          const SizedBox(height: 7),
+                          Text(_fmt(taught), style: TextStyle(color: taught != null ? SteelColors.success : SteelColors.muted, fontSize: 9, height: 1.4)),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _running ? null : () => _capture(entry.key),
+                            icon: const Icon(Icons.my_location_rounded, size: 14),
+                            label: const Text('Capturar atual', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 580;
+              final cycles = DropdownButtonFormField<int>(
+                value: _cycles,
+                decoration: const InputDecoration(labelText: 'Repetições', isDense: true),
+                items: const [1, 2, 3, 5, 10].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
+                onChanged: _running ? null : (value) => setState(() => _cycles = value ?? 1),
+              );
+              final speed = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Velocidade automática • ${_speed.round()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
+                  Slider(value: _speed, min: 1, max: 40, divisions: 39, onChanged: _running ? null : (value) => setState(() => _speed = value)),
+                ],
+              );
+              if (compact) return Column(children: [cycles, const SizedBox(height: 10), speed]);
+              return Row(children: [SizedBox(width: 150, child: cycles), const SizedBox(width: 14), Expanded(child: speed)]);
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(children: [Expanded(child: Text(_step, style: const TextStyle(color: SteelColors.muted, fontSize: 10))), Text('$_completed / $_cycles', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10))]),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(value: _progress, minHeight: 7, borderRadius: BorderRadius.circular(10), color: SteelColors.industrialAccent),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 520;
+              final start = FilledButton.icon(
+                onPressed: _running ? null : _start,
+                style: FilledButton.styleFrom(backgroundColor: SteelColors.industrialAccent, foregroundColor: Colors.white, minimumSize: const Size(160, 46)),
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('INICIAR CICLO'),
+              );
+              final pause = OutlinedButton.icon(onPressed: _running ? _pause : null, icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded), label: Text(_paused ? 'CONTINUAR' : 'PAUSAR'));
+              final stop = FilledButton.icon(onPressed: _running ? _stop : null, style: FilledButton.styleFrom(backgroundColor: SteelColors.danger, foregroundColor: Colors.white), icon: const Icon(Icons.stop_rounded), label: const Text('PARAR'));
+              if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [start, const SizedBox(height: 8), pause, const SizedBox(height: 8), stop]);
+              return Row(children: [Expanded(child: start), const SizedBox(width: 8), Expanded(child: pause), const SizedBox(width: 8), Expanded(child: stop)]);
+            },
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(color: SteelColors.warning.withValues(alpha: .08), border: Border.all(color: SteelColors.warning.withValues(alpha: .22)), borderRadius: BorderRadius.circular(10)),
+            child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.warning_amber_rounded, color: SteelColors.warning, size: 18), SizedBox(width: 8), Expanded(child: Text('O automático bloqueia o modo manual durante o ciclo. PAUSAR atua entre etapas; PARAR envia DOBOT_STOP imediatamente. Ensine P0–P4 sem colisões e mantenha a área do braço livre.', style: TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.4)))]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DobotCycleStopped implements Exception {
+  const _DobotCycleStopped();
 }
 
 class _DobotIconBox extends StatelessWidget {
