@@ -122,6 +122,7 @@ class _HomeShellState extends State<HomeShell> {
             ),
             body: body,
             bottomNavigationBar: NavigationBar(
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               selectedIndex: _index,
               onDestinationSelected: (value) => setState(() => _index = value),
               destinations: items
@@ -131,7 +132,8 @@ class _HomeShellState extends State<HomeShell> {
           );
         }
 
-        final railExtended = constraints.maxWidth >= 1420;
+        final railExtended = constraints.maxWidth >= 760;
+        final railWidth = constraints.maxWidth >= 1200 ? 224.0 : 196.0;
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         final dark = theme.brightness == Brightness.dark;
@@ -144,7 +146,7 @@ class _HomeShellState extends State<HomeShell> {
             child: Row(
               children: [
                 Container(
-                  width: railExtended ? 224 : 88,
+                  width: railWidth,
                   margin: const EdgeInsets.fromLTRB(12, 12, 0, 12),
                   decoration: BoxDecoration(
                     color: railBackground,
@@ -166,7 +168,6 @@ class _HomeShellState extends State<HomeShell> {
                           child: SteelBrand(compact: !railExtended),
                         ),
                       ),
-                      Divider(height: 1, color: railBorder),
                       if (selected != null) ...[
                         const SizedBox(height: 10),
                         Padding(
@@ -297,14 +298,12 @@ class _HomeShellState extends State<HomeShell> {
                         child: NavigationRail(
                           extended: railExtended,
                           minWidth: 86,
-                          minExtendedWidth: 216,
+                          minExtendedWidth: railWidth - 2,
                           backgroundColor: Colors.transparent,
                           selectedIndex: _index,
                           onDestinationSelected: (value) => setState(() => _index = value),
                           groupAlignment: -0.82,
-                          labelType: railExtended
-                              ? NavigationRailLabelType.none
-                              : NavigationRailLabelType.selected,
+                          labelType: NavigationRailLabelType.none,
                           useIndicator: true,
                           indicatorColor: SteelColors.industrialAccent.withValues(alpha: dark ? .18 : .12),
                           selectedIconTheme: const IconThemeData(

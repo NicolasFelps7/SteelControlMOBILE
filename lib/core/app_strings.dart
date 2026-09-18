@@ -580,6 +580,8 @@ class AppStrings {
     'configuredStatus': ["Configurada", "Configured", "Configurada", "Configurée", "Konfiguriert", "Configurata"],
     'notConfiguredFeminine': ["Não configurada", "Not configured", "No configurada", "Non configurée", "Nicht konfiguriert", "Non configurata"],
     'waitingConnection': ["Aguardando conexão", "Waiting for connection", "Esperando conexión", "En attente de connexion", "Warten auf Verbindung", "In attesa di connessione"],
+    'hmiWaitingRealConnection': ["Aguardando conexão real", "Waiting for real connection", "Esperando conexión real", "En attente de connexion réelle", "Warten auf reale Verbindung", "In attesa della connessione reale"],
+    'hmiWaitingRealConnectionDetail': ["Aguardando conexão real e telemetria recente. O processo e todos os comandos permanecem parados.", "Waiting for a real connection and recent telemetry. The process and all commands remain stopped.", "Esperando conexión real y telemetría reciente. El proceso y todos los comandos permanecen detenidos.", "En attente d’une connexion réelle et d’une télémétrie récente. Le processus et toutes les commandes restent arrêtés.", "Warten auf eine reale Verbindung und aktuelle Telemetrie. Prozess und Befehle bleiben gestoppt.", "In attesa di una connessione reale e telemetria recente. Il processo e tutti i comandi restano fermi."],
     'failureStatus': ["Falha", "Failure", "Fallo", "Défaillance", "Fehler", "Guasto"],
     'criticalFeminine': ["Crítica", "Critical", "Crítica", "Critique", "Kritisch", "Critica"],
     'hmiConfirmRealStartTitle': ['Confirmar START remoto', 'Confirm remote START', 'Confirmar START remoto', 'Confirmer le START distant', 'Remote-START bestätigen', 'Conferma START remoto'],

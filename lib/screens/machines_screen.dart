@@ -52,7 +52,21 @@ class _MachinesScreenState extends State<MachinesScreen> {
     if (!mounted) return;
     final data = await showDialog<Map<String, dynamic>>(context: context, builder: (_) => _MachineDialog(machine: full));
     if (data == null) return;
-    await _run(() async { final result = await widget.controller.machinesApi.update(machine.id, data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) await _showKey('${result['deviceKey']}', machineId: machine.id); });
+    await _run(() async {
+      final result = await widget.controller.machinesApi.update(machine.id, data);
+      final rawUpdated = result['maquina'];
+      if (rawUpdated is Map) {
+        final updated = Machine.fromJson(Map<String, dynamic>.from(rawUpdated));
+        if (widget.controller.selectedMachine?.id == updated.id) {
+          widget.controller.replaceSelectedMachine(updated);
+        }
+      }
+      await widget.controller.loadMachines(notify: true);
+      _message('${result['mensagem'] ?? successMessage}');
+      if (result['deviceKey'] != null && mounted) {
+        await _showKey('${result['deviceKey']}', machineId: machine.id);
+      }
+    });
   }
   Future<void> _remove(Machine machine) async {
     final strings = AppStrings.of(context);
@@ -1059,11 +1073,30 @@ class _MachineDialogState extends State<_MachineDialog> {
 
   void _changeController(String value) {
     setState(() {
+      final previous = controller;
       controller = value;
+      if (value == 'IMPRESSORA_3D') {
+        equipmentType = 'Impressora 3D';
+      } else if (previous == 'IMPRESSORA_3D' && equipmentType == 'Impressora 3D') {
+        equipmentType = 'Outro';
+      }
       final recommended = recommendedProtocols[value];
       if (recommended != null && protocol.isEmpty) protocol = recommended;
       if (value == 'DOBOT_MAGICIAN') {
         protocol = 'USB_SERIAL';
+      }
+    });
+  }
+
+  void _changeEquipmentType(String value) {
+    setState(() {
+      equipmentType = value;
+      if (value == 'Impressora 3D') {
+        controller = 'IMPRESSORA_3D';
+        protocol = recommendedProtocols['IMPRESSORA_3D']!;
+      } else if (controller == 'IMPRESSORA_3D') {
+        controller = '';
+        protocol = '';
       }
     });
   }
@@ -1235,7 +1268,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                   const SizedBox(height: 12),
                   disclosure(title: identificationExpanded ? strings.get('hideDetails') : strings.get('additionalDetails'), caption: strings.get('operationalDescription'), icon: Icons.tune_rounded, expanded: identificationExpanded, onTap: () => setState(() => identificationExpanded = !identificationExpanded), child: Column(children: [
                     pair(
-                      DropdownButtonFormField<String>(key: ValueKey(equipmentType), initialValue: equipmentTypes.contains(equipmentType) ? equipmentType : 'Outro', decoration: InputDecoration(labelText: strings.get('equipmentType'), prefixIcon: const Icon(Icons.category_outlined)), items: equipmentTypes.map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? strings.get('configureLater') : strings.translate(value)))).toList(), onChanged: (value) => equipmentType = value ?? ''),
+                      DropdownButtonFormField<String>(key: ValueKey(equipmentType), initialValue: equipmentTypes.contains(equipmentType) ? equipmentType : 'Outro', decoration: InputDecoration(labelText: strings.get('equipmentType'), prefixIcon: const Icon(Icons.category_outlined)), items: equipmentTypes.map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? strings.get('configureLater') : strings.translate(value)))).toList(), onChanged: (value) => _changeEquipmentType(value ?? '')),
                       input('fabricante',strings.get('manufacturer'),icon:Icons.factory_outlined,hint:'ABB, KUKA, FANUC...'),
                     ),
                     const SizedBox(height: 12),

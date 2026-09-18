@@ -95,7 +95,8 @@ class Machine {
   bool get is3DPrinter {
     final c = (controller ?? '').trim().toUpperCase();
     final t = (type ?? '').trim().toUpperCase();
-    return c == 'IMPRESSORA_3D' || t.contains('IMPRESSORA 3D') || t.contains('3D PRINTER');
+    if (c.isNotEmpty && c != 'OUTRO') return c == 'IMPRESSORA_3D';
+    return t.contains('IMPRESSORA 3D') || t.contains('3D PRINTER');
   }
   bool get hasIndustrialHmi {
     final value = (controller ?? '').trim().toUpperCase();
@@ -127,7 +128,7 @@ class Machine {
       production: json.containsKey('producao') ? _int(json['producao']) : production,
       cycles: json.containsKey('ciclos') ? _int(json['ciclos']) : cycles,
       energy: json.containsKey('consumoEnergia') ? _double(json['consumoEnergia']) : energy,
-      simulation: json.containsKey('modoSimulacao') ? json['modoSimulacao'] != false : simulation,
+      simulation: json.containsKey('modoSimulacao') ? json['modoSimulacao'] == true : simulation,
       connection: nextConnection,
       safetyStop: json.containsKey('paradaSeguranca') ? json['paradaSeguranca'] == true : safetyStop,
       controller: json.containsKey('controlador') ? json['controlador']?.toString() : controller,
@@ -176,14 +177,14 @@ class Machine {
       sector: '${json['setor'] ?? '-'}',
       model: '${json['modelo'] ?? '-'}',
       code: '${json['codigo'] ?? '-'}',
-      status: '${json['status'] ?? 'Ligada'}',
+      status: '${json['status'] ?? 'Aguardando telemetria'}',
       temperature: _double(json['temperatura']),
       vibration: _double(json['vibracao']),
       current: _double(json['corrente']),
       production: _int(json['producao']),
       cycles: _int(json['ciclos']),
       energy: _double(json['consumoEnergia']),
-      simulation: json['modoSimulacao'] != false,
+      simulation: json['modoSimulacao'] == true,
       connection: _connection(json),
       safetyStop: json['paradaSeguranca'] == true,
       controller: json['controlador']?.toString(),

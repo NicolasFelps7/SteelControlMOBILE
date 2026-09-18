@@ -160,28 +160,31 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
     final simulation = _diagnostics.containsKey('modoSimulacao')
         ? _diagnostics['modoSimulacao'] == true
         : widget.machine.simulation;
-    final running = _boolFirst([
-      hmi['running'],
-      telemetryHmi['running'],
-      widget.machine.status.toLowerCase() == 'ligada',
-    ]);
-    final mode = '${hmi['mode'] ?? telemetryHmi['mode'] ?? 'AUTO'}'.toUpperCase();
+    final connectionCode = '${connection['codigo'] ?? widget.machine.connection}'.toUpperCase();
+    final connected = simulation || connectionCode == 'CONECTADA' || connectionCode == 'ONLINE';
+    final awaitingRealConnection = !simulation && !connected;
+    final running = simulation
+        ? _boolFirst([hmi['running'], telemetryHmi['running'], widget.machine.status.toLowerCase() == 'ligada'])
+        : connected && telemetryHmi['running'] == true;
+    final mode = awaitingRealConnection ? '--' : '${hmi['mode'] ?? telemetryHmi['mode'] ?? 'AUTO'}'.toUpperCase();
     final alarm = hmi['alarm'] == true || telemetryHmi['alarm'] == true || widget.machine.safetyStop;
-    final sensors = _map(hmi['sensors']).isNotEmpty ? _map(hmi['sensors']) : _map(telemetryHmi['sensors']);
-    final interlocks = _map(hmi['interlocks']).isNotEmpty
+    final sensors = awaitingRealConnection
+        ? <String, dynamic>{}
+        : _map(hmi['sensors']).isNotEmpty ? _map(hmi['sensors']) : _map(telemetryHmi['sensors']);
+    final interlocks = awaitingRealConnection
+        ? <String, dynamic>{}
+        : _map(hmi['interlocks']).isNotEmpty
         ? _map(hmi['interlocks'])
         : _map(telemetryHmi['interlocks']);
     final startPolicy = _map(hmi['startPolicy']);
     final remoteEnabled = simulation || hmi['remoteControlEnabled'] == true;
-    final connectionCode = '${connection['codigo'] ?? widget.machine.connection}'.toUpperCase();
-    final connected = simulation || connectionCode == 'CONECTADA' || connectionCode == 'ONLINE';
     final role = (widget.controller.session?.user.role ?? '').toUpperCase();
     final elevatedRole = role.contains('ADMIN') || role.contains('SUPERVISOR') || role.contains('TECNICO') || role.contains('TÉCNICO');
     final operatorRole = elevatedRole || role.contains('OPERADOR');
     final diagnosticsReady = hasDiagnostics && !_loading && _error == null;
     final commandsBase = diagnosticsReady && remoteEnabled && !_commandBusy;
     final startAllowed = commandsBase && elevatedRole && !running && !alarm && startPolicy['permitido'] == true && connected;
-    final stopAllowed = commandsBase && operatorRole;
+    final stopAllowed = commandsBase && operatorRole && connected;
     final ackAllowed = commandsBase && operatorRole && connected;
     final protectedAllowed = commandsBase && elevatedRole && connected;
     final controllerName = (widget.machine.controller ?? widget.machine.model).replaceAll('_', ' ');
@@ -190,14 +193,14 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
     String? blockedReason;
     if (!diagnosticsReady) {
       blockedReason = _error ?? strings.get('hmiWaitingDiagnostics');
+    } else if (awaitingRealConnection) {
+      blockedReason = strings.get('hmiWaitingRealConnection');
     } else if (!remoteEnabled) {
       blockedReason = strings.get('hmiRemoteDisabled');
     } else if (!elevatedRole) {
       blockedReason = strings.get('hmiRoleBlocksStart');
     } else if (alarm) {
       blockedReason = strings.get('hmiSafetyBlocked');
-    } else if (!connected) {
-      blockedReason = strings.get('hmiOfflineBlocksStart');
     } else if (startPolicy['permitido'] != true) {
       blockedReason = '${startPolicy['motivo'] ?? strings.get('hmiStartNotReleased')}';
     }
@@ -252,6 +255,8 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
             mode: mode,
             sensors: sensors,
             machine: widget.machine,
+            simulation: simulation,
+            connected: connected,
           ),
           const SizedBox(height: 16),
           LayoutBuilder(
@@ -265,10 +270,10 @@ class _IndustrialHmiPanelState extends State<IndustrialHmiPanel> {
                 mainAxisSpacing: 10,
                 mainAxisExtent: 96,
                 children: [
-                  _Metric(label: strings.get('totalProduction'), value: '${widget.machine.production}', icon: Icons.inventory_2_outlined),
-                  _Metric(label: strings.get('cycles'), value: '${widget.machine.cycles}', icon: Icons.sync_rounded),
-                  _Metric(label: strings.get('temperature'), value: '${widget.machine.temperature.toStringAsFixed(1)} °C', icon: Icons.thermostat_rounded),
-                  _Metric(label: strings.get('vibration'), value: '${widget.machine.vibration.toStringAsFixed(1)} mm/s', icon: Icons.vibration_rounded),
+                  _Metric(label: strings.get('totalProduction'), value: awaitingRealConnection ? '--' : '${widget.machine.production}', icon: Icons.inventory_2_outlined),
+                  _Metric(label: strings.get('cycles'), value: awaitingRealConnection ? '--' : '${widget.machine.cycles}', icon: Icons.sync_rounded),
+                  _Metric(label: strings.get('temperature'), value: awaitingRealConnection ? '--' : '${widget.machine.temperature.toStringAsFixed(1)} °C', icon: Icons.thermostat_rounded),
+                  _Metric(label: strings.get('vibration'), value: awaitingRealConnection ? '--' : '${widget.machine.vibration.toStringAsFixed(1)} mm/s', icon: Icons.vibration_rounded),
                 ],
               );
             },
@@ -492,7 +497,7 @@ class _Header extends StatelessWidget {
                     color: simulation ? SteelColors.primary : SteelColors.success,
                   ),
                   _Pill(
-                    label: connected ? strings.get('online') : strings.get('offline'),
+                    label: connected ? strings.get('online') : strings.get('hmiWaitingRealConnection'),
                     icon: connected ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
                     color: connected ? SteelColors.success : SteelColors.danger,
                   ),
@@ -535,14 +540,14 @@ class _SafetyBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
-    final (icon, color, text) = alarm
-        ? (Icons.warning_amber_rounded, SteelColors.danger, strings.get('hmiSafetyBlocked'))
-        : simulation
+    final (icon, color, text) = simulation
             ? (Icons.science_outlined, SteelColors.primary, strings.get('hmiSimulationCaption'))
-            : !remoteEnabled
-                ? (Icons.lock_outline_rounded, SteelColors.warning, strings.get('hmiRemoteDisabled'))
-                : !connected
-                    ? (Icons.cloud_off_outlined, SteelColors.warning, strings.get('hmiOfflineBlocksStart'))
+            : !connected
+                ? (Icons.cloud_off_outlined, SteelColors.warning, strings.get('hmiWaitingRealConnectionDetail'))
+                : alarm
+                    ? (Icons.warning_amber_rounded, SteelColors.danger, strings.get('hmiSafetyBlocked'))
+                : !remoteEnabled
+                    ? (Icons.lock_outline_rounded, SteelColors.warning, strings.get('hmiRemoteDisabled'))
                     : (Icons.verified_user_outlined, SteelColors.success, strings.get('hmiRealCaption'));
 
     return Container(
@@ -572,6 +577,8 @@ class _ProcessConsole extends StatelessWidget {
     required this.mode,
     required this.sensors,
     required this.machine,
+    required this.simulation,
+    required this.connected,
   });
 
   final bool running;
@@ -579,11 +586,16 @@ class _ProcessConsole extends StatelessWidget {
   final String mode;
   final Map<String, dynamic> sensors;
   final Machine machine;
+  final bool simulation;
+  final bool connected;
 
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
-    final runText = alarm
+    final awaitingRealConnection = !simulation && !connected;
+    final runText = awaitingRealConnection
+        ? strings.get('hmiWaitingRealConnection').toUpperCase()
+        : alarm
         ? strings.get('hmiBlockedState')
         : running
             ? strings.get('hmiRunningState')

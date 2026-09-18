@@ -159,6 +159,18 @@ class MachineService {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> sendPrinter3DCommand(
+    int id,
+    String command, [
+    Map<String, dynamic>? data,
+  ]) async {
+    final result = await client.post(
+      '/maquinas/$id/impressora3d/comandos',
+      body: {'comando': command, 'payload': data ?? <String, dynamic>{}},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   Future<List<Map<String, dynamic>>> discoveredDevices() async {
     final result = await client.get('/descoberta') as List;
     return result.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();

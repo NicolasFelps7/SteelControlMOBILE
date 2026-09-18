@@ -90,7 +90,12 @@ class OverviewSection extends StatelessWidget {
               if (machine.is3DPrinter)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-                  sliver: SliverToBoxAdapter(child: _Printer3DDashboard(machine: machine)),
+                  sliver: SliverToBoxAdapter(
+                    child: _Printer3DDashboard(
+                      controller: controller,
+                      machine: machine,
+                    ),
+                  ),
                 ),
               if (!machine.is3DPrinter)
                 SliverPadding(
@@ -248,7 +253,8 @@ class _MachineHero extends StatelessWidget {
 }
 
 class _Printer3DDashboard extends StatelessWidget {
-  const _Printer3DDashboard({required this.machine});
+  const _Printer3DDashboard({required this.controller, required this.machine});
+  final AppController controller;
   final Machine machine;
 
   dynamic _first(List<dynamic> values) {
@@ -265,6 +271,21 @@ class _Printer3DDashboard extends StatelessWidget {
   String _percent(dynamic value) { final n = _number(value); if (n == null) return '--'; final p = n >= 0 && n <= 1 ? n * 100 : n; return '${p.clamp(0, 100).round()}%'; }
   String _duration(dynamic value) { final n = _number(value); if (n == null || n < 0) return '--'; final seconds = n.round().clamp(0, 1 << 30); final h = seconds ~/ 3600; final m = (seconds % 3600) ~/ 60; final sec = seconds % 60; return h > 0 ? '${h}h ${m.toString().padLeft(2, '0')}m' : '${m}m ${sec.toString().padLeft(2, '0')}s'; }
   String _axis(dynamic value) { final n = _number(value); return n == null ? '--' : n.toStringAsFixed(1); }
+  String _time(dynamic value) {
+    if (value == null || '$value'.trim().isEmpty) return '--';
+    final parsed = DateTime.tryParse('$value');
+    return parsed == null ? '$value' : DateFormat('HH:mm:ss').format(parsed.toLocal());
+  }
+  String _eta(dynamic explicitValue, dynamic remainingValue) {
+    if (explicitValue != null && '$explicitValue'.trim().isNotEmpty) {
+      return _time(explicitValue);
+    }
+    final seconds = _number(remainingValue);
+    if (seconds == null || seconds < 0) return '--';
+    return DateFormat('HH:mm').format(
+      DateTime.now().add(Duration(seconds: seconds.round())),
+    );
+  }
 
   String _mode(String technology) {
     final value = technology.toLowerCase();
@@ -298,6 +319,7 @@ class _Printer3DDashboard extends StatelessWidget {
     final process = _map(p['process'] ?? p['parameters']);
     final materialInfo = _map(p['materialInfo'] ?? p['materialData']);
     final safety = _map(p['safety'] ?? p['interlocks']);
+    final capabilities = _map(p['capabilities'] ?? p['features']);
     final camera = _map(p['camera'] ?? p['webcam'] ?? p['video']);
     final rawCameraUrl = _first([camera['streamUrl'], camera['stream'], camera['snapshotUrl'], camera['snapshot'], camera['imageUrl'], p['cameraStreamUrl'], p['cameraSnapshotUrl']]);
     final parsedCameraUri = rawCameraUrl == null ? null : Uri.tryParse('$rawCameraUrl');
@@ -307,7 +329,11 @@ class _Printer3DDashboard extends StatelessWidget {
     final mode = _mode(technology);
     final labels = _labels(mode);
     final ecosystem = '${_first([p['ecosystem'], p['ecossistema'], p['platform'], machine.protocol]) ?? 'Universal'}';
-    final state = '${_first([p['state'], p['status'], job['state'], machine.status]) ?? 'Aguardando dados'}'.replaceAll('_', ' ');
+    // O status cadastral "Ligada" não deve ser usado como prova de conexão.
+    // Sem telemetria real, o painel inteiro comunica o mesmo estado offline.
+    final state = machine.isOnline
+        ? '${_first([p['state'], p['status'], job['state'], machine.status]) ?? 'Aguardando dados'}'.replaceAll('_', ' ')
+        : 'Aguardando telemetria';
     final file = '${_first([p['filename'], p['file'], job['filename'], job['file']]) ?? 'Sem arquivo'}';
     final progressRaw = _first([p['progress'], job['progress']]);
     final progressNumber = _number(progressRaw);
@@ -323,6 +349,25 @@ class _Printer3DDashboard extends StatelessWidget {
         : mode == 'powder'
             ? _first([processTemperature['target'], processTemperature['setpoint'], p['powderTarget'], chamber['target']])
             : _first([nozzle['target'], nozzle['setpoint'], p['nozzleTarget'], p['hotendTarget']]);
+    final bedCurrent = _first([
+      bed['current'],
+      bed['actual'],
+      bed['temperature'],
+      p['bedTemp'],
+    ]);
+    final bedTarget = _first([bed['target'], bed['setpoint'], p['bedTarget']]);
+    final chamberCurrent = _first([
+      chamber['current'],
+      chamber['actual'],
+      chamber['temperature'],
+      p['chamberTemp'],
+      p['ambientTemp'],
+    ]);
+    final chamberTarget = _first([
+      chamber['target'],
+      chamber['setpoint'],
+      p['chamberTarget'],
+    ]);
 
     final flowLabel = mode == 'resin' ? 'Elevação / lift' : mode == 'powder' ? 'Alimentação de pó' : 'Fluxo';
     final flowValue = mode == 'resin'
@@ -341,6 +386,14 @@ class _Printer3DDashboard extends StatelessWidget {
     final material = _first([p['material'] is String ? p['material'] : null, p['filament'], p['resin'] is String ? p['resin'] : null, job['material'], materialInfo['type'], materialInfo['name']]);
     final materialUsed = _first([p['materialUsed'], p['filamentUsed'], p['resinUsed'], job['materialUsed'], materialInfo['used']]);
     final materialRemaining = _first([p['materialRemaining'], p['filamentRemaining'], p['resinRemaining'], materialInfo['remaining'], materialInfo['remainingPercent']]);
+    final lastUpdate = _first([
+      p['timestamp'],
+      p['updatedAt'],
+      p['lastUpdate'],
+      extras['timestamp'],
+    ]);
+    final printerMeta = _map(machine.integrationMeta['impressora3d']);
+    final remoteControlEnabled = printerMeta['remoteControlEnabled'] == true;
     final alarm = _first([p['alarm'], p['error'], p['message'], safety['alarm'], safety['error']]);
     final doorOpen = _first([p['doorOpen'], safety['doorOpen']]) == true || '${_first([p['door'], safety['door']])}'.toLowerCase() == 'open';
     final emergency = _first([p['emergency'], p['emergencyStop'], safety['emergency'], safety['emergencyStop']]) == true;
@@ -359,7 +412,7 @@ class _Printer3DDashboard extends StatelessWidget {
     final border = scheme.outlineVariant;
     final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
     final accent = SteelColors.industrialAccent;
-    final statusColor = machine.isOnline ? SteelColors.success : SteelColors.warning;
+    final statusColor = machine.isOnline ? SteelColors.success : SteelColors.danger;
     final printing = state.toLowerCase().contains('print') || state.toLowerCase().contains('imprim');
 
     Widget cameraPanel() {
@@ -421,6 +474,11 @@ class _Printer3DDashboard extends StatelessWidget {
     }
 
     Widget jobPanel() {
+      final remaining = _first([
+        p['remainingSeconds'],
+        p['remaining'],
+        job['remainingSeconds'],
+      ]);
       final jobItems = <({String label, String value})>[
         (
           label: 'Camada',
@@ -433,9 +491,15 @@ class _Printer3DDashboard extends StatelessWidget {
         ),
         (
           label: 'Restante',
-          value: _duration(_first([p['remainingSeconds'], p['remaining'], job['remainingSeconds']]))
+          value: _duration(remaining)
         ),
-        (label: 'Tecnologia', value: labels.mode),
+        (
+          label: 'Conclusão',
+          value: _eta(
+            _first([p['eta'], p['estimatedCompletion'], job['eta']]),
+            remaining,
+          )
+        ),
       ];
 
       return _HmiPanel(
@@ -496,28 +560,15 @@ class _Printer3DDashboard extends StatelessWidget {
           const SizedBox(height: 8),
           _HmiThermal(
             label: labels.bed,
-            current: _temp(_first([
-              bed['current'],
-              bed['actual'],
-              bed['temperature'],
-              p['bedTemp'],
-            ])),
-            target:
-                'Alvo: ${_temp(_first([bed['target'], bed['setpoint'], p['bedTarget']]))}',
+            current: _temp(bedCurrent),
+            target: 'Alvo: ${_temp(bedTarget)}',
             icon: Icons.grid_4x4_rounded,
           ),
           const SizedBox(height: 8),
           _HmiThermal(
             label: labels.chamber,
-            current: _temp(_first([
-              chamber['current'],
-              chamber['actual'],
-              chamber['temperature'],
-              p['chamberTemp'],
-              p['ambientTemp'],
-            ])),
-            target:
-                'Alvo: ${_temp(_first([chamber['target'], chamber['setpoint'], p['chamberTarget']]))}',
+            current: _temp(chamberCurrent),
+            target: 'Alvo: ${_temp(chamberTarget)}',
             icon: Icons.inventory_2_outlined,
           ),
         ],
@@ -579,6 +630,19 @@ class _Printer3DDashboard extends StatelessWidget {
       ),
     );
 
+    final trendPanel = _HmiPanel(
+      title: 'HISTÓRICO LOCAL',
+      subtitle: 'Tendência térmica',
+      child: _PrinterThermalTrend(
+        primary: _number(primaryCurrent),
+        bed: _number(bedCurrent),
+        chamber: _number(chamberCurrent),
+        primaryLabel: labels.primary,
+        bedLabel: labels.bed,
+        chamberLabel: labels.chamber,
+      ),
+    );
+
     final machinePanel = _HmiPanel(
       title: 'IHM DA MÁQUINA',
       subtitle: labels.mode,
@@ -602,6 +666,13 @@ class _Printer3DDashboard extends StatelessWidget {
       ),
     );
 
+    final controlPanel = _PrinterControlPanel(
+      controller: controller,
+      machine: machine,
+      capabilities: capabilities,
+      enabled: remoteControlEnabled && machine.isOnline && !machine.simulation,
+    );
+
     final connectionPanel = _HmiPanel(
       title: 'CONEXÃO',
       subtitle: 'Integração da impressora',
@@ -620,6 +691,7 @@ class _Printer3DDashboard extends StatelessWidget {
             label: 'Host / IP',
             value: _text(_first([p['host'], p['hostname'], p['ip']])),
           ),
+          _HmiInfoRow(label: 'Última leitura', value: _time(lastUpdate)),
           _HmiInfoRow(label: 'Material usado', value: _text(materialUsed)),
         ],
       ),
@@ -681,6 +753,55 @@ class _Printer3DDashboard extends StatelessWidget {
       ),
     );
 
+    Widget headerIdentity() => Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .10),
+                border: Border.all(color: accent.withValues(alpha: .28)),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.view_in_ar_rounded,
+                color: SteelColors.industrialAccent,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'IHM • PRODUÇÃO ADITIVA',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .8,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Impressora 3D',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$technology • $ecosystem • IHM dedicada',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
     return Container(
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -706,59 +827,31 @@ class _Printer3DDashboard extends StatelessWidget {
               color: scheme.surfaceContainerLow,
               border: Border(bottom: BorderSide(color: border)),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: .10),
-                    border: Border.all(color: accent.withValues(alpha: .28)),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Icon(
-                    Icons.view_in_ar_rounded,
-                    color: SteelColors.industrialAccent,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'IHM • PRODUÇÃO ADITIVA',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .8,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Impressora 3D',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$technology • $ecosystem • IHM dedicada',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _HmiBadge(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final badge = _HmiBadge(
                   icon: Icons.circle,
                   label: state,
                   color: statusColor,
-                ),
-              ],
+                );
+                if (constraints.maxWidth < 520) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      headerIdentity(),
+                      const SizedBox(height: 12),
+                      Align(alignment: Alignment.centerLeft, child: badge),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: headerIdentity()),
+                    const SizedBox(width: 14),
+                    badge,
+                  ],
+                );
+              },
             ),
           ),
           Padding(
@@ -797,9 +890,13 @@ class _Printer3DDashboard extends StatelessWidget {
                           const SizedBox(height: 12),
                           parametersPanel,
                           const SizedBox(height: 12),
+                          trendPanel,
+                          const SizedBox(height: 12),
                           machinePanel,
                           const SizedBox(height: 12),
                           axesPanel,
+                          const SizedBox(height: 12),
+                          controlPanel,
                           const SizedBox(height: 12),
                           connectionPanel,
                           const SizedBox(height: 12),
@@ -818,6 +915,8 @@ class _Printer3DDashboard extends StatelessWidget {
                               thermalPanel,
                               const SizedBox(height: 12),
                               parametersPanel,
+                              const SizedBox(height: 12),
+                              trendPanel,
                             ],
                           ),
                         ),
@@ -829,6 +928,8 @@ class _Printer3DDashboard extends StatelessWidget {
                               machinePanel,
                               const SizedBox(height: 12),
                               axesPanel,
+                              const SizedBox(height: 12),
+                              controlPanel,
                               const SizedBox(height: 12),
                               connectionPanel,
                               const SizedBox(height: 12),
@@ -863,6 +964,328 @@ class _Printer3DDashboard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrinterThermalTrend extends StatefulWidget {
+  const _PrinterThermalTrend({
+    required this.primary,
+    required this.bed,
+    required this.chamber,
+    required this.primaryLabel,
+    required this.bedLabel,
+    required this.chamberLabel,
+  });
+
+  final double? primary;
+  final double? bed;
+  final double? chamber;
+  final String primaryLabel;
+  final String bedLabel;
+  final String chamberLabel;
+
+  @override
+  State<_PrinterThermalTrend> createState() => _PrinterThermalTrendState();
+}
+
+class _PrinterThermalTrendState extends State<_PrinterThermalTrend> {
+  final List<({double? primary, double? bed, double? chamber})> _samples = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _record();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PrinterThermalTrend oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _record();
+  }
+
+  void _record() {
+    final sample = (
+      primary: widget.primary,
+      bed: widget.bed,
+      chamber: widget.chamber,
+    );
+    if (sample.primary == null && sample.bed == null && sample.chamber == null) {
+      return;
+    }
+    if (_samples.isNotEmpty && _samples.last == sample) return;
+    _samples.add(sample);
+    if (_samples.length > 42) _samples.removeAt(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.brightness == Brightness.dark
+        ? SteelColors.mutedDark
+        : SteelColors.muted;
+    final values = _samples
+        .expand((sample) => [sample.primary, sample.bed, sample.chamber])
+        .whereType<double>()
+        .toList();
+
+    if (values.isEmpty) {
+      return SizedBox(
+        height: 150,
+        child: Center(
+          child: Text(
+            'Aguardando leituras de temperatura',
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+          ),
+        ),
+      );
+    }
+
+    final minimum = values.reduce(math.min);
+    final maximum = values.reduce(math.max);
+    final padding = math.max(5.0, (maximum - minimum) * .12);
+    final chartMin = math.max(0.0, minimum - padding);
+    final chartMax = math.max(chartMin + 10, maximum + padding);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          children: [
+            _TrendLegend(color: SteelColors.industrialAccent, label: widget.primaryLabel),
+            _TrendLegend(color: const Color(0xFF2563EB), label: widget.bedLabel),
+            _TrendLegend(color: SteelColors.success, label: widget.chamberLabel),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 160,
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLowest,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 42,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${chartMax.round()} °C', style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+                    Text('${chartMin.round()} °C', style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CustomPaint(
+                  painter: _PrinterTrendPainter(
+                    samples: _samples,
+                    minimum: chartMin,
+                    maximum: chartMax,
+                    gridColor: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrendLegend extends StatelessWidget {
+  const _TrendLegend({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 12, height: 3, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 5),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
+        ],
+      );
+}
+
+class _PrinterTrendPainter extends CustomPainter {
+  const _PrinterTrendPainter({
+    required this.samples,
+    required this.minimum,
+    required this.maximum,
+    required this.gridColor,
+  });
+
+  final List<({double? primary, double? bed, double? chamber})> samples;
+  final double minimum;
+  final double maximum;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()..color = gridColor.withValues(alpha: .75)..strokeWidth = 1;
+    for (var index = 0; index < 4; index++) {
+      final y = size.height * index / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    _drawLine(canvas, size, (sample) => sample.primary, SteelColors.industrialAccent);
+    _drawLine(canvas, size, (sample) => sample.bed, const Color(0xFF2563EB));
+    _drawLine(canvas, size, (sample) => sample.chamber, SteelColors.success);
+  }
+
+  void _drawLine(
+    Canvas canvas,
+    Size size,
+    double? Function(({double? primary, double? bed, double? chamber})) select,
+    Color color,
+  ) {
+    final path = Path();
+    var started = false;
+    for (var index = 0; index < samples.length; index++) {
+      final value = select(samples[index]);
+      if (value == null) continue;
+      final x = samples.length == 1 ? size.width / 2 : size.width * index / (samples.length - 1);
+      final y = size.height - ((value - minimum) / (maximum - minimum)) * size.height;
+      if (!started) {
+        path.moveTo(x, y.clamp(0, size.height).toDouble());
+        started = true;
+      } else {
+        path.lineTo(x, y.clamp(0, size.height).toDouble());
+      }
+    }
+    if (!started) return;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.25
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PrinterTrendPainter oldDelegate) => true;
+}
+
+class _PrinterControlPanel extends StatefulWidget {
+  const _PrinterControlPanel({
+    required this.controller,
+    required this.machine,
+    required this.capabilities,
+    required this.enabled,
+  });
+
+  final AppController controller;
+  final Machine machine;
+  final Map<String, dynamic> capabilities;
+  final bool enabled;
+
+  @override
+  State<_PrinterControlPanel> createState() => _PrinterControlPanelState();
+}
+
+class _PrinterControlPanelState extends State<_PrinterControlPanel> {
+  String? _busyCommand;
+
+  Future<void> _send(String command, String label, {bool dangerous = false}) async {
+    if (!widget.enabled || _busyCommand != null) return;
+    if (dangerous) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirmar comando'),
+          content: Text('Deseja enviar “$label” para a impressora 3D?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enviar')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    setState(() => _busyCommand = command);
+    try {
+      await widget.controller.machinesApi.sendPrinter3DCommand(widget.machine.id, command);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Comando “$label” enviado com segurança.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível enviar “$label”: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyCommand = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final commands = <({String command, String label, String capability, IconData icon, bool danger})>[
+      (command: 'PRINTER3D_PAUSE', label: 'Pausar', capability: 'pause', icon: Icons.pause_rounded, danger: false),
+      (command: 'PRINTER3D_RESUME', label: 'Continuar', capability: 'resume', icon: Icons.play_arrow_rounded, danger: false),
+      (command: 'PRINTER3D_HOME', label: 'Home', capability: 'home', icon: Icons.home_outlined, danger: true),
+      (command: 'PRINTER3D_LIGHT_ON', label: 'Luz ON', capability: 'light', icon: Icons.lightbulb_outline_rounded, danger: false),
+      (command: 'PRINTER3D_LIGHT_OFF', label: 'Luz OFF', capability: 'light', icon: Icons.lightbulb_outline, danger: false),
+      (command: 'PRINTER3D_CANCEL', label: 'Cancelar', capability: 'cancel', icon: Icons.block_rounded, danger: true),
+    ];
+    return _HmiPanel(
+      title: 'CONTROLE DO TRABALHO',
+      subtitle: widget.enabled ? 'Controle remoto habilitado' : 'Somente monitoramento',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: commands.map((item) {
+                  final supported = widget.capabilities[item.capability] != false;
+                  final loading = _busyCommand == item.command;
+                  return SizedBox(
+                    width: width,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.enabled && supported && _busyCommand == null
+                          ? () => _send(item.command, item.label, dangerous: item.danger)
+                          : null,
+                      icon: loading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(item.icon, color: item.danger ? SteelColors.danger : null),
+                      label: Text(item.label),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 9),
+          Text(
+            widget.enabled
+                ? 'Os comandos são enviados ao Edge e executados apenas quando o recurso é suportado.'
+                : 'Habilite o controle remoto no cadastro e mantenha a impressora online para liberar os comandos.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? SteelColors.mutedDark
+                      : SteelColors.muted,
+                ),
           ),
         ],
       ),
