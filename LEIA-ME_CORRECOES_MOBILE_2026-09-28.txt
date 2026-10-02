@@ -1,0 +1,19 @@
+STEELCONTROL MOBILE 1.12.10+39
+
+CORRECOES
+- Dashboard deixa de reconstruir a tela inteira a cada leitura de telemetria.
+- Selecao lateral sem placa laranja sobre o nome; usa fundo neutro e barra lateral discreta.
+- Controle manual e automatico consultam a pose sem remontar todo o aplicativo.
+- Polling Dobot mais leve e resposta do controle manual mais rapida.
+- Botao REDEFINIR para ensinar novamente P0 a P4.
+
+ATUALIZACAO
+1. Extraia o pacote sobre C:\Users\48856683873\SteelControlMOBILE.
+2. No terminal dessa pasta execute: flutter pub get
+3. Execute: flutter analyze
+4. Com o tablet conectado, execute:
+   flutter run -d RX2X802JX0J --dart-define=API_URL=http://127.0.0.1:3000 --dart-define=ALLOW_INSECURE_HTTP=true
+
+Se usar USB, mantenha antes:
+  $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+  & $adb -s RX2X802JX0J reverse tcp:3000 tcp:3000

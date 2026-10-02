@@ -16,6 +16,21 @@ class AuthService {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> verifyAdminMfa({
+    required String challengeId,
+    required String code,
+  }) async {
+    final result = await client.post(
+      '/auth/admin-mfa/verify',
+      body: {
+        'challengeId': challengeId,
+        'codigo': code.replaceAll(RegExp(r'\D'), '').trim(),
+        'clientType': 'mobile',
+      },
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   Future<Map<String, dynamic>> faceLogin({
     required File finalImage,
     required File livenessImage,

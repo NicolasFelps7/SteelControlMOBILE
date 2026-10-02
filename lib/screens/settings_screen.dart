@@ -119,19 +119,22 @@ class _CompanySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: .42), border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151A1D),
+          border: Border.all(color: const Color(0xFF354047)),
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: Row(children: [
           CompanyLogo(company: company, token: token, size: 56),
           const SizedBox(width: 13),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(company.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)), const SizedBox(height: 3), Text('CNPJ: ${formatCnpj(company.cnpj)}', style: const TextStyle(color: SteelColors.muted, fontSize: 12))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(company.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17)), const SizedBox(height: 3), Text('CNPJ: ${formatCnpj(company.cnpj)}', style: const TextStyle(color: Color(0xFFBEC7CD), fontSize: 12))])),
           Builder(builder: (context) {
-            final dark = Theme.of(context).brightness == Brightness.dark;
             return Chip(
-              avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success),
+              avatar: const Icon(Icons.circle, size: 9, color: Color(0xFF047857)),
               label: Text(strings.get('activeCompany')),
-              backgroundColor: dark ? SteelColors.success.withValues(alpha: .14) : const Color(0xFFEAF7F0),
-              side: BorderSide(color: dark ? SteelColors.success.withValues(alpha: .38) : const Color(0xFFAEDBC4)),
-              labelStyle: TextStyle(color: dark ? const Color(0xFFBDEBD2) : const Color(0xFF176B45), fontWeight: FontWeight.w700),
+              backgroundColor: const Color(0xFFD1FAE5),
+              side: const BorderSide(color: Color(0xFF34D399), width: 1.2),
+              labelStyle: const TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w800),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             );
           }),

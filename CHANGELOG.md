@@ -1,3 +1,24 @@
+# 1.14.0+41 — Dashboard industrial dinâmico
+
+## 2026-09-28 — Painéis adaptativos por capacidade
+- Dashboard comum de OEE, produção, segurança, manutenção, energia e conectividade.
+- Seções adicionais configuráveis por máquina em `integracaoMeta.dashboard.sections`.
+- Desktop e Mobile leem o mesmo contrato de telemetria em `dadosExtrasAtuais`.
+- Ausência de sinal é exibida como “Não informado”, sem gerar telemetria fictícia.
+- Painéis especializados do Dobot e da impressora 3D foram preservados.
+- Indicadores avançados ficam recolhidos, ocultam categorias vazias e não repetem os cartões da visão geral.
+- Estado aberto/fechado preservado durante atualizações e explicação de uso adicionada ao painel.
+- Mobile hidrata o mesmo diagnóstico usado pelo Desktop e mescla pacotes parciais de telemetria, mantendo a contagem de sinais sincronizada.
+
+# 1.13.0+40 — Biometric Command Center
+
+## 2026-09-28 — Reconhecimento facial tecnológico
+- Tela facial redesenhada como console biométrico industrial.
+- HUD responsivo com câmera, rastreamento, prova de vida e processamento.
+- Moldura de captura, contraste, profundidade e leitura de estado aprimorados.
+- Pré-visualização isolada para reduzir repinturas da câmera.
+- Autenticação, liveness, permissões e integração com o backend preservados.
+
 # 1.12.9+38 — estabilização SteelControl 1.0
 
 ## 2026-09-14 — IHM dedicada para impressora 3D
@@ -32,3 +53,10 @@
 
 ## Histórico
 O histórico detalhado de implementação anterior foi consolidado nesta versão final para reduzir arquivos temporários e notas de patch na raiz do projeto.
+# 1.12.10+39
+
+- Reduz reconstruções globais do dashboard causadas por telemetria em alta frequência.
+- Remove a placa laranja da navegação selecionada e preserva contraste no tema claro/escuro.
+- Controle jog e ciclo automático consultam a pose sem remontar toda a aplicação.
+- Polling de comandos Dobot mais leve e resposta manual mais rápida.
+- Ação para redefinir os cinco pontos ensinados do ciclo automático.

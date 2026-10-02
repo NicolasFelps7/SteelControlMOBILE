@@ -1,0 +1,18 @@
+STEELCONTROL MOBILE 1.13.0 - BIOMETRIC COMMAND CENTER
+
+Atualização visual do reconhecimento e do cadastro facial.
+
+Principais melhorias:
+- Console biométrico industrial responsivo para tablet e celular.
+- HUD de câmera, rastreamento, prova de vida e processamento.
+- Moldura facial, linha de varredura, progresso e estados mais legíveis.
+- Menos repinturas na pré-visualização da câmera.
+
+Não foram alterados:
+- Fluxo de autenticação e cadastro.
+- Prova de vida, segundo fator e permissões.
+- Integração com backend e Face API.
+- Regras de segurança do SteelControl.
+
+Para testar em rede local, use o IP atual do PC:
+flutter run --dart-define=API_URL=http://IP_DO_PC:3000 --dart-define=ALLOW_INSECURE_HTTP=true

@@ -10,6 +10,7 @@ import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import '../widgets/section_card.dart';
 import '../widgets/industrial_hmi_panel.dart';
+import '../widgets/dynamic_industrial_dashboard.dart';
 
 class MachineDashboardScreen extends StatelessWidget {
   const MachineDashboardScreen({required this.controller, required this.section, super.key});
@@ -78,6 +79,12 @@ class OverviewSection extends StatelessWidget {
                     MetricCard(label: strings.get('totalProduction'), value: '${machine.production}', caption: strings.get('producedParts'), icon: Icons.inventory_2_outlined, color: SteelColors.success),
                     MetricCard(label: strings.get('cycles'), value: '${machine.cycles}', caption: strings.translate(machine.nextMaintenance), icon: Icons.sync_rounded, color: SteelColors.warning),
                   ]),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+                sliver: SliverToBoxAdapter(
+                  child: DynamicIndustrialDashboard(machine: machine),
                 ),
               ),
               if (machine.hasIndustrialHmi && !machine.is3DPrinter)
@@ -2624,10 +2631,23 @@ class _DobotControlModePanel extends StatefulWidget {
 class _DobotControlModePanelState extends State<_DobotControlModePanel> {
   bool _automaticMode = false;
   bool _automaticRunning = false;
+  final _automaticKey = GlobalKey<_DobotAutomaticPanelState>();
+
+  void _selectManual() {
+    if (_automaticRunning) {
+      _automaticKey.currentState?.stopForManual();
+    }
+    setState(() => _automaticMode = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final online = widget.machine.isOnline;
+    final statusColor = !online
+        ? SteelColors.danger
+        : _automaticRunning
+            ? SteelColors.warning
+            : SteelColors.success;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2641,10 +2661,10 @@ class _DobotControlModePanelState extends State<_DobotControlModePanel> {
                 children: [
                   const _DobotIconBox(icon: Icons.settings_suggest_outlined),
                   const SizedBox(width: 11),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text('Modo de operação', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                         SizedBox(height: 2),
                         Text('Manual para ajuste e ensino; automático para o ciclo industrial.', style: TextStyle(color: SteelColors.muted, fontSize: 11)),
@@ -2654,12 +2674,12 @@ class _DobotControlModePanelState extends State<_DobotControlModePanel> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _automaticRunning ? SteelColors.warning.withValues(alpha: .10) : SteelColors.success.withValues(alpha: .10),
+                      color: statusColor.withValues(alpha: .10),
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Text(
-                      _automaticRunning ? 'MANUAL INTERTRAVADO' : 'PRONTO',
-                      style: TextStyle(color: _automaticRunning ? SteelColors.warning : SteelColors.success, fontSize: 9, fontWeight: FontWeight.w900),
+                      !online ? 'AGUARDANDO CONEXÃO REAL' : _automaticRunning ? 'MANUAL INTERTRAVADO' : 'PRONTO',
+                      style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900),
                     ),
                   ),
                 ],
@@ -2670,18 +2690,18 @@ class _DobotControlModePanelState extends State<_DobotControlModePanel> {
                   Expanded(
                     child: _ModeButton(
                       active: !_automaticMode,
-                      enabled: !_automaticRunning,
-                      icon: Icons.pan_tool_alt_outlined,
+                      enabled: widget.machine.isOnline,
+                      icon: Icons.gamepad_outlined,
                       title: 'MANUAL',
-                      subtitle: 'PTP, HOME e efetuador',
-                      onTap: () => setState(() => _automaticMode = false),
+                      subtitle: 'Controle jog industrial',
+                      onTap: _selectManual,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ModeButton(
                       active: _automaticMode,
-                      enabled: true,
+                      enabled: widget.machine.isOnline,
                       icon: Icons.autorenew_rounded,
                       title: 'AUTOMÁTICO',
                       subtitle: 'Pick-and-place',
@@ -2699,6 +2719,7 @@ class _DobotControlModePanelState extends State<_DobotControlModePanel> {
           children: [
             _DobotManualControls(controller: widget.controller, machine: widget.machine),
             _DobotAutomaticPanel(
+              key: _automaticKey,
               controller: widget.controller,
               machine: widget.machine,
               onRunningChanged: (running) {
@@ -2826,14 +2847,14 @@ class _DobotManualControls extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _DobotPtpPanel(controller: controller, machine: machine),
+        _DobotJogPanel(controller: controller, machine: machine),
       ],
     );
   }
 }
 
 class _DobotAutomaticPanel extends StatefulWidget {
-  const _DobotAutomaticPanel({required this.controller, required this.machine, required this.onRunningChanged});
+  const _DobotAutomaticPanel({required this.controller, required this.machine, required this.onRunningChanged, super.key});
   final AppController controller;
   final Machine machine;
   final ValueChanged<bool> onRunningChanged;
@@ -2850,6 +2871,7 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
   bool _running = false;
   bool _paused = false;
   bool _stopRequested = false;
+  int _sharedVersion = 0;
   String _status = 'Pronto para ensinar';
   String _step = 'Capture P0 a P4 usando a posição real do robô.';
   double _progress = 0;
@@ -2862,7 +2884,112 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     'P4': 'Entrega',
   };
 
-  Machine get _latestMachine => widget.controller.selectedMachine?.id == widget.machine.id ? widget.controller.selectedMachine! : widget.machine;
+  @override
+  void initState() {
+    super.initState();
+    _applySharedAutomation(widget.machine);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DobotAutomaticPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.machine.id != widget.machine.id) {
+      _points.clear();
+      _sharedVersion = 0;
+      _running = false;
+      _paused = false;
+      _stopRequested = false;
+      _completed = 0;
+      _progress = 0;
+    }
+    _applySharedAutomation(widget.machine);
+  }
+
+  Map<String, dynamic>? _sharedAutomatic(Machine machine) {
+    final dobot = machine.integrationMeta['dobot'];
+    if (dobot is! Map) return null;
+    final automatic = dobot['automatico'];
+    if (automatic is! Map) return null;
+    return Map<String, dynamic>.from(automatic);
+  }
+
+  Map<String, Map<String, double>> _parseSharedPoints(dynamic raw) {
+    final result = <String, Map<String, double>>{};
+    if (raw is! Map) return result;
+    for (final point in _labels.keys) {
+      final value = raw[point];
+      if (value is! Map) continue;
+      final pose = <String, double>{};
+      var valid = true;
+      for (final key in const ['x', 'y', 'z', 'r']) {
+        final number = value[key] is num
+            ? (value[key] as num).toDouble()
+            : double.tryParse('${value[key]}');
+        if (number == null) {
+          valid = false;
+          break;
+        }
+        pose[key] = number;
+      }
+      if (valid) result[point] = pose;
+    }
+    return result;
+  }
+
+  void _applySharedAutomation(Machine machine) {
+    final shared = _sharedAutomatic(machine);
+    if (shared == null || _running) return;
+    final version = int.tryParse('${shared['versao'] ?? 0}') ?? 0;
+    if (version > 0 && version <= _sharedVersion) return;
+
+    final points = _parseSharedPoints(shared['pontos']);
+    _points
+      ..clear()
+      ..addAll(points);
+    _cycles = (int.tryParse('${shared['ciclos'] ?? 1}') ?? 1).clamp(1, 20).toInt();
+    final speed = shared['velocidade'] is num
+        ? (shared['velocidade'] as num).toDouble()
+        : double.tryParse('${shared['velocidade']}') ?? 15;
+    _speed = speed.clamp(1, 40).toDouble();
+    _sharedVersion = math.max(_sharedVersion, version);
+    if (_points.isNotEmpty) {
+      _status = 'Ensino sincronizado';
+      _step = 'P0–P4 compartilhados com desktop e mobile';
+    }
+  }
+
+  Future<void> _persistSharedAutomation() async {
+    final result = await widget.controller.machinesApi.updateDobotAutomation(
+      widget.machine.id,
+      points: _points,
+      cycles: _cycles,
+      speed: _speed,
+    );
+    final automatic = result['automatico'];
+    if (automatic is Map) {
+      _sharedVersion = int.tryParse('${automatic['versao'] ?? _sharedVersion}') ?? _sharedVersion;
+    }
+    final integrationMeta = result['integracaoMeta'];
+    final current = widget.controller.selectedMachine;
+    if (integrationMeta is Map && current != null && current.id == widget.machine.id) {
+      widget.controller.replaceSelectedMachine(
+        current.mergeRealtime({'integracaoMeta': Map<String, dynamic>.from(integrationMeta)}),
+        notify: false,
+      );
+    }
+  }
+
+  Future<void> _saveSharedSettings() async {
+    try {
+      await _persistSharedAutomation();
+    } on ApiException catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível sincronizar o automático: ${exception.message}')),
+        );
+      }
+    }
+  }
 
   Map<String, double>? _poseOf(Machine machine) {
     final root = machine.extraData;
@@ -2882,7 +3009,7 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
 
   Future<Map<String, double>?> _refreshPose() async {
     final machine = await widget.controller.machinesApi.find(widget.machine.id);
-    widget.controller.replaceSelectedMachine(machine);
+    widget.controller.replaceSelectedMachine(machine, notify: false);
     return _poseOf(machine);
   }
 
@@ -2891,27 +3018,66 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     return 'X ${pose['x']!.toStringAsFixed(1)}  Y ${pose['y']!.toStringAsFixed(1)}\nZ ${pose['z']!.toStringAsFixed(1)}  R ${pose['r']!.toStringAsFixed(1)}';
   }
 
+  double _poseDistance(Map<String, double> first, Map<String, double> second) {
+    final dx = first['x']! - second['x']!;
+    final dy = first['y']! - second['y']!;
+    final dz = first['z']! - second['z']!;
+    final dr = (first['r']! - second['r']!) / 2;
+    return math.sqrt(dx * dx + dy * dy + dz * dz + dr * dr);
+  }
+
+  String? _duplicatedPoint(String point, Map<String, double> pose) {
+    for (final entry in _points.entries) {
+      if (entry.key != point && _poseDistance(entry.value, pose) < 3) return entry.key;
+    }
+    return null;
+  }
+
+  List<String> _duplicatedPairs() {
+    final names = _labels.keys.toList();
+    final pairs = <String>[];
+    for (var index = 0; index < names.length; index++) {
+      for (var next = index + 1; next < names.length; next++) {
+        final first = _points[names[index]];
+        final second = _points[names[next]];
+        if (first != null && second != null && _poseDistance(first, second) < 3) pairs.add('${names[index]}/${names[next]}');
+      }
+    }
+    return pairs;
+  }
+
   Future<void> _capture(String point) async {
     if (_running) return;
     try {
-      final pose = _poseOf(_latestMachine) ?? await _refreshPose();
+      // Cada ponto vem da telemetria mais recente do Edge, sem espera artificial.
+      final pose = await _refreshPose();
       if (pose == null) throw const ApiException('A posição atual do Dobot ainda não está disponível.');
+      final duplicate = _duplicatedPoint(point, pose);
+      if (duplicate != null) throw ApiException('$point está praticamente igual a $duplicate. Mova fisicamente o braço e capture novamente.');
       if (!mounted) return;
+      final previous = _points[point] == null
+          ? null
+          : Map<String, double>.from(_points[point]!);
       setState(() {
         _points[point] = Map<String, double>.from(pose);
-        _status = '$point • ${_labels[point]} ensinado';
+        _status = '$point • ${_labels[point]} sincronizando…';
       });
+      try {
+        await _persistSharedAutomation();
+        if (mounted) {
+          setState(() => _status = '$point • ${_labels[point]} ensinado e sincronizado');
+        }
+      } on ApiException {
+        if (previous == null) {
+          _points.remove(point);
+        } else {
+          _points[point] = previous;
+        }
+        rethrow;
+      }
     } on ApiException catch (exception) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
     }
-  }
-
-  bool _reached(Map<String, double>? actual, Map<String, double> target) {
-    if (actual == null) return false;
-    return (actual['x']! - target['x']!).abs() <= 3 &&
-        (actual['y']! - target['y']!).abs() <= 3 &&
-        (actual['z']! - target['z']!).abs() <= 3 &&
-        (actual['r']! - target['r']!).abs() <= 4;
   }
 
   Future<void> _waitPaused() async {
@@ -2932,20 +3098,20 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     final command = queued['comando'];
     final commandId = command is Map ? int.tryParse('${command['id']}') : null;
     if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
-    final deadline = DateTime.now().add(const Duration(seconds: 40));
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
     while (DateTime.now().isBefore(deadline)) {
       if (_stopRequested) throw const _DobotCycleStopped();
       final statusData = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
       final status = '${statusData['status'] ?? ''}'.toUpperCase();
       if (status == 'CONCLUIDO') {
-        final actual = await _refreshPose();
-        if (_reached(actual, target)) return;
-        throw ApiException('$point foi processado pelo Edge, mas a posição recebida não confirmou o alvo.');
+        // O Edge confirma DOBOT_PTP somente depois que o driver valida que
+        // a posição física foi atingida; não repete a consulta de telemetria.
+        return;
       }
       if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') {
         throw ApiException('O Edge informou ${status.toLowerCase()} para o movimento. Consulte Diagnóstico / logs.');
       }
-      await Future<void>.delayed(const Duration(milliseconds: 280));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     throw const ApiException('O Edge não confirmou a execução do movimento dentro do tempo esperado.');
   }
@@ -2961,9 +3127,14 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
       if (_stopRequested) throw const _DobotCycleStopped();
       final statusData = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
       final status = '${statusData['status'] ?? ''}'.toUpperCase();
-      if (status == 'CONCLUIDO') return;
+      if (status == 'CONCLUIDO') {
+        if (command.contains('SUCTION') || command.contains('GRIPPER')) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        return;
+      }
       if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') throw ApiException('O Edge informou ${status.toLowerCase()} para $command.');
-      await Future<void>.delayed(const Duration(milliseconds: 280));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     throw ApiException('O Edge não confirmou $command dentro do tempo esperado.');
   }
@@ -2978,11 +3149,27 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
 
   Future<void> _start() async {
     if (_running) return;
+    if (!widget.machine.isOnline) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dobot offline. Aguarde a conexão real antes de iniciar o automático.')));
+      return;
+    }
     final missing = _labels.keys.where((point) => !_points.containsKey(point)).toList();
     if (missing.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ensine todos os pontos antes de iniciar. Faltam: ${missing.join(', ')}.')));
       return;
     }
+    final duplicates = _duplicatedPairs();
+    if (duplicates.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${duplicates.join(', ')} possuem a mesma posição. Mova o braço e capture esses pontos novamente.')));
+      return;
+    }
+    try {
+      await _persistSharedAutomation();
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+      return;
+    }
+    if (!mounted) return;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -3008,15 +3195,15 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     widget.onRunningChanged(true);
 
     final sequence = <MapEntry<String, Future<void> Function()>>[
-      MapEntry('Ir para espera', () => _move('P0')),
-      MapEntry('Aproximar da peça', () => _move('P1')),
-      MapEntry('Descer para coleta', () => _move('P2')),
-      MapEntry('Fixar peça • Ventosa ON', () => _command('DOBOT_SUCTION_ON')),
-      MapEntry('Elevar peça', () => _move('P1')),
-      MapEntry('Transportar ao destino', () => _move('P3')),
-      MapEntry('Descer para entrega', () => _move('P4')),
-      MapEntry('Liberar peça • Ventosa OFF', () => _command('DOBOT_SUCTION_OFF')),
-      MapEntry('Recuar do destino', () => _move('P3')),
+      MapEntry('Aguardar na posição segura', () => _move('P0')),
+      MapEntry('Aproximar da matéria-prima', () => _move('P1')),
+      MapEntry('Coletar componente', () => _move('P2')),
+      MapEntry('Fixar componente • Ventosa ON', () => _command('DOBOT_SUCTION_ON')),
+      MapEntry('Elevar componente', () => _move('P1')),
+      MapEntry('Transportar para montagem', () => _move('P3')),
+      MapEntry('Posicionar produto', () => _move('P4')),
+      MapEntry('Liberar produto • Ventosa OFF', () => _command('DOBOT_SUCTION_OFF')),
+      MapEntry('Recuar da estação', () => _move('P3')),
       MapEntry('Retornar à espera', () => _move('P0')),
     ];
 
@@ -3063,6 +3250,40 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     }
   }
 
+  Future<void> _resetShared() async {
+    if (_running) return;
+    final previous = Map<String, Map<String, double>>.fromEntries(
+      _points.entries.map((entry) => MapEntry(entry.key, Map<String, double>.from(entry.value))),
+    );
+    setState(() {
+      _points.clear();
+      _completed = 0;
+      _progress = 0;
+      _status = 'Sincronizando redefinição…';
+      _step = 'Removendo P0 a P4 do desktop e do mobile';
+    });
+    try {
+      await _persistSharedAutomation();
+      if (mounted) {
+        setState(() {
+          _status = 'Pronto para ensinar';
+          _step = 'Capture P0 a P4 usando a posição real do robô.';
+        });
+      }
+    } on ApiException catch (exception) {
+      _points
+        ..clear()
+        ..addAll(previous);
+      if (mounted) {
+        setState(() {
+          _status = 'Falha ao sincronizar';
+          _step = exception.message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+      }
+    }
+  }
+
   Future<void> _stop() async {
     if (!_running) return;
     setState(() { _stopRequested = true; _paused = false; _status = 'Parando'; _step = 'Enviando DOBOT_STOP'; });
@@ -3072,6 +3293,8 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
     }
   }
+
+  Future<void> stopForManual() => _stop();
 
   void _pause() {
     if (!_running) return;
@@ -3139,7 +3362,7 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
                           Text(_fmt(taught), style: TextStyle(color: taught != null ? SteelColors.success : SteelColors.muted, fontSize: 9, height: 1.4)),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
-                            onPressed: _running ? null : () => _capture(entry.key),
+                            onPressed: _running || !widget.machine.isOnline ? null : () => _capture(entry.key),
                             icon: const Icon(Icons.my_location_rounded, size: 14),
                             label: const Text('Capturar atual', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800)),
                           ),
@@ -3156,16 +3379,28 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 580;
               final cycles = DropdownButtonFormField<int>(
-                value: _cycles,
+                initialValue: _cycles,
                 decoration: const InputDecoration(labelText: 'Repetições', isDense: true),
-                items: const [1, 2, 3, 5, 10].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
-                onChanged: _running ? null : (value) => setState(() => _cycles = value ?? 1),
+                items: List<int>.generate(20, (index) => index + 1).map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
+                onChanged: _running
+                    ? null
+                    : (value) {
+                        setState(() => _cycles = value ?? 1);
+                        _saveSharedSettings();
+                      },
               );
               final speed = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Velocidade automática • ${_speed.round()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
-                  Slider(value: _speed, min: 1, max: 40, divisions: 39, onChanged: _running ? null : (value) => setState(() => _speed = value)),
+                  Slider(
+                    value: _speed,
+                    min: 1,
+                    max: 40,
+                    divisions: 39,
+                    onChanged: _running ? null : (value) => setState(() => _speed = value),
+                    onChangeEnd: _running ? null : (_) => _saveSharedSettings(),
+                  ),
                 ],
               );
               if (compact) return Column(children: [cycles, const SizedBox(height: 10), speed]);
@@ -3181,15 +3416,16 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
             builder: (context, constraints) {
               final narrow = constraints.maxWidth < 520;
               final start = FilledButton.icon(
-                onPressed: _running ? null : _start,
+                onPressed: _running || !widget.machine.isOnline ? null : _start,
                 style: FilledButton.styleFrom(backgroundColor: SteelColors.industrialAccent, foregroundColor: Colors.white, minimumSize: const Size(160, 46)),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('INICIAR CICLO'),
               );
               final pause = OutlinedButton.icon(onPressed: _running ? _pause : null, icon: Icon(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded), label: Text(_paused ? 'CONTINUAR' : 'PAUSAR'));
               final stop = FilledButton.icon(onPressed: _running ? _stop : null, style: FilledButton.styleFrom(backgroundColor: SteelColors.danger, foregroundColor: Colors.white), icon: const Icon(Icons.stop_rounded), label: const Text('PARAR'));
-              if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [start, const SizedBox(height: 8), pause, const SizedBox(height: 8), stop]);
-              return Row(children: [Expanded(child: start), const SizedBox(width: 8), Expanded(child: pause), const SizedBox(width: 8), Expanded(child: stop)]);
+              final reset = OutlinedButton.icon(onPressed: _running ? null : _resetShared, icon: const Icon(Icons.restart_alt_rounded), label: const Text('REDEFINIR'));
+              if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [start, const SizedBox(height: 8), pause, const SizedBox(height: 8), stop, const SizedBox(height: 8), reset]);
+              return Wrap(spacing: 8, runSpacing: 8, children: [SizedBox(width: 170, child: start), SizedBox(width: 150, child: pause), SizedBox(width: 130, child: stop), SizedBox(width: 150, child: reset)]);
             },
           ),
           const SizedBox(height: 12),
@@ -3316,6 +3552,288 @@ class _DobotValuesCard extends StatelessWidget {
   }
 }
 
+class _DobotJogPanel extends StatefulWidget {
+  const _DobotJogPanel({required this.controller, required this.machine});
+
+  final AppController controller;
+  final Machine machine;
+
+  @override
+  State<_DobotJogPanel> createState() => _DobotJogPanelState();
+}
+
+class _DobotJogPanelState extends State<_DobotJogPanel> {
+  double _step = 5;
+  double _speed = 20;
+  bool _moving = false;
+  bool _holding = false;
+  int _holdGeneration = 0;
+  Map<String, double>? _confirmedPose;
+  String _status = 'Pronto para movimentar • segure uma direção para movimento contínuo';
+
+  Map<String, double>? _poseOf(Machine machine) {
+    final root = machine.extraData;
+    final nested = root['dobot'];
+    final source = nested is Map ? nested : root;
+    final pose = source['pose'];
+    if (pose is! Map) return null;
+    final result = <String, double>{};
+    for (final key in const ['x', 'y', 'z', 'r']) {
+      final raw = pose[key] ?? pose[key.toUpperCase()];
+      final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
+      if (value == null) return null;
+      result[key] = value;
+    }
+    return result;
+  }
+
+  Future<Map<String, double>?> _currentPose() async {
+    final live = widget.controller.selectedMachine;
+    if (live != null && live.id == widget.machine.id) {
+      final cached = _poseOf(live);
+      if (cached != null) return cached;
+    }
+    final machine = await widget.controller.machinesApi.find(widget.machine.id);
+    widget.controller.replaceSelectedMachine(machine, notify: false);
+    return _poseOf(machine);
+  }
+
+  Future<void> _waitCommand(int commandId) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
+    while (DateTime.now().isBefore(deadline)) {
+      final data = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
+      final status = '${data['status'] ?? ''}'.toUpperCase();
+      if (status == 'CONCLUIDO') return;
+      if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') {
+        throw ApiException('O Edge informou ${status.toLowerCase()} para o movimento. Consulte os logs.');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw const ApiException('O Edge não confirmou o movimento dentro do tempo esperado.');
+  }
+
+  Future<bool> _jogOnce(String axis, double direction) async {
+    if (_moving) return false;
+    final liveMachine = widget.controller.selectedMachine;
+    if (!(liveMachine?.isOnline ?? widget.machine.isOnline)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dobot offline. Aguarde a conexão real antes de movimentar.')),
+        );
+      }
+      return false;
+    }
+
+    if (mounted) setState(() => _moving = true);
+    try {
+      final pose = _confirmedPose ?? await _currentPose();
+      if (pose == null) throw const ApiException('A posição real do Dobot ainda não está disponível.');
+
+      final target = Map<String, double>.from(pose);
+      target[axis] = target[axis]! + _step * direction;
+      if (mounted) {
+        setState(() {
+          _status = '${axis.toUpperCase()}${direction > 0 ? '+' : '−'} • ${_step.round()}${axis == 'r' ? '°' : ' mm'} • comando enviado';
+        });
+      }
+
+      final queued = await widget.controller.machinesApi.sendDobotCommand(
+        widget.machine.id,
+        'DOBOT_PTP',
+        {...target, 'velocidade': _speed.round()},
+      );
+      final command = queued['comando'];
+      final commandId = command is Map ? int.tryParse('${command['id']}') : null;
+      if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
+
+      await _waitCommand(commandId);
+      _confirmedPose = target;
+      if (mounted) {
+        setState(() {
+          _status = _holding
+              ? 'Movendo continuamente • solte para encerrar após este passo'
+              : 'Posição confirmada • X ${target['x']!.toStringAsFixed(1)}  Y ${target['y']!.toStringAsFixed(1)}  Z ${target['z']!.toStringAsFixed(1)}  R ${target['r']!.toStringAsFixed(1)}';
+        });
+      }
+      return true;
+    } on ApiException catch (exception) {
+      _confirmedPose = null;
+      if (mounted) {
+        setState(() => _status = 'Movimento não executado');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _moving = false);
+    }
+  }
+
+  Future<void> _startHold(String axis, double direction) async {
+    final online = widget.controller.selectedMachine?.isOnline ?? widget.machine.isOnline;
+    if (_holding || !online) return;
+    _holding = true;
+    final generation = ++_holdGeneration;
+    _confirmedPose = _poseOf(widget.controller.selectedMachine ?? widget.machine);
+
+    if (mounted) {
+      setState(() => _status = 'Segurando ${axis.toUpperCase()}${direction > 0 ? '+' : '−'} • movimento contínuo');
+    }
+
+    while (mounted && _holding && generation == _holdGeneration) {
+      final moved = await _jogOnce(axis, direction);
+      if (!moved) {
+        if (generation == _holdGeneration) {
+          _holding = false;
+          if (mounted) setState(() {});
+        }
+        break;
+      }
+    }
+  }
+
+  void _endHold() {
+    if (!_holding) return;
+    _holding = false;
+    _holdGeneration += 1;
+    if (mounted && !_moving) {
+      setState(() => _status = 'Comando contínuo encerrado');
+    }
+  }
+
+  Future<void> _stop() async {
+    _endHold();
+    _confirmedPose = null;
+    try {
+      await widget.controller.machinesApi.sendDobotCommand(widget.machine.id, 'DOBOT_STOP');
+      if (mounted) setState(() { _moving = false; _status = 'Parada enviada ao Dobot'; });
+    } on ApiException catch (exception) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(exception.message)));
+    }
+  }
+
+  Widget _button({
+    required IconData icon,
+    required String label,
+    VoidCallback? onPressed,
+    bool danger = false,
+    String? detail,
+    String? holdAxis,
+    double? holdDirection,
+  }) {
+    final color = danger ? SteelColors.danger : SteelColors.industrialAccent;
+    final holdEnabled = holdAxis != null && holdDirection != null;
+    final online = widget.controller.selectedMachine?.isOnline ?? widget.machine.isOnline;
+    final enabled = online && (danger || holdEnabled || !_moving);
+
+    final button = SizedBox(
+      width: 88,
+      height: 58,
+      child: OutlinedButton(
+        onPressed: enabled ? (holdEnabled ? () {} : onPressed) : null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: danger ? SteelColors.danger : Theme.of(context).colorScheme.onSurface,
+          backgroundColor: color.withValues(alpha: _holding && holdEnabled ? .15 : .07),
+          side: BorderSide(color: color.withValues(alpha: _holding && holdEnabled ? .48 : .30)),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 3),
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+          if (detail != null) Text(detail, style: const TextStyle(fontSize: 8, color: SteelColors.muted)),
+        ]),
+      ),
+    );
+
+    if (!holdEnabled) return button;
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: enabled ? (_) => _startHold(holdAxis, holdDirection) : null,
+      onPointerUp: (_) => _endHold(),
+      onPointerCancel: (_) => _endHold(),
+      child: button,
+    );
+  }
+
+  Widget _xyPad() => Column(
+    children: [
+      _button(icon: Icons.keyboard_arrow_up_rounded, label: 'Y+', holdAxis: 'y', holdDirection: 1),
+      const SizedBox(height: 7),
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        _button(icon: Icons.keyboard_arrow_left_rounded, label: 'X−', holdAxis: 'x', holdDirection: -1),
+        const SizedBox(width: 7),
+        _button(icon: Icons.stop_rounded, label: 'STOP', onPressed: _stop, danger: true),
+        const SizedBox(width: 7),
+        _button(icon: Icons.keyboard_arrow_right_rounded, label: 'X+', holdAxis: 'x', holdDirection: 1),
+      ]),
+      const SizedBox(height: 7),
+      _button(icon: Icons.keyboard_arrow_down_rounded, label: 'Y−', holdAxis: 'y', holdDirection: -1),
+    ],
+  );
+
+  Widget _zrPad() => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    alignment: WrapAlignment.center,
+    children: [
+      _button(icon: Icons.arrow_upward_rounded, label: 'SUBIR', detail: 'Z+', holdAxis: 'z', holdDirection: 1),
+      _button(icon: Icons.arrow_downward_rounded, label: 'DESCER', detail: 'Z−', holdAxis: 'z', holdDirection: -1),
+      _button(icon: Icons.rotate_left_rounded, label: 'GIRAR', detail: 'R−', holdAxis: 'r', holdDirection: -1),
+      _button(icon: Icons.rotate_right_rounded, label: 'GIRAR', detail: 'R+', holdAxis: 'r', holdDirection: 1),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SectionCard(
+      accent: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const _DobotIconBox(icon: Icons.gamepad_outlined),
+          const SizedBox(width: 11),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Controle jog industrial', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            SizedBox(height: 2),
+            Text('Toque para um passo ou segure para continuar movimentando.', style: TextStyle(color: SteelColors.muted, fontSize: 11)),
+          ])),
+          if (_moving) const Icon(Icons.motion_photos_on_outlined, color: SteelColors.industrialAccent, size: 19),
+        ]),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          decoration: BoxDecoration(color: dark ? const Color(0xFF20282D) : SteelColors.panelLight, borderRadius: BorderRadius.circular(9)),
+          child: Text(widget.machine.isOnline ? _status : 'Aguardando conexão real do Dobot', style: const TextStyle(fontSize: 10, color: SteelColors.muted), maxLines: 2, overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(builder: (context, constraints) {
+          final xy = Column(children: [const Text('PLANO X / Y', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: SteelColors.muted)), const SizedBox(height: 9), _xyPad()]);
+          final zr = Column(children: [const Text('ALTURA / ROTAÇÃO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: SteelColors.muted)), const SizedBox(height: 9), _zrPad()]);
+          return constraints.maxWidth >= 620
+              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: xy), const SizedBox(width: 18), Expanded(child: zr)])
+              : Column(children: [xy, const SizedBox(height: 16), zr]);
+        }),
+        const SizedBox(height: 16),
+        const Text('PASSO DO MOVIMENTO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: SteelColors.muted)),
+        const SizedBox(height: 7),
+        Wrap(spacing: 7, children: [1.0, 5.0, 10.0, 20.0].map((value) => ChoiceChip(label: Text('${value.round()} mm / °'), selected: _step == value, onSelected: _moving ? null : (_) => setState(() => _step = value))).toList()),
+        const SizedBox(height: 13),
+        Row(children: [
+          const Icon(Icons.speed_rounded, size: 17, color: SteelColors.industrialAccent),
+          const SizedBox(width: 7),
+          const Text('Velocidade', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
+          Expanded(child: Slider(value: _speed, min: 1, max: 40, divisions: 39, onChanged: _moving ? null : (value) => setState(() => _speed = value))),
+          Text('${_speed.round()}%', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+        ]),
+        const SizedBox(height: 8),
+        const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.shield_outlined, size: 16, color: SteelColors.industrialAccent), SizedBox(width: 7), Expanded(child: Text('Segure uma direção para repetir movimentos seguros. Ao soltar, o passo atual termina e nenhum novo passo é enviado. O botão STOP continua disponível para parada imediata.', style: TextStyle(color: SteelColors.muted, fontSize: 9, height: 1.4)))]),
+      ]),
+    );
+  }
+}
+
 class _DobotPtpPanel extends StatefulWidget {
   const _DobotPtpPanel({required this.controller, required this.machine});
 
@@ -3357,7 +3875,7 @@ class _DobotPtpPanelState extends State<_DobotPtpPanel> {
 
     setState(() => _sending = true);
     try {
-      await widget.controller.machinesApi.sendDobotCommand(
+      final queued = await widget.controller.machinesApi.sendDobotCommand(
         widget.machine.id,
         'DOBOT_PTP',
         {
@@ -3368,9 +3886,29 @@ class _DobotPtpPanelState extends State<_DobotPtpPanel> {
           'velocidade': _speed.round(),
         },
       );
+      final command = queued['comando'];
+      final commandId = command is Map ? int.tryParse('${command['id']}') : null;
+      if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
+      final deadline = DateTime.now().add(const Duration(seconds: 20));
+      var completed = false;
+      while (DateTime.now().isBefore(deadline)) {
+        final statusData = await widget.controller.machinesApi.dobotCommandStatus(widget.machine.id, commandId);
+        final status = '${statusData['status'] ?? ''}'.toUpperCase();
+        if (status == 'CONCLUIDO') {
+          completed = true;
+          break;
+        }
+        if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') {
+          throw ApiException('O Edge informou ${status.toLowerCase()} para o movimento. Consulte Diagnóstico / logs.');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      if (!completed) {
+        throw const ApiException('O Edge não confirmou o movimento dentro do tempo esperado.');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.of(context).get('ptpSent'))),
+          const SnackBar(content: Text('Movimento PTP executado pelo Dobot.')),
         );
       }
     } on ApiException catch (exception) {
@@ -3603,18 +4141,31 @@ class _DobotCommandTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        onPressed: () async {
+        onPressed: !machine.isOnline ? null : () async {
           try {
-            await controller.machinesApi.sendDobotCommand(machine.id, command);
+            final queued = await controller.machinesApi.sendDobotCommand(machine.id, command);
+            final item = queued['comando'];
+            final commandId = item is Map ? int.tryParse('${item['id']}') : null;
+            if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
+            final timeout = command == 'DOBOT_HOME' ? const Duration(seconds: 20) : const Duration(seconds: 12);
+            final deadline = DateTime.now().add(timeout);
+            var completed = false;
+            while (DateTime.now().isBefore(deadline)) {
+              final statusData = await controller.machinesApi.dobotCommandStatus(machine.id, commandId);
+              final status = '${statusData['status'] ?? ''}'.toUpperCase();
+              if (status == 'CONCLUIDO') {
+                completed = true;
+                break;
+              }
+              if (status == 'FALHOU' || status == 'CANCELADO' || status == 'EXPIRADO') {
+                throw ApiException('O Edge informou ${status.toLowerCase()} para $label. Consulte Diagnóstico / logs.');
+              }
+              await Future<void>.delayed(const Duration(milliseconds: 100));
+            }
+            if (!completed) throw ApiException('O Edge não confirmou $label dentro do tempo esperado.');
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    AppStrings.of(context)
-                        .get('commandSent')
-                        .replaceAll('{command}', label),
-                  ),
-                ),
+                SnackBar(content: Text('$label executado pelo Dobot.')),
               );
             }
           } on ApiException catch (exception) {

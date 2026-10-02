@@ -223,31 +223,27 @@ class _CompanyScreenState extends State<CompanyScreen> {
       children: [
         Text(
           company.name,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: 4),
         Text(
           'CNPJ: ${formatCnpj(company.cnpj)}',
-          style: const TextStyle(color: SteelColors.muted),
+          style: const TextStyle(color: Color(0xFFBEC7CD)),
         ),
         const SizedBox(height: 8),
         Builder(
           builder: (context) {
-            final dark = Theme.of(context).brightness == Brightness.dark;
             return Chip(
-              avatar: const Icon(Icons.circle, size: 9, color: SteelColors.success),
+              avatar: const Icon(Icons.circle, size: 9, color: Color(0xFF047857)),
               label: Text(strings.get('activeCompany')),
-              backgroundColor: dark
-                  ? SteelColors.success.withValues(alpha: .14)
-                  : const Color(0xFFEAF7F0),
-              side: BorderSide(
-                color: dark
-                    ? SteelColors.success.withValues(alpha: .38)
-                    : const Color(0xFFAEDBC4),
-              ),
-              labelStyle: TextStyle(
-                color: dark ? const Color(0xFFBDEBD2) : const Color(0xFF176B45),
-                fontWeight: FontWeight.w700,
+              backgroundColor: const Color(0xFFD1FAE5),
+              side: const BorderSide(color: Color(0xFF34D399), width: 1.2),
+              labelStyle: const TextStyle(
+                color: Color(0xFF065F46),
+                fontWeight: FontWeight.w800,
               ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             );
@@ -262,19 +258,32 @@ class _CompanyScreenState extends State<CompanyScreen> {
       children: [
         OutlinedButton.icon(
           onPressed: _working ? null : _changeLogo,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFF0F3F5),
+            side: const BorderSide(color: Color(0xFF59646B)),
+          ),
           icon: const Icon(Icons.photo_camera_back_outlined),
           label: Text(strings.get('changeLogo')),
         ),
         OutlinedButton.icon(
           onPressed: _working || company.logoUrl?.trim().isNotEmpty != true ? null : _removeLogo,
-          style: OutlinedButton.styleFrom(foregroundColor: SteelColors.danger),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFFF9898),
+            side: const BorderSide(color: Color(0xFF75484B)),
+          ),
           icon: const Icon(Icons.delete_outline_rounded),
           label: Text(strings.get('removeLogo')),
         ),
       ],
     );
 
-    return SectionCard(
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151A1D),
+        border: Border.all(color: const Color(0xFF354047)),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 600) {
@@ -286,7 +295,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
                   const SizedBox(height: 14),
                   actions,
                   const SizedBox(height: 5),
-                  Text(strings.get('logoFormatHint'), style: const TextStyle(color: SteelColors.muted, fontSize: 11)),
+                  Text(strings.get('logoFormatHint'), style: const TextStyle(color: Color(0xFFAEB8BF), fontSize: 11)),
                 ],
               ],
             );
@@ -309,7 +318,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
                       Text(
                         strings.get('logoFormatHint'),
                         textAlign: TextAlign.right,
-                        style: const TextStyle(color: SteelColors.muted, fontSize: 10),
+                        style: const TextStyle(color: Color(0xFFAEB8BF), fontSize: 10),
                       ),
                     ],
                   ),

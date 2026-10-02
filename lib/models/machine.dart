@@ -112,7 +112,13 @@ class Machine {
     Map<String, dynamic> nextExtraData = extraData;
     final extras = json['dadosExtras'] ?? json['dadosExtrasAtuais'];
     if (extras is Map) {
-      nextExtraData = Map<String, dynamic>.from(extras);
+      // Alguns controladores publicam pacotes parciais em alta frequência
+      // (por exemplo, pose em um ciclo e estado em outro). Mesclar recursivamente
+      // evita que um pacote parcial apague sinais ainda válidos no Mobile.
+      nextExtraData = _mergeTelemetryMaps(
+        extraData,
+        Map<String, dynamic>.from(extras),
+      );
     }
 
     return Machine(
@@ -230,6 +236,26 @@ class Machine {
       ),
     );
   }
+}
+
+Map<String, dynamic> _mergeTelemetryMaps(
+  Map<String, dynamic> current,
+  Map<String, dynamic> incoming,
+) {
+  final merged = Map<String, dynamic>.from(current);
+  for (final entry in incoming.entries) {
+    final previous = merged[entry.key];
+    final next = entry.value;
+    if (previous is Map && next is Map) {
+      merged[entry.key] = _mergeTelemetryMaps(
+        Map<String, dynamic>.from(previous),
+        Map<String, dynamic>.from(next),
+      );
+    } else {
+      merged[entry.key] = next;
+    }
+  }
+  return merged;
 }
 
 class MachineAlert {

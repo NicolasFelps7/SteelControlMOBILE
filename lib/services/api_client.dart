@@ -35,6 +35,7 @@ class ApiClient {
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'X-SteelControl-Client': 'mobile',
         if (token?.isNotEmpty == true) 'Authorization': 'Bearer $token',
       };
 
@@ -72,6 +73,7 @@ class ApiClient {
       final request = http.Request('GET', ApiConfig.uri(path));
       request.headers['Accept'] = 'text/event-stream';
       request.headers['Cache-Control'] = 'no-cache';
+      request.headers['X-SteelControl-Client'] = 'mobile';
       if (token?.isNotEmpty == true) {
         request.headers['Authorization'] = 'Bearer $token';
       }
@@ -127,6 +129,7 @@ class ApiClient {
     try {
       final request = http.MultipartRequest('POST', ApiConfig.uri(path));
       request.headers['Accept'] = 'application/json';
+      request.headers['X-SteelControl-Client'] = 'mobile';
       if (token?.isNotEmpty == true) {
         request.headers['Authorization'] = 'Bearer $token';
       }

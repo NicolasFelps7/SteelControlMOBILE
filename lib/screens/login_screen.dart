@@ -38,8 +38,77 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.controller.login(_email.text, _password.text);
     } on ApiException catch (exception) {
       if (!mounted) return;
+      if (exception.code == 'ADMIN_MFA_REQUIRED' && exception.data != null) {
+        await _showAdminMfa(exception.data!);
+        return;
+      }
       _message(exception.message, error: true);
     }
+  }
+
+  Future<void> _showAdminMfa(Map<String, dynamic> challenge) async {
+    final code = TextEditingController();
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          icon: const Icon(Icons.admin_panel_settings_rounded),
+          title: const Text('Confirme o acesso administrativo'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Código enviado para ${challenge['email'] ?? 'o e-mail protegido'}.'),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: code,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  autofillHints: const [AutofillHints.oneTimeCode],
+                  decoration: InputDecoration(
+                    labelText: 'Código de 6 dígitos',
+                    errorText: error,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final value = code.text.replaceAll(RegExp(r'\D'), '');
+                if (value.length != 6) {
+                  setDialogState(() => error = 'Informe os 6 dígitos.');
+                  return;
+                }
+                try {
+                  await widget.controller.verifyAdminMfa(
+                    '${challenge['challengeId'] ?? ''}',
+                    value,
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } on ApiException catch (exception) {
+                  setDialogState(() => error = exception.message);
+                }
+              },
+              icon: const Icon(Icons.verified_user_outlined),
+              label: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    code.dispose();
   }
 
   void _message(String text, {bool error = false}) {

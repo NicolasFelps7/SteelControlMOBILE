@@ -26,6 +26,7 @@ class AppController extends ChangeNotifier {
   SessionEventService? _sessionEvents;
   StreamSubscription<Map<String, dynamic>>? _machineEvents;
   Timer? _machineReconnect;
+  Timer? _machineUiRefresh;
   int _machineEventGeneration = 0;
 
   Session? session;
@@ -84,6 +85,24 @@ class AppController extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     await _guard(() async {
       final json = await auth.login(email, password);
+      if (json['mfaRequired'] == true) {
+        throw ApiException(
+          '${json['mensagem'] ?? 'Confirme o código administrativo.'}',
+          statusCode: 202,
+          code: '${json['codigo'] ?? 'ADMIN_MFA_REQUIRED'}',
+          data: json,
+        );
+      }
+      await _acceptSession(json, newAccount: false);
+    });
+  }
+
+  Future<void> verifyAdminMfa(String challengeId, String code) async {
+    await _guard(() async {
+      final json = await auth.verifyAdminMfa(
+        challengeId: challengeId,
+        code: code,
+      );
       await _acceptSession(json, newAccount: false);
     });
   }
@@ -166,10 +185,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> selectMachine(Machine machine) async {
-    selectedMachine = machine;
-    notifyListeners();
-    await refreshSelectedMachine();
+    // Carrega o snapshot completo antes de trocar a tela. Antes havia duas
+    // reconstruções pesadas (card e resposta da API) durante a navegação.
+    final selected = await _withLatestDiagnostics(
+      await machinesApi.find(machine.id),
+    );
+    selectedMachine = selected;
+    machines = machines
+        .map((item) => item.id == selected.id ? selected : item)
+        .toList(growable: false);
     _startMachineEvents();
+    notifyListeners();
   }
 
   void clearSelectedMachine() {
@@ -178,18 +204,48 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void replaceSelectedMachine(Machine machine) {
+  void replaceSelectedMachine(Machine machine, {bool notify = true}) {
     final changed = selectedMachine?.id != machine.id;
     selectedMachine = machine;
-    notifyListeners();
+    machines = machines
+        .map((item) => item.id == machine.id ? machine : item)
+        .toList(growable: false);
+    if (notify) notifyListeners();
     if (changed) _startMachineEvents();
   }
 
   Future<void> refreshSelectedMachine() async {
     final id = selectedMachine?.id;
     if (id == null) return;
-    selectedMachine = await machinesApi.find(id);
+    selectedMachine = await _withLatestDiagnostics(
+      await machinesApi.find(id),
+    );
     notifyListeners();
+  }
+
+  Future<Machine> _withLatestDiagnostics(Machine machine) async {
+    try {
+      final diagnostic = await machinesApi.diagnostics(machine.id);
+      final update = <String, dynamic>{};
+      final extras = diagnostic['dadosExtras'];
+      final integrationMeta = diagnostic['integracaoMeta'];
+      if (extras is Map) {
+        update['dadosExtras'] = Map<String, dynamic>.from(extras);
+      }
+      if (integrationMeta is Map) {
+        update['integracaoMeta'] = Map<String, dynamic>.from(integrationMeta);
+      }
+      if (diagnostic.containsKey('qualidadeSinal')) {
+        update['qualidadeSinal'] = diagnostic['qualidadeSinal'];
+      }
+      if (diagnostic.containsKey('latenciaMs')) {
+        update['latenciaMs'] = diagnostic['latenciaMs'];
+      }
+      return update.isEmpty ? machine : machine.mergeRealtime(update);
+    } catch (_) {
+      // Mantém o snapshot principal quando o diagnóstico estiver indisponível.
+      return machine;
+    }
   }
 
   Future<void> logout({String? forcedMessage}) async {
@@ -269,6 +325,9 @@ class AppController extends ChangeNotifier {
       _machineEvents = machinesApi.events(machineId).listen(
         (event) {
           if (generation != _machineEventGeneration || selectedMachine?.id != machineId) return;
+          // Eventos de comando não alteram o snapshot da máquina. Ignorá-los
+          // aqui evita reconstruir o dashboard inteiro a cada ACK do Edge.
+          if ('${event['tipo'] ?? ''}' == 'comando') return;
           final raw = event['dados'];
           if (raw is! Map) return;
 
@@ -279,7 +338,14 @@ class AppController extends ChangeNotifier {
           machines = machines
               .map((item) => item.id == machineId ? updated : item)
               .toList(growable: false);
-          notifyListeners();
+          // Telemetria pode chegar dezenas de vezes por segundo. Atualizamos o
+          // modelo imediatamente, mas limitamos repaints globais a 4 Hz.
+          _machineUiRefresh ??= Timer(const Duration(milliseconds: 250), () {
+            _machineUiRefresh = null;
+            if (selectedMachine?.id == machineId && isAuthenticated) {
+              notifyListeners();
+            }
+          });
         },
         onError: (_) => scheduleReconnect(),
         onDone: scheduleReconnect,
@@ -296,6 +362,8 @@ class AppController extends ChangeNotifier {
     _machineReconnect = null;
     _machineEvents?.cancel();
     _machineEvents = null;
+    _machineUiRefresh?.cancel();
+    _machineUiRefresh = null;
   }
 
   String? consumeForcedLogoutNotice() {

@@ -9,10 +9,16 @@ class ApiConfig {
 
   static const _storageKey = 'steelcontrol_api_url';
   static const _explicitCompiledUrl = String.fromEnvironment('API_URL');
+  static const _allowInsecureHttp = bool.fromEnvironment(
+    'ALLOW_INSECURE_HTTP',
+    defaultValue: false,
+  );
   static const _emulatorUrl = 'http://10.0.2.2:3000';
   static const _usbReverseUrl = 'http://127.0.0.1:3000';
+  static const _secureFallbackUrl = 'https://127.0.0.1:3000';
 
-  static String _baseUrl = _emulatorUrl;
+  static String _baseUrl =
+      _allowInsecureHttp ? _emulatorUrl : _secureFallbackUrl;
 
   static String get baseUrl => _baseUrl.replaceAll(RegExp(r'/+$'), '');
 
@@ -20,6 +26,16 @@ class ApiConfig {
     final preferences = await SharedPreferences.getInstance();
     final saved = preferences.getString(_storageKey)?.trim();
     final explicit = _explicitCompiledUrl.trim();
+    String? normalizedSaved;
+
+    if (saved?.isNotEmpty == true) {
+      try {
+        normalizedSaved = _normalize(saved!);
+      } on FormatException {
+        // Descarta endereços HTTP persistidos por versões antigas do app.
+        await preferences.remove(_storageKey);
+      }
+    }
 
     if (explicit.isNotEmpty) {
       _baseUrl = _normalize(explicit);
@@ -27,9 +43,10 @@ class ApiConfig {
     }
 
     final candidates = <String>[
-      if (saved?.isNotEmpty == true) _normalize(saved!),
-      _emulatorUrl,
-      _usbReverseUrl,
+      if (normalizedSaved != null) normalizedSaved,
+      if (_allowInsecureHttp) _emulatorUrl,
+      if (_allowInsecureHttp) _usbReverseUrl,
+      if (!_allowInsecureHttp) _secureFallbackUrl,
     ];
 
     final seen = <String>{};
@@ -44,7 +61,8 @@ class ApiConfig {
       }
     }
 
-    _baseUrl = saved?.isNotEmpty == true ? _normalize(saved!) : _emulatorUrl;
+    _baseUrl = normalizedSaved ??
+        (_allowInsecureHttp ? _emulatorUrl : _secureFallbackUrl);
   }
 
   static Future<void> save(String value) async {
@@ -72,7 +90,7 @@ class ApiConfig {
   static String _normalize(String value) {
     var normalized = value.trim();
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(normalized)) {
-      normalized = 'http://$normalized';
+      normalized = 'https://$normalized';
     }
     normalized = normalized.replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
@@ -82,6 +100,12 @@ class ApiConfig {
         (scheme != 'http' && scheme != 'https') ||
         uri.host.isEmpty) {
       throw const FormatException('Informe um endereço HTTP válido.');
+    }
+    if (scheme == 'http' && !_allowInsecureHttp) {
+      throw const FormatException(
+        'Conexão HTTP bloqueada. Use HTTPS ou gere uma versão de '
+        'desenvolvimento com ALLOW_INSECURE_HTTP=true.',
+      );
     }
     return normalized;
   }

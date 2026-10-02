@@ -132,8 +132,7 @@ class _HomeShellState extends State<HomeShell> {
           );
         }
 
-        final railExtended = constraints.maxWidth >= 760;
-        final railWidth = constraints.maxWidth >= 1200 ? 224.0 : 196.0;
+        const railWidth = 224.0;
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         final dark = theme.brightness == Brightness.dark;
@@ -156,259 +155,163 @@ class _HomeShellState extends State<HomeShell> {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          railExtended ? 18 : 12,
-                          18,
-                          railExtended ? 18 : 12,
-                          14,
-                        ),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(18, 18, 18, 14),
                         child: Align(
-                          alignment: railExtended ? Alignment.centerLeft : Alignment.center,
-                          child: SteelBrand(compact: !railExtended),
+                          alignment: Alignment.centerLeft,
+                          child: SteelBrand(),
                         ),
                       ),
                       if (selected != null) ...[
                         const SizedBox(height: 10),
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: railExtended ? 12 : 8),
-                          child: railExtended
-                              ? Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerLow,
+                              border: Border.all(color: railBorder),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
                                   decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerLow,
-                                    border: Border.all(color: railBorder),
-                                    borderRadius: BorderRadius.circular(11),
+                                    color: SteelColors.industrialAccent.withValues(alpha: .10),
+                                    borderRadius: BorderRadius.circular(9),
                                   ),
-                                  child: Row(
+                                  child: const Icon(
+                                    Icons.precision_manufacturing_outlined,
+                                    color: SteelColors.industrialAccent,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: SteelColors.industrialAccent.withValues(alpha: .10),
-                                          borderRadius: BorderRadius.circular(9),
-                                        ),
-                                        child: const Icon(
-                                          Icons.precision_manufacturing_outlined,
-                                          color: SteelColors.industrialAccent,
-                                          size: 20,
+                                      Text(
+                                        strings.get('selectedMachine'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: railMuted,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: .55,
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              strings.get('selectedMachine'),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: railMuted,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
-                                                letterSpacing: .55,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 3),
-                                            Text(
-                                              selectedName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: theme.textTheme.titleSmall?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  width: 7,
-                                                  height: 7,
-                                                  decoration: BoxDecoration(
-                                                    color: selected.isOnline
-                                                        ? SteelColors.success
-                                                        : SteelColors.steel500,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    selectedMeta,
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: railMuted,
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        selectedName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall?.copyWith(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                )
-                              : Tooltip(
-                                  message: '$selectedName\n$selectedMeta',
-                                  child: Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: scheme.surfaceContainerLow,
-                                      border: Border.all(color: railBorder),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.precision_manufacturing_outlined,
-                                          color: SteelColors.industrialAccent,
-                                          size: 24,
-                                        ),
-                                        Positioned(
-                                          right: 8,
-                                          bottom: 8,
-                                          child: Container(
-                                            width: 8,
-                                            height: 8,
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 7,
+                                            height: 7,
                                             decoration: BoxDecoration(
                                               color: selected.isOnline
                                                   ? SteelColors.success
                                                   : SteelColors.steel500,
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: railBackground, width: 1.5),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              selectedMeta,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: railMuted,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                       const SizedBox(height: 8),
                       Expanded(
-                        child: NavigationRail(
-                          extended: railExtended,
-                          minWidth: 86,
-                          minExtendedWidth: railWidth - 2,
-                          backgroundColor: Colors.transparent,
-                          selectedIndex: _index,
-                          onDestinationSelected: (value) => setState(() => _index = value),
-                          groupAlignment: -0.82,
-                          labelType: NavigationRailLabelType.none,
-                          useIndicator: true,
-                          indicatorColor: SteelColors.industrialAccent.withValues(alpha: dark ? .18 : .12),
-                          selectedIconTheme: const IconThemeData(
-                            color: SteelColors.industrialAccent,
-                            size: 24,
-                          ),
-                          unselectedIconTheme: IconThemeData(
-                            color: railMuted,
-                            size: 23,
-                          ),
-                          selectedLabelTextStyle: theme.textTheme.labelMedium?.copyWith(
-                            color: dark
-                                ? const Color(0xFFFFC66A)
-                                : SteelColors.industrialAccentDark,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          unselectedLabelTextStyle: theme.textTheme.labelMedium?.copyWith(
-                            color: railMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          destinations: items
-                              .map(
-                                (item) => NavigationRailDestination(
-                                  icon: Tooltip(
-                                    message: item.label,
-                                    child: Icon(item.icon),
-                                  ),
-                                  selectedIcon: Icon(item.icon),
-                                  label: Text(item.label),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+                          child: Column(
+                            children: List.generate(
+                              items.length,
+                              (index) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: _RailDestinationTile(
+                                  destination: items[index],
+                                  selected: _index == index,
+                                  dark: dark,
+                                  onTap: () => setState(() => _index = index),
                                 ),
-                              )
-                              .toList(),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       if (selected != null)
                         Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: railExtended ? 12 : 8,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
                             vertical: 4,
                           ),
-                          child: railExtended
-                              ? ListTile(
-                                  dense: true,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(9),
-                                  ),
-                                  leading: const Icon(Icons.swap_horiz_rounded),
-                                  title: Text(
-                                    strings.get('switchMachine'),
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  onTap: () {
-                                    setState(() => _index = 0);
-                                    widget.controller.clearSelectedMachine();
-                                  },
-                                )
-                              : Tooltip(
-                                  message: strings.get('switchMachine'),
-                                  child: IconButton(
-                                    onPressed: () {
-                                      setState(() => _index = 0);
-                                      widget.controller.clearSelectedMachine();
-                                    },
-                                    icon: const Icon(Icons.swap_horiz_rounded),
-                                  ),
-                                ),
+                          child: ListTile(
+                            dense: true,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            leading: const Icon(Icons.swap_horiz_rounded),
+                            title: Text(
+                              strings.get('switchMachine'),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                            onTap: () {
+                              setState(() => _index = 0);
+                              widget.controller.clearSelectedMachine();
+                            },
+                          ),
                         ),
                       Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          railExtended ? 12 : 8,
-                          2,
-                          railExtended ? 12 : 8,
-                          12,
+                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
+                        child: ListTile(
+                          dense: true,
+                          textColor: SteelColors.danger,
+                          iconColor: SteelColors.danger,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          leading: const Icon(Icons.logout_rounded),
+                          title: Text(
+                            strings.get('logout'),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          onTap: () async {
+                            if (await confirmLogout(context) && mounted) {
+                              await widget.controller.logout();
+                            }
+                          },
                         ),
-                        child: railExtended
-                            ? ListTile(
-                                dense: true,
-                                textColor: SteelColors.danger,
-                                iconColor: SteelColors.danger,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(9),
-                                ),
-                                leading: const Icon(Icons.logout_rounded),
-                                title: Text(
-                                  strings.get('logout'),
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                onTap: () async {
-                                  if (await confirmLogout(context) && mounted) {
-                                    await widget.controller.logout();
-                                  }
-                                },
-                              )
-                            : Tooltip(
-                                message: strings.get('logout'),
-                                child: IconButton(
-                                  color: SteelColors.danger,
-                                  onPressed: () async {
-                                    if (await confirmLogout(context) && mounted) {
-                                      await widget.controller.logout();
-                                    }
-                                  },
-                                  icon: const Icon(Icons.logout_rounded),
-                                ),
-                              ),
                       ),
                     ],
                   ),
@@ -422,14 +325,10 @@ class _HomeShellState extends State<HomeShell> {
                         decoration: BoxDecoration(
                           color: scheme.surface,
                           border: Border.all(color: railBorder),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           children: [
-                            if (!railExtended) ...[
-                              const SteelBrand(compact: true),
-                              const SizedBox(width: 12),
-                            ],
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,6 +474,81 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
             const SizedBox(height: 10),
             Text(strings.get('openingWorkspace'), style: const TextStyle(color: SteelColors.muted, fontSize: 11, fontWeight: FontWeight.w700)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RailDestinationTile extends StatelessWidget {
+  const _RailDestinationTile({
+    required this.destination,
+    required this.selected,
+    required this.dark,
+    required this.onTap,
+  });
+
+  final _Destination destination;
+  final bool selected;
+  final bool dark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = selected
+        ? (dark ? const Color(0xFFF2F4F5) : SteelColors.ink)
+        : (dark ? const Color(0xFFC2CBD0) : const Color(0xFF56636B));
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? (dark ? const Color(0xFF20282D) : const Color(0xFFF4F6F7))
+                : Colors.transparent,
+            border: Border(
+              left: BorderSide(
+                color: selected ? const Color(0xFFD39332) : Colors.transparent,
+                width: 3,
+              ),
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 18,
+                child: Icon(
+                  destination.icon,
+                  size: 18,
+                  color: selected
+                      ? (dark ? const Color(0xFFFFB33A) : SteelColors.industrialAccentDark)
+                      : (dark ? const Color(0xFF87939A) : SteelColors.steel500),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  destination.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12.5,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

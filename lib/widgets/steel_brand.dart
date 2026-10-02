@@ -19,15 +19,11 @@ class SteelBrand extends StatelessWidget {
         : dark
             ? SteelColors.mutedDark
             : SteelColors.muted;
-    final iconColor = light ? SteelColors.ink : (dark ? Colors.white : SteelColors.ink);
-    final plate = light
-        ? const Color(0xFFF4F5F5)
-        : dark
-            ? const Color(0xFF242D32)
-            : Colors.white;
+    final iconColor = dark || light ? Colors.white : SteelColors.ink;
+    final plate = dark || light ? SteelColors.ink : Colors.white;
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
       children: [
         Container(
           width: compact ? 34 : 42,
@@ -35,9 +31,9 @@ class SteelBrand extends StatelessWidget {
           decoration: BoxDecoration(
             color: plate,
             border: Border.all(
-              color: light ? const Color(0xFF505B61) : (dark ? SteelColors.borderDark : SteelColors.border),
+              color: dark || light ? SteelColors.borderDark : SteelColors.border,
             ),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(7),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8),
@@ -49,29 +45,41 @@ class SteelBrand extends StatelessWidget {
         ),
         if (!compact) ...[
           const SizedBox(width: 11),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'SteelControl',
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -.25,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'SteelControl',
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.25,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                AppStrings.of(context).get('industrialManagement'),
-                style: TextStyle(
-                  color: secondary,
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: .95,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    AppStrings.of(context).get('industrialManagement'),
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: secondary,
+                      fontSize: 7.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: .95,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ],

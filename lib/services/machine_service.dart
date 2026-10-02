@@ -151,6 +151,32 @@ class MachineService {
     return Map<String, dynamic>.from(result as Map);
   }
 
+  Future<Map<String, dynamic>> dobotAutomation(int machineId) async {
+    final result = await client.get('/maquinas/$machineId/dobot/automatico');
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> updateDobotAutomation(
+    int machineId, {
+    Map<String, Map<String, double>>? points,
+    int? cycles,
+    double? speed,
+  }) async {
+    final body = <String, dynamic>{};
+    if (points != null) {
+      body['pontos'] = points.map(
+        (key, value) => MapEntry(key, Map<String, double>.from(value)),
+      );
+    }
+    if (cycles != null) body['ciclos'] = cycles;
+    if (speed != null) body['velocidade'] = speed;
+    final result = await client.put(
+      '/maquinas/$machineId/dobot/automatico',
+      body: body,
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
   Future<Map<String, dynamic>> sendHmiCommand(int id, String command) async {
     final result = await client.post(
       '/maquinas/$id/ihm/comandos',

@@ -697,13 +697,43 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
     return Scaffold(
       backgroundColor: _panelStrong,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF151C23), Color(0xFF0B1015)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -180,
+            right: -120,
+            child: Container(
+              width: 420,
+              height: 420,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _accent.withValues(alpha: .12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
             final tablet = constraints.maxWidth >= 760;
             final landscape = constraints.maxWidth > constraints.maxHeight;
 
-            return Column(
+                return Column(
               children: [
                 _buildTopBar(strings, tablet),
                 Expanded(
@@ -745,8 +775,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 ),
               ],
             );
-          },
-        ),
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -893,11 +925,23 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFF0B1015),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: _stateColor.withValues(alpha: .52),
                 width: 1.2,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: _stateColor.withValues(alpha: .12),
+                  blurRadius: 28,
+                  spreadRadius: -8,
+                ),
+                const BoxShadow(
+                  color: Color(0x8A000000),
+                  blurRadius: 20,
+                  offset: Offset(0, 12),
+                ),
+              ],
             ),
             padding: const EdgeInsets.all(8),
             child: AspectRatio(
@@ -908,7 +952,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   fit: StackFit.expand,
                   children: [
                     if (_camera?.value.isInitialized == true)
-                      CameraPreview(_camera!)
+                      RepaintBoundary(child: CameraPreview(_camera!))
                     else
                       Container(
                         color: const Color(0xFF111820),
@@ -1000,11 +1044,56 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildSignalStrip(tablet),
           const SizedBox(height: 14),
           _ProgressRail(
             progress: _progress,
             color: _stateColor,
             error: _hasError,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalStrip(bool tablet) {
+    final cameraOnline = _camera?.value.isInitialized == true;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10161C),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: _line),
+      ),
+      child: Wrap(
+        spacing: tablet ? 8 : 5,
+        runSpacing: 7,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          _BiometricSignal(
+            icon: Icons.videocam_outlined,
+            label: 'CAMERA',
+            value: cameraOnline ? 'ONLINE' : 'STARTING',
+            color: cameraOnline ? SteelColors.success : SteelColors.warning,
+          ),
+          _BiometricSignal(
+            icon: Icons.center_focus_strong_rounded,
+            label: 'TRACKING',
+            value: _hasError ? 'CHECK' : 'AUTO',
+            color: _hasError ? SteelColors.danger : _accent,
+          ),
+          const _BiometricSignal(
+            icon: Icons.motion_photos_on_outlined,
+            label: 'LIVENESS',
+            value: 'ACTIVE',
+            color: SteelColors.success,
+          ),
+          const _BiometricSignal(
+            icon: Icons.dns_outlined,
+            label: 'PROCESSING',
+            value: 'BACKEND',
+            color: SteelColors.titaniumLight,
           ),
         ],
       ),
@@ -1211,6 +1300,64 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BiometricSignal extends StatelessWidget {
+  const _BiometricSignal({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 112),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF171E25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: SteelColors.titanium,
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .9,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .35,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

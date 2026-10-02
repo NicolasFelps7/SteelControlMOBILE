@@ -201,7 +201,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         height: 70,
         backgroundColor: dark ? SteelColors.graphite : Colors.white,
-        indicatorColor: SteelColors.industrialAccent.withValues(alpha: .13),
+        indicatorColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith(

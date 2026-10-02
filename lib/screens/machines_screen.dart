@@ -990,7 +990,7 @@ class _MachineDialogState extends State<_MachineDialog> {
     networkExpanded = m != null && ((m.host?.isNotEmpty ?? false) || m.port != null || m.unitId != null || (m.endpoint?.isNotEmpty ?? false) || (m.topic?.isNotEmpty ?? false));
     final dobot = m?.integrationMeta['dobot'] as Map? ?? const {};
     final hmi = m?.integrationMeta['hmi'] as Map? ?? const {};
-    dobotAllowMotion = dobot['allowMotion'] == true;
+    dobotAllowMotion = dobot['remoteControlEnabled'] == true;
     hmiRemoteControlEnabled = hmi['remoteControlEnabled'] == true;
     final values = <String, dynamic>{
       'nome': m?.name,
@@ -1114,7 +1114,7 @@ class _MachineDialogState extends State<_MachineDialog> {
         'mode': fields['dobotMode']!.text.trim().toUpperCase(),
         'port': fields['dobotPort']!.text.trim().toUpperCase(),
         'baudRate': 115200,
-        'allowMotion': dobotAllowMotion,
+        'remoteControlEnabled': dobotAllowMotion,
         'externalSensors': {'temperature': false, 'vibration': false, 'current': false},
       };
       return current;
