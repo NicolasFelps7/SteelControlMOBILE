@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 class SteelColors {
@@ -18,8 +19,9 @@ class SteelColors {
   static const primaryDark = Color(0xFF364149);
 
   // Âmbar é usado somente para identidade, seleção e ação.
-  static const industrialAccent = Color(0xFFC98212);
-  static const industrialAccentDark = Color(0xFF9D6208);
+  static const industrialAccent = Color(0xFFD47B09);
+  static const industrialAccentDark = Color(0xFFA85F00);
+  static const industrialAccentLight = Color(0xFFFFB24A);
 
   static const canvas = Color(0xFFF0F2F3);
   static const card = Color(0xFFFFFFFF);
@@ -69,6 +71,16 @@ class AppTheme {
       scaffoldBackgroundColor: dark ? SteelColors.ink : SteelColors.canvas,
       fontFamily: 'Roboto',
       splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
+        },
+      ),
     );
 
     final textTheme = base.textTheme.copyWith(

@@ -1,0 +1,39 @@
+STEELCONTROL MOBILE 1.16.0 - DESKTOP SYNC
+==========================================
+
+O que foi atualizado
+--------------------
+- Cores e componentes alinhados ao Desktop (preto, branco e laranja industrial).
+- Cena industrial animada no acesso em tablets, sem WebGL.
+- Transições suaves entre as áreas do aplicativo.
+- Logo de reserva corrigida no modo escuro.
+- Dashboard dinâmico reorganizado como "Indicadores avançados".
+- Dashboard mostra somente sinais realmente recebidos.
+- Aliases de telemetria pesquisados recursivamente para igualar Desktop e Mobile.
+- Qualidade de sinal e latência incluídas quando informadas pelo backend.
+- Configuração do dashboard não some mais durante eventos parciais do Edge.
+- Estado aberto do painel preservado durante atualizações em tempo real.
+
+Como instalar sobre a pasta existente
+-------------------------------------
+1. Faça uma cópia da sua pasta SteelControlMOBILE atual.
+2. Extraia este ZIP.
+3. Copie todo o conteúdo extraído para a raiz do SteelControlMOBILE.
+4. Aceite substituir os arquivos quando o Windows perguntar.
+5. Na raiz do projeto, execute:
+
+   flutter pub get
+   flutter analyze
+
+6. Para abrir no tablet, use o IP IPv4 atual do computador:
+
+   flutter run --dart-define=API_URL=http://SEU_IP:3000 --dart-define=ALLOW_INSECURE_HTTP=true
+
+Observações
+-----------
+- Não foi adicionada nenhuma dependência nova.
+- Não é necessário executar flutter clean.
+- Desktop e Mobile precisam apontar para o mesmo backend e a mesma empresa.
+- O painel dinâmico depende de integracaoMeta.dashboard salvo na máquina e dos
+  sinais publicados pelo Edge/controlador.
+- Comandos físicos, permissões e validações de segurança não foram alterados.

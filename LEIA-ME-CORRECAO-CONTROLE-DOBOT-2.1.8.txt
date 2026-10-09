@@ -1,0 +1,36 @@
+STEELCONTROL — CORRECAO DO CONTROLE MANUAL DOBOT
+
+O QUE FOI CORRIGIDO
+- O giro R+ / R- agora usa somente a junta J4 do Dobot.
+- Girar nao reutiliza mais o movimento cartesiano que podia deslocar X/Y.
+- O Edge tenta limpar automaticamente o estado de falha quando um alvo toca
+  um limite de junta, para que outros comandos validos possam continuar.
+- Desktop e mobile usam o mesmo comando DOBOT_ROTATE.
+
+IMPORTANTE
+Nao existe limite de quantidade de comandos. O limite mostrado no log (18/73)
+e um limite fisico do robo. Por seguranca, o SteelControl nao permite continuar
+empurrando a mesma junta para alem do alcance. Ao chegar ao limite, mova no
+sentido oposto.
+
+COMO INSTALAR — DESKTOP / EDGE
+1. Feche o SteelControl e o SteelControl Edge.
+2. Extraia o ZIP DESKTOP-EDGE dentro da pasta steelcontrol22desk.
+3. Confirme a substituicao dos arquivos.
+4. Inicie novamente com .\INICIAR_STEELCONTROL.ps1.
+5. Abra o Edge e confirme que aparece EDGE 2.1.8.
+
+COMO INSTALAR — MOBILE
+1. Extraia o ZIP MOBILE dentro da pasta SteelControlMOBILE.
+2. Execute: flutter pub get
+3. Execute o app novamente usando o IP atual do computador.
+
+TESTE SEGURO
+1. Mantenha a area do robo livre e use passo de 1 ou 5 graus.
+2. Teste R+ e depois R-. O X/Y/Z deve permanecer praticamente igual.
+3. Teste varios comandos alternando os sentidos.
+4. Se chegar ao limite fisico, aguarde a recuperacao e use o sentido oposto.
+
+Validacao automatizada executada:
+- Backend: 4 testes aprovados.
+- Edge: 7 testes aprovados.

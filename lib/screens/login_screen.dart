@@ -5,6 +5,7 @@ import '../core/app_strings.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import '../widgets/steel_brand.dart';
+import '../widgets/steel_motion.dart';
 import 'face_auth_screen.dart';
 import 'register_screen.dart';
 
@@ -408,16 +409,28 @@ class _IndustrialPanel extends StatelessWidget {
                     : MainAxisAlignment.spaceBetween,
                 children: [
                   const SteelBrand(light: true),
-                  SizedBox(height: veryCompact ? 24 : 54),
+                  SizedBox(height: veryCompact ? 18 : 30),
+                  SteelIndustrialMotion(compact: veryCompact),
+                  SizedBox(height: veryCompact ? 18 : 28),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.monitor_heart_outlined,
-                        color: SteelColors.industrialAccent,
-                        size: veryCompact ? 38 : 58,
+                      const Row(
+                        children: [
+                          Icon(Icons.hub_outlined, color: SteelColors.industrialAccent, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'OPERAÇÃO INDUSTRIAL CONECTADA',
+                            style: TextStyle(
+                              color: SteelColors.industrialAccentLight,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.15,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: veryCompact ? 14 : 26),
+                      SizedBox(height: veryCompact ? 12 : 18),
                       Text(
                         strings.get('heroTitle'),
                         style: TextStyle(
@@ -441,7 +454,7 @@ class _IndustrialPanel extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: veryCompact ? 24 : 54),
+                  SizedBox(height: veryCompact ? 20 : 32),
                   Row(
                     children: [
                       const Icon(Icons.shield_outlined, color: Colors.white70),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/api_config.dart';
 import '../core/app_theme.dart';
@@ -13,6 +14,7 @@ class CompanyLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final path = company.logoUrl?.trim();
     final url = path == null || path.isEmpty
         ? null
@@ -23,14 +25,25 @@ class CompanyLogo extends StatelessWidget {
         ? <String, String>{'Authorization': 'Bearer $token'}
         : null;
 
-    Widget fallback() => Icon(Icons.factory_outlined, color: SteelColors.primary, size: size * .48);
+    Widget fallback() => Padding(
+          padding: EdgeInsets.all(size * .08),
+          child: SvgPicture.asset(
+            'assets/images/steel-icon.svg',
+            colorFilter: ColorFilter.mode(
+              dark ? Colors.white : SteelColors.ink,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
 
     return Container(
       width: size,
       height: size,
       padding: EdgeInsets.all(size * .12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: url == null
+            ? (dark ? SteelColors.ink : Colors.white)
+            : Colors.white,
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(size * .22),
       ),

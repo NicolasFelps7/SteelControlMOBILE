@@ -1825,7 +1825,10 @@ class _ControllerDiagnosticsState extends State<_ControllerDiagnostics> {
   @override
   void didUpdateWidget(covariant _ControllerDiagnostics oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.machine.id != widget.machine.id || oldWidget.machine != widget.machine) _reload();
+    if (oldWidget.machine.id != widget.machine.id ||
+        oldWidget.machine != widget.machine) {
+      _reload();
+    }
   }
 
   void _reload() {
@@ -3637,22 +3640,26 @@ class _DobotJogPanelState extends State<_DobotJogPanel> {
         });
       }
 
+      final rotating = axis == 'r';
       final queued = await widget.controller.machinesApi.sendDobotCommand(
         widget.machine.id,
-        'DOBOT_PTP',
-        {...target, 'velocidade': _speed.round()},
+        rotating ? 'DOBOT_ROTATE' : 'DOBOT_PTP',
+        rotating
+            ? {'delta': _step * direction, 'velocidade': _speed.round()}
+            : {...target, 'velocidade': _speed.round()},
       );
       final command = queued['comando'];
       final commandId = command is Map ? int.tryParse('${command['id']}') : null;
       if (commandId == null) throw const ApiException('O backend não retornou o identificador do comando.');
 
       await _waitCommand(commandId);
-      _confirmedPose = target;
+      final confirmed = rotating ? (await _currentPose() ?? target) : target;
+      _confirmedPose = confirmed;
       if (mounted) {
         setState(() {
           _status = _holding
               ? 'Movendo continuamente • solte para encerrar após este passo'
-              : 'Posição confirmada • X ${target['x']!.toStringAsFixed(1)}  Y ${target['y']!.toStringAsFixed(1)}  Z ${target['z']!.toStringAsFixed(1)}  R ${target['r']!.toStringAsFixed(1)}';
+              : 'Posição confirmada • X ${confirmed['x']!.toStringAsFixed(1)}  Y ${confirmed['y']!.toStringAsFixed(1)}  Z ${confirmed['z']!.toStringAsFixed(1)}  R ${confirmed['r']!.toStringAsFixed(1)}';
         });
       }
       return true;

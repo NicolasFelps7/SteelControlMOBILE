@@ -1,3 +1,29 @@
+# 1.17.0+46 — Paridade visual Mobile/Desktop
+
+## 2026-10-09 — Facial, login, máquinas e dashboard dinâmico
+- Facial em tablet retrato usa o console biométrico completo, como no Desktop.
+- Login concluído exibe o mascote industrial com o capacete encaixando antes de abrir o painel.
+- Remove o monograma `SC` da cena do login e preserva uma identidade industrial mais limpa.
+- Lista de máquinas aparece antes das áreas de cadastro manual e descoberta automática.
+- Dashboard dinâmico permanece visível quando configurado, inclusive antes da chegada da telemetria, exibindo `Não informado` como no Desktop.
+- Contagem do painel diferencia sinais ativos e indicadores configurados.
+
+# 1.16.2+45 — Teste realtime compatível
+
+## 2026-10-09 — Correção final do `flutter analyze`
+- Atualiza `realtime_sync_test.dart` para a API atual de `SessionEventService`.
+- Remove o uso obsoleto do parâmetro `sseClientFactory`.
+- Mantém a validação de inicialização e encerramento seguro do realtime sem abrir conexão durante o teste.
+
+# 1.15.0+42 — Dashboard por perfil de máquina
+
+## 2026-10-02 — Cadastro inteligente e sincronizado
+- Escolha do tipo da máquina recomenda os módulos adequados no cadastro manual.
+- Seleção ajustável de OEE, produção, segurança, manutenção e energia.
+- Mesma configuração `integracaoMeta.dashboard` no Desktop e no Mobile.
+- O painel aparece apenas quando habilitado e com sinais reais nos módulos escolhidos.
+- Dobot, impressora 3D, IHM e regras de comando permanecem inalterados.
+
 # 1.14.0+41 — Dashboard industrial dinâmico
 
 ## 2026-09-28 — Painéis adaptativos por capacidade
@@ -60,3 +86,22 @@ O histórico detalhado de implementação anterior foi consolidado nesta versão
 - Controle jog e ciclo automático consultam a pose sem remontar toda a aplicação.
 - Polling de comandos Dobot mais leve e resposta manual mais rápida.
 - Ação para redefinir os cinco pontos ensinados do ciclo automático.
+# 1.16.0
+
+- identidade visual mobile alinhada ao Desktop nas cores preto, branco e laranja;
+- nova animação industrial leve no acesso para tablets, sem WebGL ou dependência externa;
+- transições suaves entre Máquinas, Empresa, Auditoria e dashboards;
+- dashboard dinâmico reorganizado como telemetria complementar;
+- aliases de sinais resolvidos recursivamente para manter os mesmos indicadores do Desktop;
+- configuração do dashboard preservada quando o Edge envia atualizações parciais;
+- qualidade de sinal e latência adicionadas aos indicadores avançados;
+- estado aberto do dashboard preservado durante atualizações em tempo real.
+
+# 1.16.1+44 — Compatibilidade e análise limpa
+
+## 2026-10-09 — Correções do Flutter Analyze
+- Importa explicitamente o construtor de transição Cupertino usado no tema.
+- Mantém a cor clara do destaque industrial disponível ao dashboard dinâmico.
+- Remove importação redundante e aplica chaves no fluxo condicional.
+- Nenhuma regra de comando, segurança, Edge ou telemetria foi alterada.
+

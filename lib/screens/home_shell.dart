@@ -6,6 +6,7 @@ import '../core/app_strings.dart';
 import '../core/app_theme.dart';
 import '../state/app_controller.dart';
 import '../widgets/steel_brand.dart';
+import '../widgets/steel_motion.dart';
 import '../widgets/logout_confirmation.dart';
 import 'audit_screen.dart';
 import 'company_screen.dart';
@@ -120,7 +121,10 @@ class _HomeShellState extends State<HomeShell> {
                 IconButton(onPressed: () => _refresh(selected != null), icon: const Icon(Icons.refresh_rounded)),
               ],
             ),
-            body: body,
+            body: SteelPageSwap(
+              transitionKey: '${selected?.id ?? 'fleet'}:${items[_index].section}',
+              child: body,
+            ),
             bottomNavigationBar: NavigationBar(
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               selectedIndex: _index,
@@ -368,7 +372,12 @@ class _HomeShellState extends State<HomeShell> {
                           ],
                         ),
                       ),
-                      Expanded(child: body),
+                      Expanded(
+                        child: SteelPageSwap(
+                          transitionKey: '${selected?.id ?? 'fleet'}:${items[_index].section}',
+                          child: body,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -414,7 +423,7 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => _progress = 1);
-      _closeTimer = Timer(const Duration(milliseconds: 2200), () {
+      _closeTimer = Timer(const Duration(milliseconds: 2750), () {
         if (mounted) Navigator.of(context).pop();
       });
     });
@@ -449,8 +458,8 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SteelBrand(light: dark),
-            const SizedBox(height: 24),
+            const SteelHardhatWelcome(),
+            const SizedBox(height: 12),
             Container(
               width: 68,
               height: 68,

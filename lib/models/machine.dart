@@ -166,7 +166,10 @@ class Machine {
           ? _int(json['ciclosManutencao'])
           : maintenanceCycles,
       integrationMeta: json['integracaoMeta'] is Map
-          ? Map<String, dynamic>.from(json['integracaoMeta'] as Map)
+          ? _mergeTelemetryMaps(
+              integrationMeta,
+              Map<String, dynamic>.from(json['integracaoMeta'] as Map),
+            )
           : integrationMeta,
       signalQuality: json.containsKey('qualidadeSinal') ? _optionalDouble(json['qualidadeSinal']) : signalQuality,
       latencyMs: json.containsKey('latenciaMs') ? _optionalDouble(json['latenciaMs']) : latencyMs,

@@ -91,6 +91,39 @@ void main() {
       expect(updated.signalQuality, 91);
     });
 
+    test('preserva perfil do dashboard ao receber integracao parcial do Edge', () {
+      final machine = Machine.fromJson({
+        'id': 21,
+        'nome': 'Célula robotizada',
+        'setor': 'Automação',
+        'modelo': 'R-21',
+        'codigo': 'ROB-21',
+        'integracaoMeta': {
+          'dashboard': {
+            'enabled': true,
+            'profile': 'ROBOT',
+            'modules': ['production', 'safety'],
+          },
+          'dobot': {'enabled': true, 'remoteControlEnabled': true},
+        },
+      });
+
+      final updated = machine.mergeRealtime({
+        'integracaoMeta': {
+          'dobot': {
+            'automatic': {'running': true},
+          },
+        },
+      });
+
+      final dashboard = updated.integrationMeta['dashboard'] as Map;
+      final dobot = updated.integrationMeta['dobot'] as Map;
+      expect(dashboard['profile'], 'ROBOT');
+      expect(dashboard['enabled'], isTrue);
+      expect(dobot['remoteControlEnabled'], isTrue);
+      expect((dobot['automatic'] as Map)['running'], isTrue);
+    });
+
     test('habilita IHM industrial para controladores não-Dobot', () {
       final machine = Machine.fromJson({
         'id': 9,

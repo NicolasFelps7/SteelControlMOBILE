@@ -1,7 +1,7 @@
 name: steelcontrol_mobile
 description: Aplicativo móvel oficial do SteelControl integrado ao backend do TCC.
 publish_to: "none"
-version: 1.14.0+41
+version: 1.17.1+47
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -29,3 +29,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/steel-icon.svg
+    - assets/images/steel-mascot-body.svg
+    - assets/images/steel-hardhat.svg

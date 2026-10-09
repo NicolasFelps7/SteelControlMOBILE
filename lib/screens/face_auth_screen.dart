@@ -764,7 +764,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                               )
                             : Column(
                                 children: [
-                                  _buildCameraConsole(strings, false),
+                                  _buildCameraConsole(strings, tablet),
                                   const SizedBox(height: 18),
                                   _buildStatusConsole(strings),
                                 ],

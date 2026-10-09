@@ -4,32 +4,52 @@ import '../core/app_theme.dart';
 import '../models/machine.dart';
 import 'section_card.dart';
 
-class DynamicIndustrialDashboard extends StatelessWidget {
+class DynamicIndustrialDashboard extends StatefulWidget {
   const DynamicIndustrialDashboard({required this.machine, super.key});
 
   final Machine machine;
 
   @override
+  State<DynamicIndustrialDashboard> createState() => _DynamicIndustrialDashboardState();
+}
+
+class _DynamicIndustrialDashboardState extends State<DynamicIndustrialDashboard> {
+  bool _expanded = true;
+
+  @override
   Widget build(BuildContext context) {
+    final machine = widget.machine;
     final resolver = _IndustrialValueResolver(machine);
+    final dashboard = machine.integrationMeta['dashboard'];
+    if (dashboard is! Map || dashboard['enabled'] != true) return const SizedBox.shrink();
+    final enabledModules = (dashboard['modules'] as List? ?? const []).map((item) => '$item').toSet();
+    final availableSections = <String, _IndustrialSection>{
+      'efficiency': _performanceSection(resolver),
+      'production': _productionSection(resolver),
+      'safety': _safetySection(resolver),
+      'maintenance': _maintenanceSection(resolver),
+      'energy': _energySection(resolver),
+    };
     final sections = <_IndustrialSection>[
-      _performanceSection(resolver),
-      _productionSection(resolver),
-      _safetySection(resolver),
-      _maintenanceSection(resolver),
-      _energySection(resolver),
+      ...availableSections.entries.where((entry) => enabledModules.contains(entry.key)).map((entry) => entry.value),
       ..._customSections(machine, resolver),
-    ].map((section) => section.onlyAvailable()).where((section) => section.metrics.isNotEmpty).toList();
-    final configured = sections.expand((section) => section.metrics).length;
+    ].where((section) => section.metrics.isNotEmpty).toList();
+    final metrics = sections.expand((section) => section.metrics).toList();
+    final configured = metrics.length;
+    final active = metrics.where((metric) => metric.available).length;
 
     if (sections.isEmpty) return const SizedBox.shrink();
+
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
 
     return SectionCard(
       accent: true,
       padding: EdgeInsets.zero,
       child: ExpansionTile(
         key: PageStorageKey<String>('industrial-dashboard-${machine.id}'),
-        initiallyExpanded: false,
+        initiallyExpanded: _expanded,
+        onExpansionChanged: (value) => setState(() => _expanded = value),
         maintainState: true,
         tilePadding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
         childrenPadding: EdgeInsets.zero,
@@ -43,13 +63,67 @@ class DynamicIndustrialDashboard extends StatelessWidget {
           ),
           child: const Icon(Icons.dashboard_customize_outlined, color: SteelColors.industrialAccent),
         ),
-        title: Text(
-          'Indicadores avançados',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'INTELIGÊNCIA INDUSTRIAL',
+              style: TextStyle(
+                color: dark ? SteelColors.industrialAccentLight : SteelColors.industrialAccentDark,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.05,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'Dashboard dinâmico da máquina',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
         ),
-        subtitle: Text(
-          '$configured sinais reais recebidos do Edge ou controlador',
-          style: const TextStyle(color: SteelColors.muted, fontSize: 10),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Text(
+            '${dashboard['machineType'] ?? dashboard['profile'] ?? 'Máquina'} · $active/$configured sinais ativos',
+            style: TextStyle(color: muted, fontSize: 10),
+          ),
+        ),
+        trailing: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(
+            color: _expanded
+                ? SteelColors.industrialAccent.withValues(alpha: .12)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border.all(
+              color: _expanded
+                  ? SteelColors.industrialAccent.withValues(alpha: .40)
+                  : Theme.of(context).dividerColor,
+            ),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$active/$configured',
+                style: TextStyle(
+                  color: _expanded
+                      ? (dark ? SteelColors.industrialAccentLight : SteelColors.industrialAccentDark)
+                      : muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 5),
+              AnimatedRotation(
+                turns: _expanded ? .5 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: Icon(Icons.keyboard_arrow_down_rounded, color: muted, size: 18),
+              ),
+            ],
+          ),
         ),
         children: [
           const Divider(height: 1),
@@ -69,7 +143,7 @@ class DynamicIndustrialDashboard extends StatelessWidget {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Painel somente de leitura: organiza dados extras enviados pela máquina. Não movimenta nem configura o equipamento.',
+                      'Somente leitura. Estes indicadores são os mesmos dados extras recebidos pelo Desktop; o painel não movimenta nem configura o equipamento.',
                       style: TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.35),
                     ),
                   ),
@@ -195,14 +269,6 @@ class _IndustrialSection {
   final IconData icon;
   final Color color;
   final List<_IndustrialMetric> metrics;
-
-  _IndustrialSection onlyAvailable() => _IndustrialSection(
-        title: title,
-        caption: caption,
-        icon: icon,
-        color: color,
-        metrics: metrics.where((metric) => metric.available).toList(),
-      );
 }
 
 class _IndustrialMetric {
@@ -240,8 +306,44 @@ class _IndustrialValueResolver {
       final fromTelemetry = _path(machine.extraData, path);
       if (_present(fromTelemetry)) return fromTelemetry;
     }
+    // Edge e controladores diferentes podem agrupar o mesmo sinal em blocos
+    // distintos. O Desktop resolve esses aliases recursivamente; repetir essa
+    // estratégia aqui mantém a contagem e os valores iguais nas duas telas.
+    final aliases = paths
+        .expand((path) => <String>[path, path.split('.').last])
+        .map(_normalize)
+        .where((path) => path.isNotEmpty)
+        .toSet();
+    final discovered = _deepFind(machine.extraData, aliases, 0);
+    if (_present(discovered)) return discovered;
     return fallback;
   }
+
+  dynamic _deepFind(dynamic source, Set<String> aliases, int depth) {
+    if (depth > 7) return null;
+    if (source is Map) {
+      for (final entry in source.entries) {
+        if (aliases.contains(_normalize('${entry.key}')) && _present(entry.value)) {
+          return entry.value;
+        }
+      }
+      for (final value in source.values) {
+        final found = _deepFind(value, aliases, depth + 1);
+        if (_present(found)) return found;
+      }
+    } else if (source is List) {
+      for (final value in source) {
+        final found = _deepFind(value, aliases, depth + 1);
+        if (_present(found)) return found;
+      }
+    }
+    return null;
+  }
+
+  String _normalize(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '');
 
   dynamic _path(Map<String, dynamic> source, String path) {
     dynamic current = source;
@@ -252,7 +354,8 @@ class _IndustrialValueResolver {
     return current;
   }
 
-  bool _present(dynamic value) => value != null && '$value'.trim().isNotEmpty;
+  bool _present(dynamic value) =>
+      value != null && value is! Map && value is! List && '$value'.trim().isNotEmpty;
 
   double? number(List<String> paths) {
     final value = first(paths);
@@ -341,6 +444,8 @@ _IndustrialSection _energySection(_IndustrialValueResolver r) => _IndustrialSect
         _IndustrialMetric(label: 'Potência instantânea', value: r.number(['energy.powerKw', 'powerKw', 'utilities.powerKw']), unit: 'kW', icon: Icons.electric_meter_outlined, color: SteelColors.industrialAccent),
         _IndustrialMetric(label: 'Energia acumulada', value: r.number(['energy.totalKwh', 'totalKwh', 'utilities.energyKwh']), unit: 'kWh', icon: Icons.data_usage_rounded, color: SteelColors.primary),
         _IndustrialMetric(label: 'Ar comprimido', value: r.number(['utilities.airPressureBar', 'air.pressureBar', 'airPressure']), unit: 'bar', icon: Icons.air_rounded, color: SteelColors.primary),
+        _IndustrialMetric(label: 'Qualidade do sinal', value: r.machine.signalQuality, unit: '%', icon: Icons.network_check_rounded, color: SteelColors.success),
+        _IndustrialMetric(label: 'Latência', value: r.machine.latencyMs, unit: 'ms', icon: Icons.speed_rounded, color: SteelColors.primary),
       ],
     );
 
