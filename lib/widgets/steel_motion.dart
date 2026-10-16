@@ -49,18 +49,15 @@ class SteelHardhatWelcome extends StatefulWidget {
 class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fall;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2100),
-    );
-    _fall = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0, .88, curve: Curves.easeOutBack),
+      // 2.100 ms para o capacete e mais 50 ms para concluir o anel de
+      // impacto, exatamente como a sequência Web do Desktop.
+      duration: const Duration(milliseconds: 2150),
     );
     _controller.forward();
   }
@@ -80,34 +77,59 @@ class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
       label: 'Identidade industrial SteelControl validada',
       image: true,
       child: SizedBox(
-        width: 118,
-        height: 122,
+        width: 100,
+        height: 108,
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            final value = _fall.value;
-            final impactPhase = ((_controller.value - .57) / .34)
+            final elapsedMs = _controller.value * 2150;
+            final value = (elapsedMs / 2100).clamp(0.0, 1.0).toDouble();
+            double between(double start, double end, double from, double to) {
+              final progress = ((value - start) / (end - start))
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+              return from + (to - from) * Curves.easeOutCubic.transform(progress);
+            }
+
+            final y = value < .66
+                ? between(0, .66, -130, 17)
+                : value < .80
+                    ? between(.66, .80, 17, 10)
+                    : between(.80, 1, 10, 14);
+            final rotationDegrees = value < .66
+                ? between(0, .66, -16, 4)
+                : value < .80
+                    ? between(.66, .80, 4, -2)
+                    : between(.80, 1, -2, 0);
+            final scaleY = value < .66
+                ? between(0, .66, 1, .87)
+                : value < .80
+                    ? between(.66, .80, .87, 1.05)
+                    : between(.80, 1, 1.05, 1);
+            final hatOpacity = (value / .16).clamp(0.0, 1.0).toDouble();
+            final impactPhase = ((elapsedMs - 1250) / 900)
                 .clamp(0.0, 1.0)
                 .toDouble();
-            final impactOpacity = math
-                .sin(impactPhase * math.pi)
-                .clamp(0.0, 1.0)
-                .toDouble();
-            final bounce = math.sin(value * math.pi * 2) * (1 - value) * 4;
+            final impactOpacity = impactPhase <= .25
+                ? .85 * (impactPhase / .25)
+                : .85 * (1 - ((impactPhase - .25) / .75));
+            final impactScale = impactPhase <= .25
+                ? .30 + (.72 - .30) * (impactPhase / .25)
+                : .72 + (1.45 - .72) * ((impactPhase - .25) / .75);
 
             return Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
                 Positioned(
-                  bottom: 3,
+                  bottom: 12,
                   child: Opacity(
                     opacity: impactOpacity,
                     child: Transform.scale(
-                      scale: .55 + impactPhase * .75,
+                      scale: impactScale,
                       child: Container(
-                        width: 102,
-                        height: 102,
+                        width: 96,
+                        height: 96,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -119,27 +141,34 @@ class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
                   ),
                 ),
                 Positioned(
-                  left: 23,
-                  bottom: 4,
-                  width: 72,
-                  height: 72,
+                  left: 13,
+                  bottom: 3,
+                  width: 74,
+                  height: 74,
                   child: SvgPicture.asset(
                     'assets/images/steel-mascot-body.svg',
                     colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
                   ),
                 ),
                 Positioned(
-                  left: 25,
-                  top: 3,
-                  width: 68,
-                  height: 43,
-                  child: Transform.translate(
-                    offset: Offset(0, -112 * (1 - value) + 13 + bounce),
-                    child: Transform.rotate(
-                      angle: (-.24 * (1 - value)) + (math.sin(value * math.pi) * .05),
-                      child: SvgPicture.asset(
-                        'assets/images/steel-hardhat.svg',
-                        colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                  left: 17,
+                  top: 5,
+                  width: 66,
+                  height: 42,
+                  child: Opacity(
+                    opacity: hatOpacity,
+                    child: Transform.translate(
+                      offset: Offset(0, y),
+                      child: Transform.rotate(
+                        angle: rotationDegrees * math.pi / 180,
+                        child: Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.diagonal3Values(1, scaleY, 1),
+                          child: SvgPicture.asset(
+                            'assets/images/steel-hardhat.svg',
+                            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                          ),
+                        ),
                       ),
                     ),
                   ),

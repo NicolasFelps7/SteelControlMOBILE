@@ -161,7 +161,7 @@ class ApiClient {
   Future<MediaType> _detectImageMediaType(File file) async {
     final handle = await file.open();
     try {
-      final bytes = await handle.read(16);
+      final bytes = await handle.read(40);
       if (bytes.length >= 3 &&
           bytes[0] == 0xFF &&
           bytes[1] == 0xD8 &&
@@ -184,6 +184,22 @@ class ApiClient {
           String.fromCharCodes(bytes.sublist(8, 12)) == 'WEBP') {
         return MediaType('image', 'webp');
       }
+      if (bytes.length >= 6) {
+        final header = String.fromCharCodes(bytes.sublist(0, 6));
+        if (header == 'GIF87a' || header == 'GIF89a') {
+          return MediaType('image', 'gif');
+        }
+      }
+      if (bytes.length >= 2 && bytes[0] == 0x42 && bytes[1] == 0x4D) {
+        return MediaType('image', 'bmp');
+      }
+      if (bytes.length >= 16 &&
+          String.fromCharCodes(bytes.sublist(4, 8)) == 'ftyp') {
+        final brands = String.fromCharCodes(bytes.sublist(8));
+        if (brands.contains('avif') || brands.contains('avis')) {
+          return MediaType('image', 'avif');
+        }
+      }
     } finally {
       await handle.close();
     }
@@ -192,6 +208,9 @@ class ApiClient {
     if (extension == 'jpg' || extension == 'jpeg') return MediaType('image', 'jpeg');
     if (extension == 'png') return MediaType('image', 'png');
     if (extension == 'webp') return MediaType('image', 'webp');
+    if (extension == 'gif') return MediaType('image', 'gif');
+    if (extension == 'avif') return MediaType('image', 'avif');
+    if (extension == 'bmp') return MediaType('image', 'bmp');
     throw ApiException(_text('invalidImageFormat'));
   }
 

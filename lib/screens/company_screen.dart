@@ -183,7 +183,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
     if (picked == null) return;
 
     final extension = picked.path.split('.').last.toLowerCase();
-    if (!const {'png', 'jpg', 'jpeg', 'webp'}.contains(extension)) {
+    if (!const {'png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp'}.contains(extension)) {
       _message(strings.get('invalidLogoFormat'), error: true);
       return;
     }

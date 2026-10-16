@@ -415,15 +415,33 @@ class _AccessWelcomeDialog extends StatefulWidget {
 
 class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
   Timer? _closeTimer;
+  Timer? _progressTimer;
+  Timer? _checkTimer;
+  Timer? _contentTimer;
+  Timer? _loadingTimer;
   double _progress = 0;
+  bool _showCheck = false;
+  bool _showContent = false;
+  bool _showLoading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setState(() => _progress = 1);
-      _closeTimer = Timer(const Duration(milliseconds: 2750), () {
+      _checkTimer = Timer(const Duration(milliseconds: 1650), () {
+        if (mounted) setState(() => _showCheck = true);
+      });
+      _contentTimer = Timer(const Duration(milliseconds: 1900), () {
+        if (mounted) setState(() => _showContent = true);
+      });
+      _loadingTimer = Timer(const Duration(milliseconds: 2280), () {
+        if (mounted) setState(() => _showLoading = true);
+      });
+      _progressTimer = Timer(const Duration(milliseconds: 2350), () {
+        if (mounted) setState(() => _progress = 1);
+      });
+      _closeTimer = Timer(const Duration(milliseconds: 4500), () {
         if (mounted) Navigator.of(context).pop();
       });
     });
@@ -432,6 +450,10 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
   @override
   void dispose() {
     _closeTimer?.cancel();
+    _progressTimer?.cancel();
+    _checkTimer?.cancel();
+    _contentTimer?.cancel();
+    _loadingTimer?.cancel();
     super.dispose();
   }
 
@@ -460,28 +482,54 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
           children: [
             const SteelHardhatWelcome(),
             const SizedBox(height: 12),
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(color: const Color(0xFFD9FBE7), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: .22), width: 7)),
-              child: const Icon(Icons.check_rounded, color: Color(0xFF0AA34F), size: 39),
-            ),
-            const SizedBox(height: 23),
-            Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.14, letterSpacing: -.55)),
-            const SizedBox(height: 12),
-            Text(strings.get(captionKey), textAlign: TextAlign.center, style: const TextStyle(color: SteelColors.muted, height: 1.55)),
-            const SizedBox(height: 26),
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: _progress),
-              duration: const Duration(milliseconds: 1800),
-              curve: Curves.easeInOut,
-              builder: (context, value, _) => ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(value: value, minHeight: 5, backgroundColor: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
+            AnimatedScale(
+              scale: _showCheck ? 1 : .25,
+              duration: const Duration(milliseconds: 580),
+              curve: Curves.easeOutBack,
+              child: AnimatedOpacity(
+                opacity: _showCheck ? 1 : 0,
+                duration: const Duration(milliseconds: 320),
+                child: Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(color: const Color(0xFFD9FBE7), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: .22), width: 7)),
+                  child: const Icon(Icons.check_rounded, color: Color(0xFF0AA34F), size: 39),
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            Text(strings.get('openingWorkspace'), style: const TextStyle(color: SteelColors.muted, fontSize: 11, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 23),
+            AnimatedSlide(
+              offset: _showContent ? Offset.zero : const Offset(0, .08),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: _showContent ? 1 : 0,
+                duration: const Duration(milliseconds: 500),
+                child: Column(children: [
+                  Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.14, letterSpacing: -.55)),
+                  const SizedBox(height: 12),
+                  Text(strings.get(captionKey), textAlign: TextAlign.center, style: const TextStyle(color: SteelColors.muted, height: 1.55)),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 26),
+            AnimatedOpacity(
+              opacity: _showLoading ? 1 : 0,
+              duration: const Duration(milliseconds: 450),
+              child: Column(children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: _progress),
+                  duration: const Duration(milliseconds: 2000),
+                  curve: Curves.easeOut,
+                  builder: (context, value, _) => ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(value: value, minHeight: 5, backgroundColor: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(strings.get('openingWorkspace'), style: const TextStyle(color: SteelColors.muted, fontSize: 11, fontWeight: FontWeight.w700)),
+              ]),
+            ),
           ],
         ),
       ),

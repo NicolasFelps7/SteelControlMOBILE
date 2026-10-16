@@ -4,21 +4,13 @@ import '../core/app_theme.dart';
 import '../models/machine.dart';
 import 'section_card.dart';
 
-class DynamicIndustrialDashboard extends StatefulWidget {
+class DynamicIndustrialDashboard extends StatelessWidget {
   const DynamicIndustrialDashboard({required this.machine, super.key});
 
   final Machine machine;
 
   @override
-  State<DynamicIndustrialDashboard> createState() => _DynamicIndustrialDashboardState();
-}
-
-class _DynamicIndustrialDashboardState extends State<DynamicIndustrialDashboard> {
-  bool _expanded = true;
-
-  @override
   Widget build(BuildContext context) {
-    final machine = widget.machine;
     final resolver = _IndustrialValueResolver(machine);
     final dashboard = machine.integrationMeta['dashboard'];
     if (dashboard is! Map || dashboard['enabled'] != true) return const SizedBox.shrink();
@@ -34,130 +26,109 @@ class _DynamicIndustrialDashboardState extends State<DynamicIndustrialDashboard>
       ...availableSections.entries.where((entry) => enabledModules.contains(entry.key)).map((entry) => entry.value),
       ..._customSections(machine, resolver),
     ].where((section) => section.metrics.isNotEmpty).toList();
+    if (sections.isEmpty) return const SizedBox.shrink();
+
     final metrics = sections.expand((section) => section.metrics).toList();
     final configured = metrics.length;
     final active = metrics.where((metric) => metric.available).length;
-
-    if (sections.isEmpty) return const SizedBox.shrink();
-
     final dark = Theme.of(context).brightness == Brightness.dark;
     final muted = dark ? SteelColors.mutedDark : SteelColors.muted;
+    final machineType = '${dashboard['machineType'] ?? dashboard['profile'] ?? 'Telemetria industrial'}';
 
     return SectionCard(
       accent: true,
       padding: EdgeInsets.zero,
-      child: ExpansionTile(
-        key: PageStorageKey<String>('industrial-dashboard-${machine.id}'),
-        initiallyExpanded: _expanded,
-        onExpansionChanged: (value) => setState(() => _expanded = value),
-        maintainState: true,
-        tilePadding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
-        childrenPadding: EdgeInsets.zero,
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: SteelColors.industrialAccent.withValues(alpha: .10),
-            border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .28)),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: const Icon(Icons.dashboard_customize_outlined, color: SteelColors.industrialAccent),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'INTELIGÊNCIA INDUSTRIAL',
-              style: TextStyle(
-                color: dark ? SteelColors.industrialAccentLight : SteelColors.industrialAccentDark,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.05,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              'Dashboard dinâmico da máquina',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Text(
-            '${dashboard['machineType'] ?? dashboard['profile'] ?? 'Máquina'} · $active/$configured sinais ativos',
-            style: TextStyle(color: muted, fontSize: 10),
-          ),
-        ),
-        trailing: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-          decoration: BoxDecoration(
-            color: _expanded
-                ? SteelColors.industrialAccent.withValues(alpha: .12)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            border: Border.all(
-              color: _expanded
-                  ? SteelColors.industrialAccent.withValues(alpha: .40)
-                  : Theme.of(context).dividerColor,
-            ),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$active/$configured',
-                style: TextStyle(
-                  color: _expanded
-                      ? (dark ? SteelColors.industrialAccentLight : SteelColors.industrialAccentDark)
-                      : muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 5),
-              AnimatedRotation(
-                turns: _expanded ? .5 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: Icon(Icons.keyboard_arrow_down_rounded, color: muted, size: 18),
-              ),
-            ],
-          ),
-        ),
-        children: [
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
-            child: Container(
-              padding: const EdgeInsets.all(11),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 15),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: SteelColors.industrialAccent.withValues(alpha: .06),
-                border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .22)),
-                borderRadius: BorderRadius.circular(9),
+                color: SteelColors.industrialAccent.withValues(alpha: .10),
+                border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .28)),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline_rounded, color: SteelColors.industrialAccent, size: 17),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Somente leitura. Estes indicadores são os mesmos dados extras recebidos pelo Desktop; o painel não movimenta nem configura o equipamento.',
-                      style: TextStyle(color: SteelColors.muted, fontSize: 10, height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
+              child: const Icon(Icons.dashboard_customize_outlined, color: SteelColors.industrialAccent),
             ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(machineType.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: dark ? SteelColors.industrialAccentLight : SteelColors.industrialAccentDark, fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1.05)),
+              const SizedBox(height: 3),
+              Text('Painel configurado para esta máquina', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text('Como este painel funciona', style: TextStyle(color: muted, fontSize: 10)),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerLow, border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(9)),
+              child: Column(children: [
+                Text('$active/$configured', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 1),
+                Text('SINAIS ATIVOS', style: TextStyle(color: muted, fontSize: 7.5, fontWeight: FontWeight.w800, letterSpacing: .5)),
+              ]),
+            ),
+          ]),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+          child: LayoutBuilder(builder: (context, constraints) {
+            const cards = [
+              _DashboardGuideStep(number: '01', title: 'Escolha os módulos', text: 'Defina o tipo e os indicadores no cadastro da máquina.'),
+              _DashboardGuideStep(number: '02', title: 'O Edge publica', text: 'A telemetria real é enviada pelo controlador conectado.'),
+              _DashboardGuideStep(number: '03', title: 'O painel atualiza', text: 'Os mesmos sinais aparecem no Desktop e no Mobile.'),
+            ];
+            if (constraints.maxWidth < 620) {
+              return Column(children: [for (var i = 0; i < cards.length; i++) ...[cards[i], if (i < cards.length - 1) const SizedBox(height: 8)]]);
+            }
+            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [for (var i = 0; i < cards.length; i++) ...[Expanded(child: cards[i]), if (i < cards.length - 1) const SizedBox(width: 8)]]);
+          }),
+        ),
+        ...sections.asMap().entries.map((entry) => _IndustrialSectionTile(section: entry.value, initiallyExpanded: entry.key == 0)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerLow, border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(8)),
+            child: const Row(children: [
+              Icon(Icons.info_outline_rounded, color: SteelColors.muted, size: 16),
+              SizedBox(width: 8),
+              Expanded(child: Text('“Não informado” significa que o Edge ou controlador ainda não publicou esse dado. O SteelControl não inventa valores industriais.', style: TextStyle(color: SteelColors.muted, fontSize: 9.5, height: 1.35))),
+            ]),
           ),
-          ...sections.map(
-            (section) => _IndustrialSectionTile(section: section, initiallyExpanded: false),
-          ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
+}
+
+class _DashboardGuideStep extends StatelessWidget {
+  const _DashboardGuideStep({required this.number, required this.title, required this.text});
+  final String number;
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: SteelColors.industrialAccent.withValues(alpha: .055),
+          border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .18)),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(width: 29, height: 29, alignment: Alignment.center, decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .12), borderRadius: BorderRadius.circular(8)), child: Text(number, style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 9, fontWeight: FontWeight.w900))),
+          const SizedBox(width: 9),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text(text, style: const TextStyle(color: SteelColors.muted, fontSize: 9, height: 1.35)),
+          ])),
+        ]),
+      );
 }
 
 class _IndustrialSectionTile extends StatelessWidget {
@@ -169,7 +140,10 @@ class _IndustrialSectionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      key: PageStorageKey<String>('industrial-section-${section.title}'),
+      // Use a normal identity key here. A PageStorageKey shared with the
+      // descendant scrollable can store the expansion bool where Flutter
+      // expects a scroll offset (double), producing the red runtime screen.
+      key: ValueKey<String>('industrial-section-${section.title}'),
       initiallyExpanded: initiallyExpanded,
       maintainState: true,
       tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 3),
@@ -193,14 +167,22 @@ class _IndustrialSectionTile extends StatelessWidget {
                 : constraints.maxWidth >= 540
                     ? 2
                     : 1;
-            return GridView.count(
-              crossAxisCount: columns,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              mainAxisExtent: 104,
-              children: section.metrics.map((metric) => _IndustrialMetricCard(metric: metric)).toList(),
+            const spacing = 10.0;
+            final cardWidth = columns == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: section.metrics
+                  .map(
+                    (metric) => SizedBox(
+                      width: cardWidth,
+                      height: 104,
+                      child: _IndustrialMetricCard(metric: metric),
+                    ),
+                  )
+                  .toList(),
             );
           },
         ),

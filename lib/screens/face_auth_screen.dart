@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/app_strings.dart';
 import '../core/app_theme.dart';
@@ -736,43 +737,50 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 return Column(
               children: [
                 _buildTopBar(strings, tablet),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      tablet ? 28 : 16,
-                      tablet ? 18 : 10,
-                      tablet ? 28 : 16,
-                      tablet ? 26 : 20,
+                if (tablet && landscape)
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: (constraints.maxWidth * .25)
+                              .clamp(300.0, 380.0)
+                              .toDouble(),
+                          child: _buildStatusConsole(strings, workstation: true),
+                        ),
+                        Expanded(
+                          child: _buildCameraConsole(
+                            strings,
+                            true,
+                            workstation: true,
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1180),
-                        child: tablet && landscape
-                            ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    flex: 7,
-                                    child: _buildCameraConsole(strings, true),
-                                  ),
-                                  const SizedBox(width: 22),
-                                  SizedBox(
-                                    width: 330,
-                                    child: _buildStatusConsole(strings),
-                                  ),
-                                ],
-                              )
-                            : Column(
-                                children: [
-                                  _buildCameraConsole(strings, tablet),
-                                  const SizedBox(height: 18),
-                                  _buildStatusConsole(strings),
-                                ],
-                              ),
+                  )
+                else
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        tablet ? 28 : 16,
+                        tablet ? 18 : 10,
+                        tablet ? 28 : 16,
+                        tablet ? 26 : 20,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1180),
+                          child: Column(
+                            children: [
+                              _buildCameraConsole(strings, tablet),
+                              const SizedBox(height: 18),
+                              _buildStatusConsole(strings),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             );
               },
@@ -785,7 +793,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
   Widget _buildTopBar(AppStrings strings, bool tablet) {
     return Container(
-      height: tablet ? 82 : 70,
+      height: tablet ? 76 : 70,
       padding: EdgeInsets.symmetric(horizontal: tablet ? 28 : 14),
       decoration: const BoxDecoration(
         color: Color(0xFF12181E),
@@ -805,17 +813,23 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           ),
           SizedBox(width: tablet ? 18 : 10),
           Container(
-            width: 40,
-            height: 40,
+            width: tablet ? 44 : 38,
+            height: tablet ? 44 : 38,
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _line),
-              color: _panelSoft,
-            ),
-            child: const Icon(
-              Icons.face_retouching_natural_rounded,
               color: _accent,
-              size: 22,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: _accent.withValues(alpha: .18),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: SvgPicture.asset(
+              'assets/images/steel-icon.svg',
+              colorFilter: const ColorFilter.mode(_panelStrong, BlendMode.srcIn),
             ),
           ),
           const SizedBox(width: 12),
@@ -827,7 +841,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 Text(
                   widget.isRegistration
                       ? strings.get('faceRegister')
-                      : strings.get('faceIdTitle'),
+                      : strings.get('operatorIdentification'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -838,9 +852,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   ),
                 ),
                 if (tablet)
-                  const Text(
-                    'STEELCONTROL • BIOMETRIC SECURITY CORE',
-                    style: TextStyle(
+                  Text(
+                    strings.get('protectedSteelAccess'),
+                    style: const TextStyle(
                       color: SteelColors.titanium,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -866,13 +880,17 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     );
   }
 
-  Widget _buildCameraConsole(AppStrings strings, bool tablet) {
+  Widget _buildCameraConsole(
+    AppStrings strings,
+    bool tablet, {
+    bool workstation = false,
+  }) {
     return Container(
       padding: EdgeInsets.all(tablet ? 18 : 12),
       decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _line),
+        color: workstation ? const Color(0xFF070B0E) : _panel,
+        borderRadius: workstation ? BorderRadius.zero : BorderRadius.circular(10),
+        border: workstation ? null : Border.all(color: _line),
         boxShadow: const [],
       ),
       child: Column(
@@ -884,7 +902,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      strings.translate(_title),
+                      workstation ? strings.get('lookAtCamera') : strings.translate(_title),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: tablet ? 24 : 19,
@@ -922,7 +940,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             ],
           ),
           SizedBox(height: tablet ? 16 : 12),
-          Container(
+          _fitWorkstationCamera(
+            workstation,
+            Container(
             decoration: BoxDecoration(
               color: const Color(0xFF0B1015),
               borderRadius: BorderRadius.circular(18),
@@ -1043,6 +1063,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 ),
               ),
             ),
+            ),
           ),
           const SizedBox(height: 12),
           _buildSignalStrip(tablet),
@@ -1056,6 +1077,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       ),
     );
   }
+
+  Widget _fitWorkstationCamera(bool workstation, Widget child) =>
+      workstation ? Expanded(child: child) : child;
 
   Widget _buildSignalStrip(bool tablet) {
     final cameraOnline = _camera?.value.isInitialized == true;
@@ -1100,17 +1124,67 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     );
   }
 
-  Widget _buildStatusConsole(AppStrings strings) {
+  Widget _buildStatusConsole(
+    AppStrings strings, {
+    bool workstation = false,
+  }) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _line),
+        color: workstation ? const Color(0xFF0B1013) : _panel,
+        borderRadius: workstation ? BorderRadius.zero : BorderRadius.circular(10),
+        border: workstation
+            ? const Border(right: BorderSide(color: _line))
+            : Border.all(color: _line),
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            (workstation
+                    ? strings.get('biometricAuthentication')
+                    : widget.isRegistration
+                        ? strings.get('biometricRegister')
+                        : strings.get('faceRecognition'))
+                .toUpperCase(),
+            style: const TextStyle(
+              color: _accent,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            workstation
+                ? strings.get('confirmIdentityContinue')
+                : widget.isRegistration
+                    ? strings.get('faceRegister')
+                    : strings.get('protectedAccess'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            workstation
+                ? strings.get('quickVerificationProtects')
+                : widget.isRegistration
+                    ? strings.get('biometricsLinkedOnce')
+                    : strings.get('centerFace'),
+            style: const TextStyle(
+              color: SteelColors.titaniumLight,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 17),
+          const Divider(height: 1, color: _line),
+          const SizedBox(height: 16),
           Row(
             children: [
               const Icon(Icons.security_rounded, color: _accent, size: 20),
@@ -1129,28 +1203,32 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           ),
           const SizedBox(height: 16),
           _buildValidationStep(
-            icon: Icons.center_focus_strong_rounded,
+            step: '01',
             title: strings.get('firstPosition'),
             subtitle: strings.get('centerFace'),
             threshold: .18,
+            workstation: workstation,
           ),
           _buildValidationStep(
-            icon: Icons.motion_photos_on_outlined,
+            step: '02',
             title: strings.get('liveness'),
             subtitle: strings.get('turnHeadSlightly'),
             threshold: .46,
+            workstation: workstation,
           ),
           _buildValidationStep(
-            icon: Icons.face_retouching_natural_rounded,
+            step: '03',
             title: strings.get('returnCenter'),
             subtitle: strings.get('lookAgain'),
             threshold: .72,
+            workstation: workstation,
           ),
           _buildValidationStep(
-            icon: Icons.verified_user_outlined,
+            step: '04',
             title: strings.get('verifyingIdentity'),
             subtitle: strings.get('protectingBiometrics'),
             threshold: .90,
+            workstation: workstation,
           ),
           const SizedBox(height: 16),
           Container(
@@ -1221,18 +1299,20 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             ),
           ],
         ],
+        ),
       ),
     );
   }
 
   Widget _buildValidationStep({
-    required IconData icon,
+    required String step,
     required String title,
     required String subtitle,
     required double threshold,
+    bool workstation = false,
   }) {
     final complete = _finished || _progress >= threshold;
-    final active = !_finished && !_hasError && _progress < threshold;
+    final active = !_finished && !_hasError && _progress < threshold && _progress >= threshold - .30;
     final color = complete
         ? SteelColors.success
         : active
@@ -1242,16 +1322,24 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(workstation ? 10 : 12),
         decoration: BoxDecoration(
           color: complete
               ? SteelColors.success.withValues(alpha: .07)
-              : const Color(0xFF1B2229),
-          borderRadius: BorderRadius.circular(15),
+              : active
+                  ? _accent.withValues(alpha: .075)
+                  : workstation
+                      ? Colors.transparent
+                      : const Color(0xFF1B2229),
+          borderRadius: BorderRadius.circular(workstation ? 8 : 15),
           border: Border.all(
             color: complete
                 ? SteelColors.success.withValues(alpha: .22)
-                : _line,
+                : active
+                    ? _accent.withValues(alpha: .30)
+                    : workstation
+                        ? Colors.transparent
+                        : _line,
           ),
         ),
         child: Row(
@@ -1263,10 +1351,16 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 color: color.withValues(alpha: .11),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(
-                complete ? Icons.check_rounded : icon,
-                size: 18,
-                color: color,
+              child: Center(
+                child: Text(
+                  complete ? '✓' : step,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: complete ? 18 : 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: complete ? 0 : .4,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),

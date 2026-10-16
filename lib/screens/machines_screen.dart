@@ -384,10 +384,16 @@ class _MachinesScreenState extends State<MachinesScreen> {
     final types = machines.map(_typeOf).toSet().toList()..sort();
     if (_typeFilter != 'all' && !types.contains(_typeFilter)) _typeFilter = 'all';
     final query = _searchController.text.trim().toLowerCase();
-    final filtered = machines.where((machine) {
-      final searchable = [machine.name, machine.code, machine.model, machine.sector, machine.manufacturer ?? '', _typeOf(machine)].join(' ').toLowerCase();
-      return (query.isEmpty || searchable.contains(query)) && (_typeFilter == 'all' || _typeOf(machine) == _typeFilter) && _matchesStatus(machine);
-    }).toList();
+    // Quando nenhum filtro esta ativo, usa a propria lista sincronizada.
+    // Alem de evitar trabalho desnecessario, isso garante que uma maquina
+    // recebida do Desktop nunca seja ocultada por um estado antigo do filtro.
+    final filtersInactive = query.isEmpty && _typeFilter == 'all' && _statusFilter == 'all';
+    final filtered = filtersInactive
+        ? List<Machine>.of(machines)
+        : machines.where((machine) {
+            final searchable = [machine.name, machine.code, machine.model, machine.sector, machine.manufacturer ?? '', _typeOf(machine)].join(' ').toLowerCase();
+            return (query.isEmpty || searchable.contains(query)) && (_typeFilter == 'all' || _typeOf(machine) == _typeFilter) && _matchesStatus(machine);
+          }).toList();
     final operating = machines.where((machine) => machine.isOnline && !_maintenance(machine) && !_alert(machine)).length;
     final maintenance = machines.where(_maintenance).length;
     final alerts = machines.where(_alert).length;
@@ -395,7 +401,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentHero(strings: strings))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _FleetMetrics(total: machines.length, operating: operating, maintenance: maintenance, alerts: alerts))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _MachinesToolbar(strings: strings, controller: _searchController, types: types, typeFilter: _typeFilter, statusFilter: _statusFilter, onSearch: (_) => setState(() {}), onType: (value) => setState(() => _typeFilter = value), onStatus: (value) => setState(() => _statusFilter = value)))),
-      if (machines.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 30), child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany'))])))))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: _admin ? 500 : 452), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
+      if (machines.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 30), child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany'))])))))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: _admin ? 638 : 586), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentRegistrationCard(strings: strings, busy: _busy, onCreate: _create))),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 28), sliver: SliverToBoxAdapter(child: _DiscoveryCard(strings: strings, devices: _discovered, diagnostics: _discoveryDiagnostics, busy: _discoveryBusy, ipController: _discoveryIpController, portController: _discoveryPortController, onScan: _scanDiscovery, onProbeIp: _discoverByIp, onApprove: _approveDiscovery))),
     ]);
@@ -923,8 +929,8 @@ class _MachinesToolbar extends StatelessWidget {
         const SizedBox(height: 14),
         LayoutBuilder(builder: (context, constraints) {
           final search = TextField(controller: controller, onChanged: onSearch, decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: strings.get('searchEquipment')));
-          final type = DropdownButtonFormField<String>(initialValue: typeFilter, isExpanded: true, decoration: const InputDecoration(prefixIcon: Icon(Icons.category_outlined)), items: [DropdownMenuItem(value: 'all', child: Text(strings.get('allTypes'))), ...types.map((value) => DropdownMenuItem(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))], onChanged: (value) { if (value != null) onType(value); });
-          final status = DropdownButtonFormField<String>(initialValue: statusFilter, isExpanded: true, decoration: const InputDecoration(prefixIcon: Icon(Icons.tune_rounded)), items: [DropdownMenuItem(value: 'all', child: Text(strings.get('allStatuses'))), DropdownMenuItem(value: 'online', child: Text(strings.get('online'))), DropdownMenuItem(value: 'offline', child: Text(strings.get('offline'))), DropdownMenuItem(value: 'maintenance', child: Text(strings.get('underMaintenance'))), DropdownMenuItem(value: 'alert', child: Text(strings.get('withAlert')))], onChanged: (value) { if (value != null) onStatus(value); });
+          final type = DropdownButtonFormField<String>(key: ValueKey('machine-type-$typeFilter'), initialValue: typeFilter, isExpanded: true, decoration: const InputDecoration(prefixIcon: Icon(Icons.category_outlined)), items: [DropdownMenuItem(value: 'all', child: Text(strings.get('allTypes'))), ...types.map((value) => DropdownMenuItem(value: value, child: Text(value, overflow: TextOverflow.ellipsis)))], onChanged: (value) { if (value != null) onType(value); });
+          final status = DropdownButtonFormField<String>(key: ValueKey('machine-status-$statusFilter'), initialValue: statusFilter, isExpanded: true, decoration: const InputDecoration(prefixIcon: Icon(Icons.tune_rounded)), items: [DropdownMenuItem(value: 'all', child: Text(strings.get('allStatuses'))), DropdownMenuItem(value: 'online', child: Text(strings.get('online'))), DropdownMenuItem(value: 'offline', child: Text(strings.get('offline'))), DropdownMenuItem(value: 'maintenance', child: Text(strings.get('underMaintenance'))), DropdownMenuItem(value: 'alert', child: Text(strings.get('withAlert')))], onChanged: (value) { if (value != null) onStatus(value); });
           if (constraints.maxWidth < 620) return Column(children: [search, const SizedBox(height: 10), type, const SizedBox(height: 10), status]);
           return Row(children: [Expanded(flex: 2, child: search), const SizedBox(width: 10), Expanded(child: type), const SizedBox(width: 10), Expanded(child: status)]);
         }),
@@ -934,14 +940,108 @@ class _MachinesToolbar extends StatelessWidget {
 class _MachineCard extends StatelessWidget {
   const _MachineCard({required this.machine, required this.admin, required this.onOpen, required this.onEdit, required this.onRemove, required this.onKey});
   final Machine machine; final bool admin; final VoidCallback onOpen; final VoidCallback onEdit; final VoidCallback onRemove; final VoidCallback onKey;
-  @override Widget build(BuildContext context) { final online = machine.isOnline; final strings = AppStrings.of(context); return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Row(children: [Container(width: 45, height: 45, decoration: BoxDecoration(color: SteelColors.primary.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: SteelColors.primary)), const Spacer(), _Status(online: online)]),
-    const SizedBox(height: 13), Text(machine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 3), Text('${machine.sector} • ${strings.translate(machine.type ?? machine.controller ?? machine.model)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted)),
-    const SizedBox(height: 13), Row(children: [Expanded(child: _Detail(label: strings.get('manufacturer').toUpperCase(), value: machine.manufacturer?.isNotEmpty == true ? machine.manufacturer! : '-')), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('model').toUpperCase(), value: machine.model))]), const SizedBox(height: 8), Row(children: [Expanded(child: _Detail(label: strings.get('code').toUpperCase(), value: machine.code)), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('mode').toUpperCase(), value: machine.simulation ? strings.get('simulation') : strings.get('real')))]),
-    const SizedBox(height: 10), Row(children: [Expanded(child: _Metric(icon: Icons.thermostat_rounded, value: '${machine.temperature.toStringAsFixed(1)}°C', label: strings.get('temperature'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.loop_rounded, value: '${machine.cycles}', label: strings.get('cycles'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.bolt_rounded, value: '${machine.energy.toStringAsFixed(0)}%', label: strings.get('load')))]),
-    const SizedBox(height: 18), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(AppStrings.of(context).get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
-    if (admin) Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('newKey'), onPressed: onKey, icon: const Icon(Icons.key_outlined)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
-  ])); }
+  @override
+  Widget build(BuildContext context) {
+    final online = machine.isOnline;
+    final strings = AppStrings.of(context);
+    final category = strings.translate(machine.type ?? machine.controller ?? machine.model);
+    final description = machine.description?.trim() ?? '';
+    final dashboard = machine.integrationMeta['dashboard'];
+    final hasDashboard = machine.isDobot || machine.hasIndustrialHmi || (dashboard is Map && dashboard['enabled'] == true);
+    final endpoint = [
+      if (machine.host?.trim().isNotEmpty == true) machine.host!.trim(),
+      if (machine.port != null) '${machine.port}',
+    ].join(':');
+
+    return SectionCard(
+      accent: hasDashboard,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: SteelColors.industrialAccent.withValues(alpha: .10),
+              border: Border.all(color: SteelColors.industrialAccent.withValues(alpha: .22)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : Icons.factory_outlined, color: SteelColors.industrialAccentDark),
+          ),
+          const SizedBox(width: 11),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(category.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: .8)),
+            if (hasDashboard) Padding(padding: const EdgeInsets.only(top: 3), child: Text(strings.get('dashboardAvailable').toUpperCase(), style: const TextStyle(color: SteelColors.success, fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: .55))),
+          ])),
+          _Status(online: online),
+        ]),
+        const SizedBox(height: 12),
+        Text(machine.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -.25)),
+        const SizedBox(height: 3),
+        Text(machine.sector, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
+        SizedBox(height: description.isEmpty ? 10 : 5),
+        if (description.isNotEmpty)
+          Text(description, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 11, height: 1.35)),
+        const SizedBox(height: 11),
+        Row(children: [Expanded(child: _Detail(label: strings.get('manufacturer').toUpperCase(), value: machine.manufacturer?.isNotEmpty == true ? machine.manufacturer! : '-')), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('model').toUpperCase(), value: machine.model))]),
+        const SizedBox(height: 8),
+        Row(children: [Expanded(child: _Detail(label: strings.get('code').toUpperCase(), value: machine.code)), const SizedBox(width: 8), Expanded(child: _Detail(label: strings.get('mode').toUpperCase(), value: machine.simulation ? strings.get('simulation') : strings.get('real')))]),
+        const SizedBox(height: 10),
+        Row(children: [Expanded(child: _Metric(icon: Icons.thermostat_rounded, value: '${machine.temperature.toStringAsFixed(1)}°C', label: strings.get('temperature'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.loop_rounded, value: '${machine.cycles}', label: strings.get('cycles'))), const SizedBox(width: 7), Expanded(child: _Metric(icon: Icons.bolt_rounded, value: '${machine.energy.toStringAsFixed(0)}%', label: strings.get('load')))]),
+        const SizedBox(height: 10),
+        _MachineStatePanel(
+          icon: Icons.settings_input_component_outlined,
+          title: strings.get('connection'),
+          value: '${strings.translate(machine.protocol ?? 'Não informado')} · ${endpoint.isEmpty ? strings.get('notProvided') : endpoint}',
+          color: online ? SteelColors.success : SteelColors.warning,
+        ),
+        const SizedBox(height: 8),
+        _MachineStatePanel(
+          icon: Icons.build_circle_outlined,
+          title: strings.get('maintenance'),
+          value: '${strings.translate(machine.maintenanceStatus)} · ${machine.lastMaintenance}',
+          color: SteelColors.warning,
+        ),
+        // O SectionCard mede o conteudo com altura flexivel. Um Spacer aqui
+        // recebia altura vertical ilimitada e fazia o Flutter descartar todo
+        // o cartao no Android. Espacamento fixo mantem o layout equivalente
+        // ao Desktop e deixa a maquina visivel em qualquer tamanho de tela.
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(strings.get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
+        if (admin) ...[
+          const SizedBox(height: 5),
+          Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('newKey'), onPressed: onKey, icon: const Icon(Icons.key_outlined)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
+        ],
+      ]),
+    );
+  }
+}
+
+class _MachineStatePanel extends StatelessWidget {
+  const _MachineStatePanel({required this.icon, required this.title, required this.value, required this.color});
+  final IconData icon;
+  final String title;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(children: [
+          Container(width: 30, height: 30, decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 16, color: color)),
+          const SizedBox(width: 9),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title.toUpperCase(), style: const TextStyle(color: SteelColors.muted, fontSize: 8.5, fontWeight: FontWeight.w700, letterSpacing: .45)),
+            const SizedBox(height: 2),
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+          ])),
+        ]),
+      );
 }
 
 class _MachineDialog extends StatefulWidget {
