@@ -10,6 +10,15 @@ class CompanyService {
 
   Stream<Map<String, dynamic>> events() => client.sse('/empresa/stream');
 
+  Future<List<Map<String, dynamic>>> accessRequests() async {
+    final data = await client.get('/empresa/solicitacoes') as List;
+    return data.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  Future<void> decideAccess(int userId, bool approve) async {
+    await client.post('/empresa/solicitacoes/$userId/decisao', body: {'decisao': approve ? 'APROVAR' : 'REJEITAR'});
+  }
+
   Future<Company> getCompany() async {
     final result = await client.get('/empresa/me');
     return Company.fromJson(Map<String, dynamic>.from(result as Map));
@@ -80,11 +89,13 @@ class CompanyService {
   }
 
   Future<Map<String, dynamic>> createUser({
+    required String loginPart,
     required String name,
     required String email,
     required String password,
     required String role,
   }) async => Map<String, dynamic>.from(await client.post('/empresa/usuarios', body: {
+        'loginParte': loginPart.trim().toLowerCase(),
         'nome': name.trim(),
         'email': email.trim(),
         'senha': password,

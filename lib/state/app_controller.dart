@@ -113,6 +113,9 @@ class AppController extends ChangeNotifier {
         finalImage: finalImage,
         livenessImage: livenessImage,
       );
+      if (json['mfaRequired'] == true) {
+        throw ApiException('${json['mensagem'] ?? 'Confirme o segundo fator.'}', statusCode: 202, code: 'ADMIN_MFA_REQUIRED', data: json);
+      }
       await _acceptSession(json, newAccount: false);
     });
   }
@@ -126,6 +129,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _acceptSession(Map<String, dynamic> json, {required bool newAccount}) async {
+    if (json['pendente'] == true || json['mfaRequired'] == true) {
+      throw ApiException('${json['mensagem'] ?? 'Acesso aguardando validação.'}');
+    }
     final parsed = Session.fromJson(json);
     if (parsed.token.isEmpty) throw ApiException(AppStrings(language).get('invalidSession'));
     session = parsed;

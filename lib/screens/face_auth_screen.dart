@@ -1,3 +1,4 @@
+import 'company_validation_screen.dart';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -235,7 +236,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
       _success(
         strings.get('biometricsRegistered'),
-        strings.get('registrationCompleteFace'),
+        '${session['mensagem'] ?? strings.get('registrationCompleteFace')}',
         result: session,
       );
     } finally {
@@ -280,6 +281,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       try {
         await widget.controller.loginWithFace(finalImage, liveness);
       } on ApiException catch (exception) {
+        if (exception.data?['mfaRequired'] == true) {
+          await _handleLoginMfa(exception.data!);
+          return;
+        }
         if (
           exception.code == 'FACE_AMBIGUOUS' &&
           exception.data?['segundoFator'] == true &&
@@ -383,6 +388,52 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     if (mounted) Navigator.maybePop(context);
   }
 
+  Future<void> _handleLoginMfa(Map<String, dynamic> challenge) async {
+    final code = TextEditingController();
+    var busy = false;
+    String? error;
+    final confirmed = await showDialog<Object?>(
+      context: context, barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, update) => AlertDialog(
+        title: const Text('Confirme o segundo fator'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Código enviado para ${challenge['email'] ?? 'seu e-mail'}.'),
+          TextField(controller: code, keyboardType: TextInputType.number, maxLength: 6,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            decoration: InputDecoration(labelText: 'Código de 6 dígitos', errorText: error)),
+        ]),
+        actions: [
+          TextButton(onPressed: busy ? null : () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: busy ? null : () async {
+            update(() { busy = true; error = null; });
+            try {
+              await widget.controller.verifyAdminMfa('${challenge['challengeId']}', code.text);
+              if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+            } on ApiException catch (e) {
+              if (e.code == 'COMPANY_SIGNATURE_REQUIRED' && e.data?['validacaoToken'] != null) {
+                if (dialogContext.mounted) Navigator.pop(dialogContext, e.data);
+                return;
+              }
+              if (dialogContext.mounted) update(() { error = e.message; busy = false; });
+            }
+          }, child: const Text('Confirmar')),
+        ],
+      )),
+    );
+    code.dispose();
+    if (!mounted) return;
+    if (confirmed is Map && confirmed['validacaoToken'] != null) {
+      await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${confirmed['validacaoToken']}')));
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    if (confirmed == true) {
+      _success('Identidade confirmada', 'Acesso autorizado.', result: true);
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   Future<void> _handleAmbiguousSecondFactor(String challengeId) async {
     if (!mounted) return;
     final strings = AppStrings.of(context);
@@ -464,6 +515,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 Navigator.pop(dialogContext, result);
               } on ApiException catch (exception) {
                 if (!dialogContext.mounted) return;
+                if (exception.code == 'COMPANY_SIGNATURE_REQUIRED' && exception.data?['validacaoToken'] != null) {
+                  Navigator.pop(dialogContext, exception.data); return;
+                }
                 setDialogState(() {
                   busy = false;
                   error = exception.message;
@@ -606,6 +660,11 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       return;
     }
 
+    if (session['validacaoToken'] != null) {
+      await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${session['validacaoToken']}')));
+      if (mounted) Navigator.pop(context);
+      return;
+    }
     await widget.controller.acceptFaceSecondFactorSession(session);
     _success(
       strings.get('identityConfirmed'),

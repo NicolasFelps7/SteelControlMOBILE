@@ -125,6 +125,7 @@ class ApiClient {
     String path, {
     required Map<String, File> files,
     Map<String, String> fields = const <String, String>{},
+    bool binaryFiles = false,
   }) async {
     try {
       final request = http.MultipartRequest('POST', ApiConfig.uri(path));
@@ -137,7 +138,7 @@ class ApiClient {
       request.fields.addAll(fields);
 
       for (final entry in files.entries) {
-        final mediaType = await _detectImageMediaType(entry.value);
+        final mediaType = binaryFiles ? MediaType('application', 'pkcs7-signature') : await _detectImageMediaType(entry.value);
         request.files.add(
           await http.MultipartFile.fromPath(
             entry.key,

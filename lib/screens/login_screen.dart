@@ -1,3 +1,4 @@
+import 'company_validation_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -57,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           icon: const Icon(Icons.admin_panel_settings_rounded),
-          title: const Text('Confirme o acesso administrativo'),
+          title: const Text('Confirme o segundo fator'),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
@@ -99,7 +100,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 } on ApiException catch (exception) {
-                  setDialogState(() => error = exception.message);
+                  if (exception.code == 'COMPANY_SIGNATURE_REQUIRED' && exception.data?['validacaoToken'] != null) {
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    if (mounted) await Navigator.push<bool>(this.context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${exception.data!['validacaoToken']}')));
+                    return;
+                  }
+                  if (dialogContext.mounted) setDialogState(() => error = exception.message);
                 }
               },
               icon: const Icon(Icons.verified_user_outlined),
@@ -328,8 +334,8 @@ class _LoginForm extends StatelessWidget {
           TextFormField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
-            decoration: InputDecoration(labelText: strings.get('email'), prefixIcon: const Icon(Icons.mail_outline_rounded)),
+            autofillHints: const [AutofillHints.username],
+            decoration: const InputDecoration(labelText: 'Login interno ou e-mail', prefixIcon: Icon(Icons.person_outline_rounded)),
             validator: (value) => value?.contains('@') == true ? null : strings.get('validEmail'),
           ),
           const SizedBox(height: 16),

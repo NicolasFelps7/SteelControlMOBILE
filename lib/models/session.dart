@@ -4,18 +4,21 @@ class UserProfile {
     required this.name,
     required this.email,
     required this.role,
+    this.internalLogin,
   });
 
   final int id;
   final String name;
   final String email;
   final String role;
+  final String? internalLogin;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
         id: _integer(json['id']),
         name: '${json['nome'] ?? 'Usuário'}',
         email: '${json['email'] ?? ''}',
         role: '${json['cargo'] ?? 'Visitante'}',
+        internalLogin: json['loginInterno']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -23,6 +26,7 @@ class UserProfile {
         'nome': name,
         'email': email,
         'cargo': role,
+        'loginInterno': internalLogin,
       };
 }
 
@@ -30,6 +34,7 @@ class Company {
   const Company({
     required this.id,
     required this.name,
+    this.loginDomain,
     this.cnpj,
     this.logoUrl,
     this.email,
@@ -47,6 +52,7 @@ class Company {
   final int id;
   final String name;
   final String? cnpj;
+  final String? loginDomain;
   final String? logoUrl;
   final String? email;
   final String? phone;
@@ -63,6 +69,7 @@ class Company {
         id: _integer(json['id']),
         name: '${json['nome'] ?? 'Empresa'}',
         cnpj: json['cnpj']?.toString(),
+        loginDomain: json['loginDomain']?.toString(),
         logoUrl: (json['logoUrl'] ?? json['logo_url'] ?? json['logo'])?.toString(),
         email: json['email']?.toString(),
         phone: json['telefone']?.toString(),
@@ -80,6 +87,7 @@ class Company {
         'id': id,
         'nome': name,
         'cnpj': cnpj,
+        'loginDomain': loginDomain,
         'logoUrl': logoUrl,
         'email': email,
         'telefone': phone,

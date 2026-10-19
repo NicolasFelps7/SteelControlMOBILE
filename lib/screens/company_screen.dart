@@ -82,7 +82,8 @@ class _CompanyScreenState extends State<CompanyScreen> {
     if (_isAdmin) {
       try { audit = await widget.controller.companyApi.audit(limit: 30); } catch (_) {}
     }
-    return _CompanyData(company, users, audit);
+    final requests = _isAdmin ? await widget.controller.companyApi.accessRequests() : <Map<String, dynamic>>[];
+    return _CompanyData(company, users, audit, requests);
   }
   Future<void> _refresh() async {
     final nextData = _fetch();
@@ -333,9 +334,15 @@ class _CompanyScreenState extends State<CompanyScreen> {
 
   Future<void> _createUser() async {
     final strings = AppStrings.of(context);
+    final company = (await _data).company;
+    if (!mounted) return;
+    if (company.loginDomain?.isNotEmpty != true) {
+      _message('Atualize o backend e execute as migrations para configurar o login interno.', error: true);
+      return;
+    }
     final result = await showDialog<_UserFormResult>(
       context: context,
-      builder: (_) => const _UserDialog(),
+      builder: (_) => _UserDialog(loginDomain: company.loginDomain!),
     );
     if (result == null || !mounted) return;
 
@@ -354,6 +361,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
     int? createdUserId;
     try {
       final response = await widget.controller.companyApi.createUser(
+        loginPart: result.loginPart,
         name: result.name,
         email: result.email,
         password: result.password ?? '',
@@ -572,6 +580,27 @@ class _CompanyScreenState extends State<CompanyScreen> {
       SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('institutionalInfo'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 16), _InfoRow(icon: Icons.mail_outline, label: strings.get('email'), value: data.company.email ?? '-'), _InfoRow(icon: Icons.phone_outlined, label: strings.get('phone'), value: data.company.phone ?? '-'), _InfoRow(icon: Icons.location_on_outlined, label: strings.get('location'), value: location.isEmpty ? strings.get('notProvided') : location), if (data.company.website?.isNotEmpty == true) _InfoRow(icon: Icons.language_rounded, label: strings.get('website'), value: data.company.website!)])),
       const SizedBox(height: 14),
       SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text(strings.get('teamAccess'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700))), if (_working) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))]), const SizedBox(height: 8), ...data.users.map((user) => _UserTile(user: user, admin: _isAdmin, currentUserId: widget.controller.session?.user.id, onEdit: () => _editUser(user), onDismiss: () => _dismissUser(user), onRegisterFace: () => _registerFace(user), onFaces: () => _manageFaces(user)))])),
+      if (_isAdmin) ...[
+        const SizedBox(height: 14),
+        SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Solicitações de acesso', style: Theme.of(context).textTheme.titleLarge),
+          const Text('Confira o vínculo antes de aprovar. O acesso inicial será Visitante.'),
+          if (data.requests.isEmpty) const Text('Nenhuma solicitação pendente.'),
+          ...data.requests.map((user) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ListTile(title: Text('${user['nome']}'), subtitle: Text('${user['email']}')),
+            Wrap(spacing: 12, children: [
+              TextButton(onPressed: _working ? null : () => _run(() async {
+                await widget.controller.companyApi.decideAccess(_asInt(user['id']), true);
+                await _refresh();
+              }), child: const Text('Aprovar como Visitante')),
+              TextButton(onPressed: _working ? null : () => _run(() async {
+                await widget.controller.companyApi.decideAccess(_asInt(user['id']), false);
+                await _refresh();
+              }), child: const Text('Rejeitar')),
+            ]),
+          ])),
+        ])),
+      ],
       if (data.audit.isNotEmpty) ...[const SizedBox(height: 14), SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('recentAudit'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)), const SizedBox(height: 8), ...data.audit.take(10).map((item) { final actor = item['usuario'] is Map ? item['usuario'] as Map : const {}; return ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.verified_user_outlined, color: SteelColors.primary), title: Text('${_auditPreviewAction(strings, item['acao'])} • ${_auditPreviewEntity(strings, item['entidade'])}', style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${actor['nome'] ?? actor['email'] ?? strings.get('system')}'), trailing: Text(_date(item['criadoEm']), style: const TextStyle(color: SteelColors.muted, fontSize: 11))); })]))],
     ]));
   });
@@ -643,6 +672,7 @@ class _UserTile extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [Flexible(child: Text('${user['nome'] ?? strings.get('notProvided')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))), if (own) Padding(padding: const EdgeInsets.only(left: 8), child: _MiniBadge(label: strings.get('you'), color: SteelColors.primary, icon: Icons.person_rounded))]),
           const SizedBox(height: 3),
+          if (user['loginInterno'] != null) Text('${user['loginInterno']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
           Text('${user['email'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: SteelColors.muted, fontSize: 12)),
           const SizedBox(height: 8),
           Wrap(spacing: 7, runSpacing: 6, children: [
@@ -763,12 +793,13 @@ class _FaceNameDialogState extends State<_FaceNameDialog> {
   }
 }
 
-class _UserDialog extends StatefulWidget { const _UserDialog({this.user}); final Map<String, dynamic>? user; @override State<_UserDialog> createState() => _UserDialogState(); }
+class _UserDialog extends StatefulWidget { const _UserDialog({this.user, this.loginDomain = ''}); final Map<String, dynamic>? user; final String loginDomain; @override State<_UserDialog> createState() => _UserDialogState(); }
 class _UserDialogState extends State<_UserDialog> {
   final key = GlobalKey<FormState>();
   late final TextEditingController name;
   late final TextEditingController email;
   final password = TextEditingController();
+  final login = TextEditingController();
   late String role;
   bool get editing => widget.user != null;
 
@@ -777,13 +808,14 @@ class _UserDialogState extends State<_UserDialog> {
     super.initState();
     name = TextEditingController(text: '${widget.user?['nome'] ?? ''}');
     email = TextEditingController(text: '${widget.user?['email'] ?? ''}');
-    role = '${widget.user?['cargo'] ?? 'OPERADOR'}';
+    role = '${widget.user?['cargo'] ?? 'VISITANTE'}';
   }
 
   @override
   void dispose() {
     name.dispose();
     email.dispose();
+    login.dispose();
     password.dispose();
     super.dispose();
   }
@@ -806,9 +838,22 @@ class _UserDialogState extends State<_UserDialog> {
             children: [
               TextFormField(controller: name, decoration: InputDecoration(labelText: strings.get('fullName'), prefixIcon: const Icon(Icons.person_outline)), validator: _required),
               const SizedBox(height: 12),
-              TextFormField(controller: email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: strings.get('accessEmail'), prefixIcon: const Icon(Icons.mail_outline)), validator: (v) => v?.contains('@') == true ? null : strings.get('validEmail')),
+
+              if (!editing) ...[
+                TextFormField(controller: login, maxLength: 64, autocorrect: false, enableSuggestions: false,
+                  decoration: InputDecoration(labelText: 'Login interno', hintText: 'joao.silva',
+                    suffix: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 160), child: Text('@${widget.loginDomain}', overflow: TextOverflow.ellipsis)),
+                    helperText: 'Login: ${login.text.trim().toLowerCase()}@${widget.loginDomain}', helperMaxLines: 3),
+                  onChanged: (_) => setState(() {}),
+                  validator: (v) => RegExp(r'^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,62}[a-zA-Z0-9])?$').hasMatch((v ?? '').trim()) && !(v ?? '').contains('..') ? null : 'Use letras sem acentos, números, ponto, hífen ou sublinhado. Não digite @.'),
+                const SizedBox(height: 12),
+              ] else if (widget.user?['loginInterno'] != null) ...[
+                TextFormField(initialValue: '${widget.user!['loginInterno']}', readOnly: true, decoration: const InputDecoration(labelText: 'Login interno')),
+                const SizedBox(height: 12),
+              ],
+              TextFormField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'E-mail real de contato', helperText: 'Os códigos de acesso serão enviados para este endereço.', helperMaxLines: 2, prefixIcon: Icon(Icons.mail_outline)), validator: (v) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch((v ?? '').trim()) ? null : strings.get('validEmail')),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(initialValue: role, isExpanded: true, decoration: InputDecoration(labelText: strings.get('role'), prefixIcon: const Icon(Icons.badge_outlined)), items: const ['ADMINISTRADOR','SUPERVISOR','TECNICO','OPERADOR','VISITANTE'].map((r) => DropdownMenuItem(value: r, child: Text(_roleLabel(strings, r), overflow: TextOverflow.ellipsis))).toList(), onChanged: (v) => role = v!),
+              DropdownButtonFormField<String>(initialValue: role, isExpanded: true, decoration: InputDecoration(labelText: strings.get('role'), prefixIcon: const Icon(Icons.badge_outlined)), items: const ['ADMINISTRADOR','SUPERVISOR','TECNICO','OPERADOR','VISITANTE'].map((r) => DropdownMenuItem(value: r, child: Text(_roleLabel(strings, r), overflow: TextOverflow.ellipsis))).toList(), onChanged: editing ? (v) => role = v! : null),
               const SizedBox(height: 12),
               TextFormField(controller: password, obscureText: true, decoration: InputDecoration(labelText: editing ? strings.get('newPasswordOptional') : strings.get('initialPassword'), prefixIcon: const Icon(Icons.lock_outline)), validator: (v) => !editing && (v?.length ?? 0) < 8 ? strings.get('minimumPassword') : (editing && v!.isNotEmpty && v.length < 8 ? strings.get('minimumPassword') : null)),
             ],
@@ -817,7 +862,7 @@ class _UserDialogState extends State<_UserDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(strings.get('cancel'))),
-        FilledButton(onPressed: () { if (!key.currentState!.validate()) return; FocusScope.of(context).unfocus(); Navigator.pop(context, _UserFormResult(name.text, email.text, password.text.isEmpty ? null : password.text, role)); }, child: Text(editing ? strings.get('saveChanges') : strings.get('register'))),
+        FilledButton(onPressed: () { if (!key.currentState!.validate()) return; FocusScope.of(context).unfocus(); Navigator.pop(context, _UserFormResult(name.text, email.text, password.text.isEmpty ? null : password.text, role, login.text)); }, child: Text(editing ? strings.get('saveChanges') : strings.get('register'))),
       ],
     );
   }
@@ -828,8 +873,8 @@ class _UserDialogState extends State<_UserDialog> {
 class _CodeDialog extends StatefulWidget { const _CodeDialog({required this.email}); final String email; @override State<_CodeDialog> createState() => _CodeDialogState(); }
 class _CodeDialogState extends State<_CodeDialog> { final code = TextEditingController(); @override void dispose(){code.dispose(); super.dispose();} @override Widget build(BuildContext context) { final strings = AppStrings.of(context); return AlertDialog(icon: const Icon(Icons.mark_email_read_outlined, color: SteelColors.primary, size: 38), title: Text(strings.get('confirmNewEmail')), content: Column(mainAxisSize: MainAxisSize.min, children: [Text('${strings.get('codeSent')} ${widget.email}'), const SizedBox(height: 16), TextField(controller: code, keyboardType: TextInputType.number, maxLength: 6, textAlign: TextAlign.center, decoration: InputDecoration(labelText: strings.get('sixDigitCode'), counterText: ''))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(strings.get('cancel'))), FilledButton(onPressed: () => code.text.length == 6 ? Navigator.pop(context, code.text) : null, child: Text(strings.get('confirm')))]); } }
 
-class _UserFormResult { const _UserFormResult(this.name, this.email, this.password, this.role); final String name; final String email; final String? password; final String role; }
-class _CompanyData { const _CompanyData(this.company, this.users, this.audit); final Company company; final List<Map<String, dynamic>> users; final List<Map<String, dynamic>> audit; }
+class _UserFormResult { const _UserFormResult(this.name, this.email, this.password, this.role, [this.loginPart = '']); final String name; final String email; final String? password; final String role; final String loginPart; }
+class _CompanyData { const _CompanyData(this.company, this.users, this.audit, this.requests); final Company company; final List<Map<String, dynamic>> users; final List<Map<String, dynamic>> audit; final List<Map<String, dynamic>> requests; }
 class _InfoRow extends StatelessWidget { const _InfoRow({required this.icon, required this.label, required this.value}); final IconData icon; final String label; final String value; @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 13), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, color: SteelColors.primary, size: 21), const SizedBox(width: 12), SizedBox(width: 90, child: Text(label, style: const TextStyle(color: SteelColors.muted))), Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)))])); }
 int _asInt(dynamic value) => value is int ? value : int.tryParse('$value') ?? 0;
 String _initial(String value) => value.trim().isEmpty ? 'U' : value.trim().substring(0, 1).toUpperCase();
