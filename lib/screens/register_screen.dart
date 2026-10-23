@@ -6,7 +6,6 @@ import '../core/cnpj_formatter.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import 'face_auth_screen.dart';
-import 'company_validation_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({required this.controller, super.key});
@@ -83,20 +82,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (completedSession != null && mounted) {
-        if (completedSession['pendente'] == true && completedSession['validacaoToken'] != null) {
-          await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${completedSession['validacaoToken']}')));
-          if (mounted) Navigator.pop(context);
-          return;
-        }
-        if (completedSession['pendente'] == true) {
-          await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-            title: const Text('Aguardando validação'),
-            content: Text('${completedSession['mensagem'] ?? 'Aguarde a aprovação do responsável.'}'),
-            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Voltar ao login'))],
-          ));
-          if (mounted) Navigator.pop(context);
-          return;
-        }
         await widget.controller.acceptRegisteredSession(completedSession);
         if (!mounted) return;
         Navigator.pop(context);

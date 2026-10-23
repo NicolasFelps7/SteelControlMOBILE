@@ -429,19 +429,19 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _checkTimer = Timer(const Duration(milliseconds: 1650), () {
+      _checkTimer = Timer(const Duration(milliseconds: 2700), () {
         if (mounted) setState(() => _showCheck = true);
       });
-      _contentTimer = Timer(const Duration(milliseconds: 1900), () {
+      _contentTimer = Timer(const Duration(milliseconds: 2950), () {
         if (mounted) setState(() => _showContent = true);
       });
-      _loadingTimer = Timer(const Duration(milliseconds: 2280), () {
+      _loadingTimer = Timer(const Duration(milliseconds: 3330), () {
         if (mounted) setState(() => _showLoading = true);
       });
-      _progressTimer = Timer(const Duration(milliseconds: 2350), () {
+      _progressTimer = Timer(const Duration(milliseconds: 3400), () {
         if (mounted) setState(() => _progress = 1);
       });
-      _closeTimer = Timer(const Duration(milliseconds: 4500), () {
+      _closeTimer = Timer(const Duration(milliseconds: 5800), () {
         if (mounted) Navigator.of(context).pop();
       });
     });

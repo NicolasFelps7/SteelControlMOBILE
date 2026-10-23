@@ -1,4 +1,3 @@
-import 'company_validation_screen.dart';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -110,12 +109,42 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   }
 
   Future<File> _capture() async {
+    if (!mounted || _camera?.value.isInitialized != true || _camera!.value.isTakingPicture) {
+      throw ApiException('Câmera indisponível. Abra o reconhecimento novamente.');
+    }
     final file = await _camera!.takePicture();
     return File(file.path);
   }
 
+  Future<File> _captureFrontal() async {
+    await WidgetsBinding.instance.endOfFrame;
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    var stableFrames = 0;
+    while (mounted && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      File? candidate;
+      try {
+        candidate = await _capture();
+        final analysis = await widget.controller.auth.analyzeFace(candidate);
+        if (!mounted) throw ApiException('Reconhecimento cancelado.');
+        final yaw = _number((analysis['pose'] as Map?)?['yaw']);
+        if (analysis['pronto'] == true && analysis['quantidadeRostos'] == 1 && yaw.abs() <= 8) {
+          stableFrames++;
+          if (stableFrames >= 2 && DateTime.now().isBefore(deadline)) return candidate;
+        } else {
+          stableFrames = 0;
+        }
+      } catch (_) {
+        await _deleteTemporaryFiles([candidate]);
+        rethrow;
+      }
+      await _deleteTemporaryFiles([candidate]);
+    }
+    throw ApiException('Posição frontal não confirmada. Centralize o rosto e tente novamente.');
+  }
+
   Future<void> _start() async {
-    if (_busy || _camera?.value.isInitialized != true) return;
+    if (_busy || _finished || _camera?.value.isInitialized != true) return;
     final strings = AppStrings.of(context);
     setState(() {
       _busy = true;
@@ -147,29 +176,15 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
     try {
       _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
-      await Future<void>.delayed(const Duration(milliseconds: 850));
-      first = await _capture();
-      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
-      if (firstAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
-        );
-      }
+      first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
 
       _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
-      await Future<void>.delayed(const Duration(milliseconds: 1300));
-      finalImage = await _capture();
-      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
-      if (finalAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
-        );
-      }
+      finalImage = await _captureFrontal();
 
       _step(
-        strings.get('qualityConfirmed'),
+        strings.get('verifyingIdentity'),
         strings.get('protectingBiometrics'),
         .90,
       );
@@ -200,26 +215,12 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
     try {
       _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
-      await Future<void>.delayed(const Duration(milliseconds: 850));
-      first = await _capture();
-      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
-      if (firstAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
-        );
-      }
+      first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
 
       _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
-      await Future<void>.delayed(const Duration(milliseconds: 1300));
-      finalImage = await _capture();
-      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
-      if (finalAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
-        );
-      }
+      finalImage = await _captureFrontal();
 
       _step(
         strings.get('verifyingIdentity'),
@@ -252,26 +253,12 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
 
     try {
       _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
-      await Future<void>.delayed(const Duration(milliseconds: 900));
-      first = await _capture();
-      final firstAnalysis = await widget.controller.auth.analyzeFace(first);
-      if (firstAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${firstAnalysis['orientacao'] ?? strings.get('centerFace')}',
-        );
-      }
+      first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
 
       _step(strings.get('returnCenter'), strings.get('lookAgain'), .72);
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
-      finalImage = await _capture();
-      final finalAnalysis = await widget.controller.auth.analyzeFace(finalImage);
-      if (finalAnalysis['pronto'] != true) {
-        throw ApiException(
-          '${finalAnalysis['orientacao'] ?? strings.get('returnFront')}',
-        );
-      }
+      finalImage = await _captureFrontal();
 
       _step(
         strings.get('verifyingIdentity'),
@@ -309,6 +296,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   }
 
   Future<File> _captureLivenessWithTimeout(AppStrings strings) async {
+    await WidgetsBinding.instance.endOfFrame;
     final deadline = DateTime.now().add(_livenessTimeout);
 
     while (mounted && DateTime.now().isBefore(deadline)) {
@@ -330,7 +318,8 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
         candidate = await _capture();
         final analysis = await widget.controller.auth.analyzeFace(candidate);
         final yaw = _number((analysis['pose'] as Map?)?['yaw']);
-        if (yaw.abs() >= 10) {
+        if (mounted && DateTime.now().isBefore(deadline) && analysis['detectado'] == true &&
+            analysis['quantidadeRostos'] == 1 && yaw.abs() >= 12) {
           return candidate;
         }
       } catch (_) {
@@ -392,7 +381,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     final code = TextEditingController();
     var busy = false;
     String? error;
-    final confirmed = await showDialog<Object?>(
+    final confirmed = await showDialog<bool>(
       context: context, barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(builder: (context, update) => AlertDialog(
         title: const Text('Confirme o segundo fator'),
@@ -410,10 +399,6 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
               await widget.controller.verifyAdminMfa('${challenge['challengeId']}', code.text);
               if (dialogContext.mounted) Navigator.pop(dialogContext, true);
             } on ApiException catch (e) {
-              if (e.code == 'COMPANY_SIGNATURE_REQUIRED' && e.data?['validacaoToken'] != null) {
-                if (dialogContext.mounted) Navigator.pop(dialogContext, e.data);
-                return;
-              }
               if (dialogContext.mounted) update(() { error = e.message; busy = false; });
             }
           }, child: const Text('Confirmar')),
@@ -422,11 +407,6 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     );
     code.dispose();
     if (!mounted) return;
-    if (confirmed is Map && confirmed['validacaoToken'] != null) {
-      await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${confirmed['validacaoToken']}')));
-      if (mounted) Navigator.pop(context);
-      return;
-    }
     if (confirmed == true) {
       _success('Identidade confirmada', 'Acesso autorizado.', result: true);
     } else {
@@ -515,9 +495,6 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 Navigator.pop(dialogContext, result);
               } on ApiException catch (exception) {
                 if (!dialogContext.mounted) return;
-                if (exception.code == 'COMPANY_SIGNATURE_REQUIRED' && exception.data?['validacaoToken'] != null) {
-                  Navigator.pop(dialogContext, exception.data); return;
-                }
                 setDialogState(() {
                   busy = false;
                   error = exception.message;
@@ -660,11 +637,6 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       return;
     }
 
-    if (session['validacaoToken'] != null) {
-      await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${session['validacaoToken']}')));
-      if (mounted) Navigator.pop(context);
-      return;
-    }
     await widget.controller.acceptFaceSecondFactorSession(session);
     _success(
       strings.get('identityConfirmed'),
@@ -729,7 +701,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   }
 
   double _number(dynamic value) =>
-      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+      value is num ? value.toDouble() : double.tryParse('$value') ?? double.nan;
 
   Color get _stateColor {
     if (_finished) return SteelColors.success;
@@ -1233,7 +1205,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             workstation
                 ? strings.get('quickVerificationProtects')
                 : widget.isRegistration
-                    ? strings.get('biometricsLinkedOnce')
+                    ? strings.get('registrationFaceRequired')
                     : strings.get('centerFace'),
             style: const TextStyle(
               color: SteelColors.titaniumLight,
@@ -1370,8 +1342,8 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     required double threshold,
     bool workstation = false,
   }) {
-    final complete = _finished || _progress >= threshold;
-    final active = !_finished && !_hasError && _progress < threshold && _progress >= threshold - .30;
+    final complete = _finished || (!_hasError && _progress > threshold);
+    final active = !_finished && !_hasError && _progress >= threshold && _progress < threshold + .20;
     final color = complete
         ? SteelColors.success
         : active

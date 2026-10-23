@@ -334,7 +334,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
 
   Future<void> _createUser() async {
     final strings = AppStrings.of(context);
-    final company = (await _data).company;
+    final company = await widget.controller.companyApi.getCompany();
     if (!mounted) return;
     if (company.loginDomain?.isNotEmpty != true) {
       _message('Atualize o backend e execute as migrations para configurar o login interno.', error: true);
@@ -342,7 +342,7 @@ class _CompanyScreenState extends State<CompanyScreen> {
     }
     final result = await showDialog<_UserFormResult>(
       context: context,
-      builder: (_) => _UserDialog(loginDomain: company.loginDomain!),
+      builder: (_) => _UserDialog(loginDomain: company.loginDomain!, controller: widget.controller),
     );
     if (result == null || !mounted) return;
 
@@ -793,7 +793,7 @@ class _FaceNameDialogState extends State<_FaceNameDialog> {
   }
 }
 
-class _UserDialog extends StatefulWidget { const _UserDialog({this.user, this.loginDomain = ''}); final Map<String, dynamic>? user; final String loginDomain; @override State<_UserDialog> createState() => _UserDialogState(); }
+class _UserDialog extends StatefulWidget { const _UserDialog({this.user, this.loginDomain = '', this.controller}); final AppController? controller; final Map<String, dynamic>? user; final String loginDomain; @override State<_UserDialog> createState() => _UserDialogState(); }
 class _UserDialogState extends State<_UserDialog> {
   final key = GlobalKey<FormState>();
   late final TextEditingController name;
@@ -801,11 +801,26 @@ class _UserDialogState extends State<_UserDialog> {
   final password = TextEditingController();
   final login = TextEditingController();
   late String role;
+  late String _loginDomain;
+  StreamSubscription<Map<String, dynamic>>? _domainEvents;
+  bool _domainLoading = false;
   bool get editing => widget.user != null;
 
   @override
   void initState() {
     super.initState();
+    _loginDomain = widget.loginDomain;
+    if (widget.controller != null) {
+      _domainEvents = widget.controller!.companyApi.events().listen((event) async {
+        if ('${event['tipo']}' != 'empresa.atualizada' || _domainLoading) return;
+        _domainLoading = true;
+        try {
+          final company = await widget.controller!.companyApi.getCompany();
+          if (mounted) setState(() => _loginDomain = company.loginDomain ?? _loginDomain);
+        } catch (_) { /* O salvamento continuará validando o sufixo no servidor. */ }
+        finally { _domainLoading = false; }
+      }, onError: (_) {});
+    }
     name = TextEditingController(text: '${widget.user?['nome'] ?? ''}');
     email = TextEditingController(text: '${widget.user?['email'] ?? ''}');
     role = '${widget.user?['cargo'] ?? 'VISITANTE'}';
@@ -813,6 +828,7 @@ class _UserDialogState extends State<_UserDialog> {
 
   @override
   void dispose() {
+    _domainEvents?.cancel();
     name.dispose();
     email.dispose();
     login.dispose();
@@ -842,8 +858,8 @@ class _UserDialogState extends State<_UserDialog> {
               if (!editing) ...[
                 TextFormField(controller: login, maxLength: 64, autocorrect: false, enableSuggestions: false,
                   decoration: InputDecoration(labelText: 'Login interno', hintText: 'joao.silva',
-                    suffix: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 160), child: Text('@${widget.loginDomain}', overflow: TextOverflow.ellipsis)),
-                    helperText: 'Login: ${login.text.trim().toLowerCase()}@${widget.loginDomain}', helperMaxLines: 3),
+                    suffix: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 160), child: Text('@$_loginDomain', overflow: TextOverflow.ellipsis)),
+                    helperText: 'Login: ${login.text.trim().toLowerCase()}@$_loginDomain', helperMaxLines: 3),
                   onChanged: (_) => setState(() {}),
                   validator: (v) => RegExp(r'^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,62}[a-zA-Z0-9])?$').hasMatch((v ?? '').trim()) && !(v ?? '').contains('..') ? null : 'Use letras sem acentos, números, ponto, hífen ou sublinhado. Não digite @.'),
                 const SizedBox(height: 12),

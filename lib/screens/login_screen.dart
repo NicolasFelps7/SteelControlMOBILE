@@ -1,4 +1,3 @@
-import 'company_validation_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
@@ -100,11 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 } on ApiException catch (exception) {
-                  if (exception.code == 'COMPANY_SIGNATURE_REQUIRED' && exception.data?['validacaoToken'] != null) {
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    if (mounted) await Navigator.push<bool>(this.context, MaterialPageRoute(builder: (_) => CompanyValidationScreen(controller: widget.controller, validationToken: '${exception.data!['validacaoToken']}')));
-                    return;
-                  }
                   if (dialogContext.mounted) setDialogState(() => error = exception.message);
                 }
               },

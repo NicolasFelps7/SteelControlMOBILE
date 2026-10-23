@@ -55,9 +55,8 @@ class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      // 2.100 ms para o capacete e mais 50 ms para concluir o anel de
-      // impacto, exatamente como a sequência Web do Desktop.
-      duration: const Duration(milliseconds: 2150),
+      // Queda mais lenta, com anel de impacto sincronizado ao toque na cabeça.
+      duration: const Duration(milliseconds: 2950),
     );
     _controller.forward();
   }
@@ -82,8 +81,8 @@ class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            final elapsedMs = _controller.value * 2150;
-            final value = (elapsedMs / 2100).clamp(0.0, 1.0).toDouble();
+            final elapsedMs = _controller.value * 2950;
+            final value = (elapsedMs / 2800).clamp(0.0, 1.0).toDouble();
             double between(double start, double end, double from, double to) {
               final progress = ((value - start) / (end - start))
                   .clamp(0.0, 1.0)
@@ -107,7 +106,7 @@ class _SteelHardhatWelcomeState extends State<SteelHardhatWelcome>
                     ? between(.66, .80, .87, 1.05)
                     : between(.80, 1, 1.05, 1);
             final hatOpacity = (value / .16).clamp(0.0, 1.0).toDouble();
-            final impactPhase = ((elapsedMs - 1250) / 900)
+            final impactPhase = ((elapsedMs - 1876) / 1074)
                 .clamp(0.0, 1.0)
                 .toDouble();
             final impactOpacity = impactPhase <= .25
