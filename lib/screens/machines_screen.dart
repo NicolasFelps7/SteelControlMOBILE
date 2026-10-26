@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/api_config.dart';
+import 'machine_connection_screen.dart';
 import '../core/app_strings.dart';
 import '../core/app_theme.dart';
 import '../models/machine.dart';
@@ -40,11 +41,17 @@ class _MachinesScreenState extends State<MachinesScreen> {
   void _message(String value, {bool error = false}) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value), backgroundColor: error ? SteelColors.danger : SteelColors.success)); }
   Future<void> _run(Future<void> Function() action) async { if (_busy) return; setState(() => _busy = true); try { await action(); } on ApiException catch (e) { _message(e.message, error: true); } catch (e) { _message('$e', error: true); } finally { if (mounted) setState(() => _busy = false); } }
 
+  Future<void> _connection(int id, String name) async {
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => MachineConnectionScreen(client: widget.controller.companyApi.client, machineId: id, machineName: name)));
+    if (mounted) await widget.controller.loadMachines();
+  }
+
   Future<void> _create() async {
     final successMessage = AppStrings.of(context).get('machineCreated');
     final data = await showDialog<Map<String, dynamic>>(context: context, builder: (_) => const _MachineDialog());
     if (data == null) return;
-    await _run(() async { final result = await widget.controller.machinesApi.create(data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) { final rawMachine = result['maquina']; final machineId = rawMachine is Map ? int.tryParse('${rawMachine['id']}') : null; await _showKey('${result['deviceKey']}', machineId: machineId); } });
+    await _run(() async { final result = await widget.controller.machinesApi.create(data); await widget.controller.loadMachines(); _message('${result['mensagem'] ?? successMessage}'); if (result['deviceKey'] != null && mounted) { final rawMachine = result['maquina']; final machineId = rawMachine is Map ? int.tryParse('${rawMachine['id']}') : null; if (machineId != null) await _connection(machineId, '${data['nome'] ?? 'Máquina'}'); } });
   }
   Future<void> _edit(Machine machine) async {
     final successMessage = AppStrings.of(context).get('machineUpdated');
@@ -64,7 +71,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
       await widget.controller.loadMachines(notify: true);
       _message('${result['mensagem'] ?? successMessage}');
       if (result['deviceKey'] != null && mounted) {
-        await _showKey('${result['deviceKey']}', machineId: machine.id);
+        await _connection(machine.id, machine.name);
       }
     });
   }
@@ -401,7 +408,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentHero(strings: strings))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _FleetMetrics(total: machines.length, operating: operating, maintenance: maintenance, alerts: alerts))),
       SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _MachinesToolbar(strings: strings, controller: _searchController, types: types, typeFilter: _typeFilter, statusFilter: _statusFilter, onSearch: (_) => setState(() {}), onType: (value) => setState(() => _typeFilter = value), onStatus: (value) => setState(() => _statusFilter = value)))),
-      if (machines.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 30), child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany'))])))))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: _admin ? 638 : 586), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _key(machine)); })),
+      if (machines.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 30), child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.precision_manufacturing_outlined, size: 60, color: SteelColors.muted), const SizedBox(height: 12), Text(strings.get('noMachinesCompany'))])))))) else if (filtered.isEmpty) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverToBoxAdapter(child: SectionCard(child: Padding(padding: const EdgeInsets.symmetric(vertical: 28), child: Center(child: Text(strings.get('noFilterResults'), style: const TextStyle(color: SteelColors.muted))))))) else SliverPadding(padding: const EdgeInsets.fromLTRB(22, 4, 22, 18), sliver: SliverGrid.builder(gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 16, mainAxisSpacing: 16, mainAxisExtent: _admin ? 638 : 586), itemCount: filtered.length, itemBuilder: (context, index) { final machine = filtered[index]; return _MachineCard(machine: machine, admin: _admin, onOpen: () async { await widget.controller.selectMachine(machine); widget.onSelected(); }, onEdit: () => _edit(machine), onRemove: () => _remove(machine), onKey: () => _connection(machine.id, machine.name)); })),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), sliver: SliverToBoxAdapter(child: _EquipmentRegistrationCard(strings: strings, busy: _busy, onCreate: _create))),
       if (_admin) SliverPadding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 28), sliver: SliverToBoxAdapter(child: _DiscoveryCard(strings: strings, devices: _discovered, diagnostics: _discoveryDiagnostics, busy: _discoveryBusy, ipController: _discoveryIpController, portController: _discoveryPortController, onScan: _scanDiscovery, onProbeIp: _discoverByIp, onApprove: _approveDiscovery))),
     ]);
@@ -1009,7 +1016,7 @@ class _MachineCard extends StatelessWidget {
         SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: onOpen, icon: Icon(machine.isDobot ? Icons.precision_manufacturing_rounded : machine.hasIndustrialHmi ? Icons.developer_board_rounded : Icons.dashboard_outlined), label: Text(strings.get(machine.isDobot ? 'openDobotPanel' : machine.hasIndustrialHmi ? 'openHmiPanel' : 'openPanel')))),
         if (admin) ...[
           const SizedBox(height: 5),
-          Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('newKey'), onPressed: onKey, icon: const Icon(Icons.key_outlined)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
+          Row(children: [Expanded(child: OutlinedButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18), label: Text(strings.get('edit')))), const SizedBox(width: 7), IconButton.outlined(tooltip: 'Conectar máquina', onPressed: onKey, icon: const Icon(Icons.cable)), const SizedBox(width: 7), IconButton.outlined(tooltip: strings.get('remove'), onPressed: onRemove, color: SteelColors.danger, icon: const Icon(Icons.delete_outline))]),
         ],
       ]),
     );
@@ -1093,6 +1100,7 @@ class _MachineDialogState extends State<_MachineDialog> {
     dobotAllowMotion = dobot['remoteControlEnabled'] == true;
     hmiRemoteControlEnabled = hmi['remoteControlEnabled'] == true;
     final values = <String, dynamic>{
+      'tipo': m?.type,
       'nome': m?.name,
       'setor': m?.sector,
       'modelo': m?.model,
@@ -1164,6 +1172,7 @@ class _MachineDialogState extends State<_MachineDialog> {
     fields['dobotPort']!.text = 'AUTO';
     setState(() {
       equipmentType = 'Braço robótico';
+      fields['tipo']!.text = equipmentType;
       controller = 'DOBOT_MAGICIAN';
       protocol = 'USB_SERIAL';
       simulation = true;
@@ -1177,8 +1186,10 @@ class _MachineDialogState extends State<_MachineDialog> {
       controller = value;
       if (value == 'IMPRESSORA_3D') {
         equipmentType = 'Impressora 3D';
+        fields['tipo']!.text = equipmentType;
       } else if (previous == 'IMPRESSORA_3D' && equipmentType == 'Impressora 3D') {
         equipmentType = 'Outro';
+        fields['tipo']!.text = equipmentType;
       }
       final recommended = recommendedProtocols[value];
       if (recommended != null && protocol.isEmpty) protocol = recommended;
@@ -1245,11 +1256,14 @@ class _MachineDialogState extends State<_MachineDialog> {
   }
 
   void _submit() {
-    if (!key.currentState!.validate()) return;
-    if (!simulation && controller.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.of(context).get('selectRealController')), backgroundColor: SteelColors.danger));
+    equipmentType = fields['tipo']!.text.trim();
+    if(equipmentType.isEmpty) {
+      setState(()=>identificationExpanded=true);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Informe a categoria da máquina.')));
       return;
     }
+    if (!key.currentState!.validate()) return;
+    if (!simulation && controller.isEmpty) controller = 'OUTRO';
 
     final tempWarning = number('tempAtencao', 55);
     final tempCritical = number('tempCritica', 70);
@@ -1368,7 +1382,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                   const SizedBox(height: 12),
                   disclosure(title: identificationExpanded ? strings.get('hideDetails') : strings.get('additionalDetails'), caption: strings.get('operationalDescription'), icon: Icons.tune_rounded, expanded: identificationExpanded, onTap: () => setState(() => identificationExpanded = !identificationExpanded), child: Column(children: [
                     pair(
-                      DropdownButtonFormField<String>(key: ValueKey(equipmentType), initialValue: equipmentTypes.contains(equipmentType) ? equipmentType : 'Outro', decoration: InputDecoration(labelText: strings.get('equipmentType'), prefixIcon: const Icon(Icons.category_outlined)), items: equipmentTypes.map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? strings.get('configureLater') : strings.translate(value)))).toList(), onChanged: (value) => _changeEquipmentType(value ?? '')),
+                      TextFormField(controller: fields['tipo'], maxLength:120, decoration: InputDecoration(labelText: strings.get('equipmentType'), hintText:'Qualquer categoria de máquina', prefixIcon: const Icon(Icons.category_outlined)), onChanged:_changeEquipmentType, validator:(value)=>value?.trim().isNotEmpty==true?null:strings.get('requiredField')),
                       input('fabricante',strings.get('manufacturer'),icon:Icons.factory_outlined,hint:'ABB, KUKA, FANUC...'),
                     ),
                     const SizedBox(height: 12),
@@ -1384,7 +1398,7 @@ class _MachineDialogState extends State<_MachineDialog> {
                   _FormSection(icon: Icons.lan_outlined, number: '03', title: strings.get('industrialCommunication'), caption: strings.get('communicationCaption')),
                   const SizedBox(height: 16),
                   pair(
-                    DropdownButtonFormField<String>(key: ValueKey(controller), initialValue: controllers.contains(controller) ? controller : 'OUTRO', decoration: InputDecoration(labelText:strings.get('controllerGateway'),prefixIcon:const Icon(Icons.hub_outlined)), items: controllers.map((value)=>DropdownMenuItem(value:value,child:Text(value.isEmpty?strings.get('select'):strings.translate(labelFor(value))))).toList(), onChanged:(value)=>_changeController(value??''), validator: (value) => !simulation && (value?.isEmpty ?? true) ? strings.get('realModeRequired') : null),
+                    DropdownButtonFormField<String>(key: ValueKey(controller), initialValue: controllers.contains(controller) ? controller : 'OUTRO', decoration: InputDecoration(labelText:strings.get('controllerGateway'),prefixIcon:const Icon(Icons.hub_outlined)), items: controllers.map((value)=>DropdownMenuItem(value:value,child:Text(value.isEmpty?strings.get('configureLater'):strings.translate(labelFor(value))))).toList(), onChanged:(value)=>_changeController(value??'')),
                     DropdownButtonFormField<String>(key: ValueKey(protocol), initialValue: protocols.contains(protocol) ? protocol : 'OUTRO', decoration: InputDecoration(labelText:strings.get('protocol'),prefixIcon:const Icon(Icons.swap_horiz_rounded)), items: protocols.map((value)=>DropdownMenuItem(value:value,child:Text(value.isEmpty?strings.get('configureLater'):strings.translate(labelFor(value))))).toList(), onChanged:(value)=>setState(()=>protocol=value??'')),
                   ),
                   if (controller == 'DOBOT_MAGICIAN') ...[
