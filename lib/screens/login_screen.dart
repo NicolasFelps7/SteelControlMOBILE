@@ -5,7 +5,6 @@ import '../core/app_strings.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import '../widgets/steel_brand.dart';
-import '../widgets/steel_motion.dart';
 import 'face_auth_screen.dart';
 import 'register_screen.dart';
 
@@ -23,9 +22,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _obscure = true;
+  bool _noticeScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_checkLogoutNotice);
+    _checkLogoutNotice();
+  }
+
+  void _checkLogoutNotice() {
+    if (_noticeScheduled || widget.controller.forcedLogoutNotice == null)
+      return;
+    _noticeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _noticeScheduled = false;
+      if (!mounted) return;
+      final notice = widget.controller.consumeForcedLogoutNotice();
+      if (notice != null) _message(notice, error: true);
+    });
+  }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_checkLogoutNotice);
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -49,6 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _showAdminMfa(Map<String, dynamic> challenge) async {
     final code = TextEditingController();
+    final strings = AppStrings.of(context);
+    var submitting = false;
     String? error;
 
     await showDialog<void>(
@@ -57,14 +79,14 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           icon: const Icon(Icons.admin_panel_settings_rounded),
-          title: const Text('Confirme o segundo fator'),
+          title: Text(strings.get('registrationConfirmation')),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Código enviado para ${challenge['email'] ?? 'o e-mail protegido'}.'),
+                Text(strings.get('registrationConfirmationCaption')),
                 const SizedBox(height: 18),
                 TextField(
                   controller: code,
@@ -73,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   maxLength: 6,
                   autofillHints: const [AutofillHints.oneTimeCode],
                   decoration: InputDecoration(
-                    labelText: 'Código de 6 dígitos',
+                    labelText: strings.get('sixDigitCode'),
                     errorText: error,
                   ),
                 ),
@@ -82,28 +104,37 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
+              onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+              child: Text(strings.get('cancel')),
             ),
             FilledButton.icon(
-              onPressed: () async {
-                final value = code.text.replaceAll(RegExp(r'\D'), '');
-                if (value.length != 6) {
-                  setDialogState(() => error = 'Informe os 6 dígitos.');
-                  return;
-                }
-                try {
-                  await widget.controller.verifyAdminMfa(
-                    '${challenge['challengeId'] ?? ''}',
-                    value,
-                  );
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                } on ApiException catch (exception) {
-                  if (dialogContext.mounted) setDialogState(() => error = exception.message);
-                }
-              },
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      final value = code.text.replaceAll(RegExp(r'\D'), '');
+                      if (value.length != 6) {
+                        setDialogState(
+                          () => error = strings.get('sixDigitCode'),
+                        );
+                        return;
+                      }
+                      setDialogState(() => submitting = true);
+                      try {
+                        await widget.controller.verifyAdminMfa(
+                          '${challenge['challengeId'] ?? ''}',
+                          value,
+                        );
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } on ApiException catch (exception) {
+                        if (dialogContext.mounted)
+                          setDialogState(() {
+                            error = exception.message;
+                            submitting = false;
+                          });
+                      }
+                    },
               icon: const Icon(Icons.verified_user_outlined),
-              label: const Text('Confirmar'),
+              label: Text(strings.get('confirm')),
             ),
           ],
         ),
@@ -125,17 +156,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
 
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final tablet = constraints.maxWidth >= 760;
-            final compactIndustrialPanel = keyboardOpen || constraints.maxHeight < 620;
             final form = _LoginForm(
-              showBrand: !tablet,
+              showBrand: true,
               formKey: _formKey,
               email: _email,
               password: _password,
@@ -146,39 +174,35 @@ class _LoginScreenState extends State<LoginScreen> {
               onLogin: _login,
               onFace: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => FaceAuthScreen(controller: widget.controller)),
+                MaterialPageRoute(
+                  builder: (_) => FaceAuthScreen(controller: widget.controller),
+                ),
               ),
               onRegister: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => RegisterScreen(controller: widget.controller)),
+                MaterialPageRoute(
+                  builder: (_) => RegisterScreen(controller: widget.controller),
+                ),
               ),
             );
 
             return Stack(
               children: [
-                Row(
-                  children: [
-                    if (tablet)
-                      Expanded(
-                        flex: 5,
-                        child: _IndustrialPanel(compact: compactIndustrialPanel),
+                Positioned.fill(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: tablet ? 48 : 24,
+                        vertical: 64,
                       ),
-                    Expanded(
-                      flex: tablet ? 6 : 1,
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: tablet ? 64 : 24,
-                          vertical: tablet ? 46 : 28,
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 510),
-                            child: form,
-                          ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 510),
+                          child: form,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
                 Positioned(
                   top: 12,
@@ -199,85 +223,228 @@ class _PreferencesButton extends StatelessWidget {
   final AppController controller;
 
   Future<void> _open(BuildContext context) => showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          final strings = AppStrings.of(dialogContext);
-          final dark = Theme.of(dialogContext).brightness == Brightness.dark;
-          final dialogBorder = dark ? SteelColors.borderDark : const Color(0xFFD3DADF);
-          final optionBackground = dark ? const Color(0xFF20282D) : Colors.white;
-          final optionText = dark ? const Color(0xFFE8ECEE) : SteelColors.ink;
-          return Dialog(
-          insetPadding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(26),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Container(width: 46, height: 46, decoration: BoxDecoration(color: SteelColors.industrialAccent.withValues(alpha: .10), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.tune_rounded, color: SteelColors.industrialAccentDark)),
-                  const SizedBox(width: 14),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('preferences'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)), const SizedBox(height: 2), Text(strings.get('adjustExperience'), style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.steel600))])),
-                  IconButton(onPressed: () => Navigator.pop(dialogContext), icon: const Icon(Icons.close_rounded)),
-                ]),
+    context: context,
+    builder: (dialogContext) {
+      final strings = AppStrings.of(dialogContext);
+      final dark = Theme.of(dialogContext).brightness == Brightness.dark;
+      final dialogBorder = dark
+          ? SteelColors.borderDark
+          : const Color(0xFFD3DADF);
+      final optionBackground = dark ? const Color(0xFF20282D) : Colors.white;
+      final optionText = dark ? const Color(0xFFE8ECEE) : SteelColors.ink;
+      return Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: SteelColors.industrialAccent.withValues(
+                          alpha: .10,
+                        ),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(
+                        Icons.tune_rounded,
+                        color: SteelColors.industrialAccentDark,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            strings.get('preferences'),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            strings.get('adjustExperience'),
+                            style: TextStyle(
+                              color: dark
+                                  ? SteelColors.mutedDark
+                                  : SteelColors.steel600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: dark ? const Color(0xFF20282D) : const Color(0xFFF7F9FA),
+                    color: dark
+                        ? const Color(0xFF20282D)
+                        : const Color(0xFFF7F9FA),
                     border: Border.all(color: dialogBorder),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Row(children: [
-                    Icon(controller.darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded, color: SteelColors.industrialAccentDark),
-                    const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(strings.get('appearance'), style: const TextStyle(fontWeight: FontWeight.w700)), Text(strings.get('themeApplied'), style: TextStyle(color: dark ? SteelColors.mutedDark : SteelColors.steel600, fontSize: 12))])),
-                    SegmentedButton<bool>(segments: [ButtonSegment(value: false, icon: const Icon(Icons.light_mode_outlined), tooltip: strings.get('lightTheme')), ButtonSegment(value: true, icon: const Icon(Icons.dark_mode_outlined), tooltip: strings.get('darkTheme'))], selected: {controller.darkMode}, showSelectedIcon: false, onSelectionChanged: (value) => controller.setDarkMode(value.first)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(
+                        controller.darkMode
+                            ? Icons.dark_mode_rounded
+                            : Icons.light_mode_rounded,
+                        color: SteelColors.industrialAccentDark,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              strings.get('appearance'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              strings.get('themeApplied'),
+                              style: TextStyle(
+                                color: dark
+                                    ? SteelColors.mutedDark
+                                    : SteelColors.steel600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SegmentedButton<bool>(
+                        segments: [
+                          ButtonSegment(
+                            value: false,
+                            icon: const Icon(Icons.light_mode_outlined),
+                            tooltip: strings.get('lightTheme'),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            icon: const Icon(Icons.dark_mode_outlined),
+                            tooltip: strings.get('darkTheme'),
+                          ),
+                        ],
+                        selected: {controller.darkMode},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (value) =>
+                            controller.setDarkMode(value.first),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 22),
-                Text(strings.get('interfaceLanguage').toUpperCase(), style: const TextStyle(color: SteelColors.industrialAccentDark, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+                Text(
+                  strings.get('interfaceLanguage').toUpperCase(),
+                  style: const TextStyle(
+                    color: SteelColors.industrialAccentDark,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
                 const SizedBox(height: 11),
-                Wrap(spacing: 8, runSpacing: 8, children: ['Português', 'English', 'Español', 'Français', 'Deutsch', 'Italiano'].asMap().entries.map((entry) {
-                  final selected = controller.language == AppLanguage.values[entry.key];
-                  return ChoiceChip(
-                    avatar: Icon(
-                      selected ? Icons.check_circle_rounded : Icons.language_rounded,
-                      size: 17,
-                      color: selected
-                          ? (dark ? const Color(0xFFFFC66A) : SteelColors.industrialAccentDark)
-                          : (dark ? SteelColors.mutedDark : SteelColors.steel600),
-                    ),
-                    label: Text(entry.value),
-                    selected: selected,
-                    backgroundColor: optionBackground,
-                    selectedColor: dark
-                        ? SteelColors.industrialAccent.withValues(alpha: .18)
-                        : const Color(0xFFFFF4DF),
-                    side: BorderSide(
-                      color: selected ? SteelColors.industrialAccent : dialogBorder,
-                      width: selected ? 1.4 : 1,
-                    ),
-                    labelStyle: TextStyle(
-                      color: selected
-                          ? (dark ? const Color(0xFFFFD38A) : const Color(0xFF714300))
-                          : optionText,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    onSelected: (_) => controller.setLanguage(AppLanguage.values[entry.key]),
-                  );
-                }).toList()),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      [
+                        'Português',
+                        'English',
+                        'Español',
+                        'Français',
+                        'Deutsch',
+                        'Italiano',
+                      ].asMap().entries.map((entry) {
+                        final selected =
+                            controller.language ==
+                            AppLanguage.values[entry.key];
+                        return ChoiceChip(
+                          avatar: Icon(
+                            selected
+                                ? Icons.check_circle_rounded
+                                : Icons.language_rounded,
+                            size: 17,
+                            color: selected
+                                ? (dark
+                                      ? const Color(0xFFFFC66A)
+                                      : SteelColors.industrialAccentDark)
+                                : (dark
+                                      ? SteelColors.mutedDark
+                                      : SteelColors.steel600),
+                          ),
+                          label: Text(entry.value),
+                          selected: selected,
+                          backgroundColor: optionBackground,
+                          selectedColor: dark
+                              ? SteelColors.industrialAccent.withValues(
+                                  alpha: .18,
+                                )
+                              : const Color(0xFFFFF4DF),
+                          side: BorderSide(
+                            color: selected
+                                ? SteelColors.industrialAccent
+                                : dialogBorder,
+                            width: selected ? 1.4 : 1,
+                          ),
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? (dark
+                                      ? const Color(0xFFFFD38A)
+                                      : const Color(0xFF714300))
+                                : optionText,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          onSelected: (_) => controller.setLanguage(
+                            AppLanguage.values[entry.key],
+                          ),
+                        );
+                      }).toList(),
+                ),
                 const SizedBox(height: 24),
-                SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(dialogContext), child: Text(strings.get('finish')))),
-              ]),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(strings.get('finish')),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-        },
+        ),
       );
+    },
+  );
 
   @override
-  Widget build(BuildContext context) => IconButton.filledTonal(tooltip: AppStrings.of(context).get('themeAndLanguage'), onPressed: () => _open(context), icon: const Icon(Icons.settings_outlined));
+  Widget build(BuildContext context) => IconButton.filledTonal(
+    tooltip: AppStrings.of(context).get('themeAndLanguage'),
+    onPressed: () => _open(context),
+    icon: const Icon(Icons.settings_outlined),
+  );
 }
 
 class _LoginForm extends StatelessWidget {
@@ -319,18 +486,36 @@ class _LoginForm extends StatelessWidget {
             const SizedBox(height: 42),
           ] else
             const SizedBox(height: 12),
-          Text(strings.get('platform'), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: SteelColors.industrialAccentDark, fontWeight: FontWeight.w600, letterSpacing: .75)),
+          Text(
+            strings.get('platform'),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: SteelColors.industrialAccentDark,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .75,
+            ),
+          ),
           const SizedBox(height: 12),
-          Text(strings.get('accessCompany'), style: Theme.of(context).textTheme.displaySmall),
+          Text(
+            strings.get('accessCompany'),
+            style: Theme.of(context).textTheme.displaySmall,
+          ),
           const SizedBox(height: 12),
-          Text(strings.get('loginCaption'), style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: SteelColors.muted, height: 1.5)),
+          Text(
+            strings.get('loginCaption'),
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: SteelColors.muted, height: 1.5),
+          ),
           const SizedBox(height: 30),
           TextFormField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
             autofillHints: const [AutofillHints.username],
-            decoration: const InputDecoration(labelText: 'Login interno ou e-mail', prefixIcon: Icon(Icons.person_outline_rounded)),
-            validator: (value) => value?.contains('@') == true ? null : strings.get('validEmail'),
+            decoration: InputDecoration(
+              labelText: strings.get('email'),
+              prefixIcon: const Icon(Icons.person_outline_rounded),
+            ),
+            validator: (value) =>
+                value?.contains('@') == true ? null : strings.get('validEmail'),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -340,15 +525,31 @@ class _LoginForm extends StatelessWidget {
             decoration: InputDecoration(
               labelText: strings.get('password'),
               prefixIcon: const Icon(Icons.lock_outline_rounded),
-              suffixIcon: IconButton(onPressed: onTogglePassword, icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined)),
+              suffixIcon: IconButton(
+                onPressed: onTogglePassword,
+                icon: Icon(
+                  obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
             ),
-            validator: (value) => (value?.length ?? 0) >= 8 ? null : strings.get('minimumPassword'),
+            validator: (value) => (value?.length ?? 0) >= 8
+                ? null
+                : strings.get('minimumPassword'),
           ),
           const SizedBox(height: 22),
           FilledButton.icon(
             onPressed: busy ? null : onLogin,
             icon: busy
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Icon(Icons.arrow_forward_rounded),
             label: Text(strings.get('enterCompany')),
           ),
@@ -357,126 +558,34 @@ class _LoginForm extends StatelessWidget {
             onPressed: busy ? null : onFace,
             icon: const Icon(Icons.face_retouching_natural_rounded),
             label: Text(strings.get('faceSignIn')),
-            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 54), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9))),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(9),
+              ),
+            ),
           ),
           const SizedBox(height: 28),
           Row(
             children: [
               const Expanded(child: Divider()),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text(strings.get('newCompany'), style: Theme.of(context).textTheme.labelSmall)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  strings.get('newCompany'),
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
               const Expanded(child: Divider()),
             ],
           ),
           const SizedBox(height: 18),
-          TextButton.icon(onPressed: onRegister, icon: const Icon(Icons.add_business_outlined), label: Text(strings.get('registerCompany'))),
+          TextButton.icon(
+            onPressed: onRegister,
+            icon: const Icon(Icons.add_business_outlined),
+            label: Text(strings.get('registerCompany')),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _IndustrialPanel extends StatelessWidget {
-  const _IndustrialPanel({this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppStrings.of(context);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      margin: EdgeInsets.all(compact ? 10 : 18),
-      padding: EdgeInsets.all(compact ? 24 : 44),
-      decoration: BoxDecoration(
-        color: SteelColors.graphite,
-        border: Border.all(color: const Color(0xFF303A40)),
-        borderRadius: BorderRadius.circular(compact ? 12 : 16),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final veryCompact = compact || constraints.maxHeight < 500;
-
-          return SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: veryCompact
-                    ? MainAxisAlignment.start
-                    : MainAxisAlignment.spaceBetween,
-                children: [
-                  const SteelBrand(light: true),
-                  SizedBox(height: veryCompact ? 18 : 30),
-                  SteelIndustrialMotion(compact: veryCompact),
-                  SizedBox(height: veryCompact ? 18 : 28),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.hub_outlined, color: SteelColors.industrialAccent, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'OPERAÇÃO INDUSTRIAL CONECTADA',
-                            style: TextStyle(
-                              color: SteelColors.industrialAccentLight,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.15,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: veryCompact ? 12 : 18),
-                      Text(
-                        strings.get('heroTitle'),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: veryCompact ? 27 : 37,
-                          height: 1.08,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: veryCompact ? -.25 : -.45,
-                        ),
-                      ),
-                      if (!veryCompact) ...[
-                        const SizedBox(height: 18),
-                        Text(
-                          strings.get('heroCaption'),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                            height: 1.55,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: veryCompact ? 20 : 32),
-                  Row(
-                    children: [
-                      const Icon(Icons.shield_outlined, color: Colors.white70),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          strings.get('protectedAccess'),
-                          maxLines: veryCompact ? 1 : 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }

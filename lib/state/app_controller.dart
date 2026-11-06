@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_config.dart';
+import 'machine_sync_scope.dart';
 import '../core/app_strings.dart';
 import '../models/machine.dart';
 import '../models/session.dart';
@@ -15,7 +17,7 @@ import '../services/machine_service.dart';
 import '../services/session_store.dart';
 import '../services/session_event_service.dart';
 
-class AppController extends ChangeNotifier {
+class AppController extends ChangeNotifier with WidgetsBindingObserver {
   AppController();
 
   final SessionStore _sessionStore = SessionStore();
@@ -28,6 +30,16 @@ class AppController extends ChangeNotifier {
   Timer? _machineReconnect;
   Timer? _machineUiRefresh;
   int _machineEventGeneration = 0;
+
+  final MachineSyncScope _syncScope = MachineSyncScope();
+  Future<void>? _snapshotLoad;
+  bool _reloadSnapshot = false;
+  StreamSubscription<Map<String, dynamic>>? _companyEvents;
+  Timer? _companyReconnect;
+  Timer? _companyDebounce;
+  Timer? _companyFallback;
+  int _companyGeneration = 0;
+  bool _observingLifecycle = false;
 
   Session? session;
   List<Machine> machines = const [];
@@ -47,6 +59,10 @@ class AppController extends ChangeNotifier {
   bool get isAuthenticated => session?.token.isNotEmpty == true;
 
   Future<void> initialize() async {
+    if (!_observingLifecycle) {
+      WidgetsBinding.instance.addObserver(this);
+      _observingLifecycle = true;
+    }
     await ApiConfig.load();
     final preferences = await SharedPreferences.getInstance();
     darkMode = preferences.getBool('dark_mode') ?? false;
@@ -62,9 +78,12 @@ class AppController extends ChangeNotifier {
       try {
         await loadMachines();
         _startSessionEvents();
+        _startCompanyEvents();
       } on ApiException catch (exception) {
         if (exception.statusCode == 401) {
-          await logout(forcedMessage: AppStrings(language).get('sessionRevoked'));
+          await logout(
+            forcedMessage: AppStrings(language).get('sessionRevoked'),
+          );
         } else {
           error = exception.message;
         }
@@ -83,11 +102,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> login(String email, String password) async {
+    final scope = _syncScope.generation;
     await _guard(() async {
       final json = await auth.login(email, password);
+      if (!_syncScope.accepts(scope)) return;
       if (json['mfaRequired'] == true) {
         throw ApiException(
-          '${json['mensagem'] ?? 'Confirme o código administrativo.'}',
+          '${json['mensagem'] ?? AppStrings(language).get('registrationConfirmation')}',
           statusCode: 202,
           code: '${json['codigo'] ?? 'ADMIN_MFA_REQUIRED'}',
           data: json,
@@ -108,13 +129,20 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> loginWithFace(File finalImage, File livenessImage) async {
+    final scope = _syncScope.generation;
     await _guard(() async {
       final json = await auth.faceLogin(
         finalImage: finalImage,
         livenessImage: livenessImage,
       );
+      if (!_syncScope.accepts(scope)) return;
       if (json['mfaRequired'] == true) {
-        throw ApiException('${json['mensagem'] ?? 'Confirme o segundo fator.'}', statusCode: 202, code: 'ADMIN_MFA_REQUIRED', data: json);
+        throw ApiException(
+          '${json['mensagem'] ?? AppStrings(language).get('registrationConfirmation')}',
+          statusCode: 202,
+          code: 'ADMIN_MFA_REQUIRED',
+          data: json,
+        );
       }
       await _acceptSession(json, newAccount: false);
     });
@@ -128,74 +156,245 @@ class AppController extends ChangeNotifier {
     await _acceptSession(json, newAccount: false);
   }
 
-  Future<void> _acceptSession(Map<String, dynamic> json, {required bool newAccount}) async {
+  Future<void> _acceptSession(
+    Map<String, dynamic> json, {
+    required bool newAccount,
+  }) async {
     if (json['pendente'] == true || json['mfaRequired'] == true) {
-      throw ApiException('${json['mensagem'] ?? 'Acesso aguardando validação.'}');
+      throw ApiException(
+        '${json['mensagem'] ?? 'Acesso aguardando validação.'}',
+      );
     }
     final parsed = Session.fromJson(json);
-    if (parsed.token.isEmpty) throw ApiException(AppStrings(language).get('invalidSession'));
+    if (parsed.token.isEmpty)
+      throw ApiException(AppStrings(language).get('invalidSession'));
+    _resetMachineScope();
     session = parsed;
-    pendingWelcome = WelcomeNotice(name: parsed.user.name, newAccount: newAccount);
+    pendingWelcome = WelcomeNotice(
+      name: parsed.user.name,
+      newAccount: newAccount,
+    );
     await _sessionStore.save(json);
     _configureServices();
     await loadMachines();
     _startSessionEvents();
+    _startCompanyEvents();
   }
 
   Future<void> loadMachines({bool notify = false}) async {
-    final expectedCompanyId = session?.company.id ?? 0;
-    machineSyncServer = ApiConfig.baseUrl;
-
-    try {
-      final snapshot = await machinesApi.sync();
-      machineSyncCompanyId = snapshot.companyId > 0 ? snapshot.companyId : expectedCompanyId;
-      machineSyncCount = snapshot.machines.length;
-      machineSyncError = null;
-
-      if (snapshot.companyId > 0 &&
-          expectedCompanyId > 0 &&
-          snapshot.companyId != expectedCompanyId) {
-        final message = AppStrings(language).get('serverSessionMismatch');
-        machineSyncError = message;
-        await logout(forcedMessage: message);
-        throw ApiException(message, statusCode: 409);
-      }
-
-      machines = snapshot.machines;
-      if (selectedMachine != null) {
-        final selectedId = selectedMachine!.id;
-        Machine? updated;
-        for (final machine in machines) {
-          if (machine.id == selectedId) {
-            updated = machine;
-            break;
-          }
-        }
-        selectedMachine = updated;
-        if (updated == null) _stopMachineEvents();
-      }
+    if (!isAuthenticated) return;
+    final active = _snapshotLoad;
+    if (active != null) {
+      _reloadSnapshot = true;
+      await active;
       if (notify) notifyListeners();
+      return;
+    }
+    final scope = _syncScope.generation;
+    final service = machinesApi;
+    final companyId = session!.company.id;
+    late Future<void> pending;
+    pending = (() async {
+      var passes = 0;
+      do {
+        _reloadSnapshot = false;
+        await _loadSnapshot(service, companyId, scope);
+        passes++;
+      } while (_reloadSnapshot &&
+          passes < 2 &&
+          _syncScope.accepts(scope) &&
+          isAuthenticated);
+    })();
+    _snapshotLoad = pending;
+    try {
+      await pending;
+      if (notify && _syncScope.accepts(scope)) notifyListeners();
+    } finally {
+      if (identical(_snapshotLoad, pending)) {
+        _snapshotLoad = null;
+        if (_reloadSnapshot && _syncScope.accepts(scope) && isAuthenticated) {
+          scheduleMicrotask(_refreshCompanySnapshot);
+        }
+      }
+    }
+  }
+
+  Future<void> _loadSnapshot(
+    MachineService service,
+    int companyId,
+    int scope,
+  ) async {
+    try {
+      final snapshot = await service.sync();
+      if (!_syncScope.accepts(scope) || !isAuthenticated) return;
+      machineSyncServer = service.client.baseUrl;
+      machineSyncCompanyId = snapshot.companyId > 0
+          ? snapshot.companyId
+          : companyId;
+      machineSyncError = null;
+      if (snapshot.companyId > 0 &&
+          companyId > 0 &&
+          snapshot.companyId != companyId) {
+        await logout(
+          forcedMessage: AppStrings(language).get('serverSessionMismatch'),
+        );
+        return;
+      }
+      final existingIds = snapshot.machines.map((m) => m.id).toSet();
+      for (final oldMachine in machines) {
+        if (!existingIds.contains(oldMachine.id))
+          _syncScope.remove(oldMachine.id);
+      }
+      machines = snapshot.machines
+          .where((m) => !_syncScope.isRemoved(m.id))
+          .toList(growable: false);
+      machineSyncCount = machines.length;
+      if (selectedMachine != null) {
+        selectedMachine = machines
+            .where((m) => m.id == selectedMachine!.id)
+            .firstOrNull;
+        if (selectedMachine == null) _stopMachineEvents();
+      }
+      notifyListeners();
     } on ApiException catch (exception) {
-      machineSyncServer = ApiConfig.baseUrl;
+      if (!_syncScope.accepts(scope)) return;
       machineSyncError = exception.message;
       machineSyncCount = null;
-      if (notify) notifyListeners();
-
       if (exception.statusCode == 401 && isAuthenticated) {
-        await logout(
-          forcedMessage: AppStrings(language).get('sessionRevoked'),
-        );
+        await logout(forcedMessage: AppStrings(language).get('sessionRevoked'));
       }
       rethrow;
+    }
+  }
+
+  void removeMachineLocally(int id) {
+    _syncScope.remove(id);
+    machines = machines.where((m) => m.id != id).toList(growable: false);
+    if (selectedMachine?.id == id) {
+      _stopMachineEvents();
+      selectedMachine = null;
+    }
+    machineSyncCount = machines.length;
+    notifyListeners();
+  }
+
+  void _resetMachineScope() {
+    _syncScope.reset();
+    _snapshotLoad = null;
+    _reloadSnapshot = false;
+    _stopMachineEvents();
+    _stopCompanyEvents();
+    machines = const [];
+    selectedMachine = null;
+    machineSyncCount = null;
+    machineSyncCompanyId = null;
+    machineSyncError = null;
+  }
+
+  void _refreshCompanySnapshot() {
+    if (!isAuthenticated) return;
+    unawaited(
+      loadMachines(notify: true).catchError((Object _) {
+        if (isAuthenticated) notifyListeners();
+      }),
+    );
+  }
+
+  void _startCompanyEvents() {
+    _stopCompanyEvents();
+    if (!isAuthenticated) return;
+    final generation = _companyGeneration;
+    final service = companyApi;
+    late void Function() connect;
+    void reconnect() {
+      if (generation != _companyGeneration || !isAuthenticated) return;
+      _companyReconnect?.cancel();
+      _companyReconnect = Timer(const Duration(seconds: 2), connect);
+    }
+
+    connect = () {
+      if (generation != _companyGeneration || !isAuthenticated) return;
+      _companyEvents?.cancel();
+      _companyEvents = service.events().listen(
+        (event) {
+          if (generation != _companyGeneration || !isAuthenticated) return;
+          final company = int.tryParse('${event['empresaId'] ?? ''}');
+          if (company != null && company != session?.company.id) return;
+          final type = '${event['tipo'] ?? ''}';
+          final data = event['dados'];
+          if (type == 'maquina.desativada' || type == 'maquina.excluida') {
+            final id = data is Map
+                ? int.tryParse('${data['maquinaId']}')
+                : null;
+            if (id != null) removeMachineLocally(id);
+          }
+          if (type == 'conectado' || type.startsWith('maquina.')) {
+            // Não reinicia o prazo a cada evento: telemetria contínua não adia o sync.
+            _companyDebounce ??= Timer(const Duration(milliseconds: 150), () {
+              _companyDebounce = null;
+              if (generation == _companyGeneration) _refreshCompanySnapshot();
+            });
+          }
+        },
+        onError: (Object error) {
+          if (generation != _companyGeneration) return;
+          if (error is ApiException && error.statusCode == 401) {
+            unawaited(
+              logout(forcedMessage: AppStrings(language).get('sessionRevoked')),
+            );
+          } else {
+            reconnect();
+          }
+        },
+        onDone: reconnect,
+        cancelOnError: true,
+      );
+    };
+    connect();
+    _companyFallback = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _refreshCompanySnapshot(),
+    );
+  }
+
+  void _stopCompanyEvents() {
+    _companyGeneration++;
+    _companyEvents?.cancel();
+    _companyEvents = null;
+    _companyReconnect?.cancel();
+    _companyDebounce?.cancel();
+    _companyFallback?.cancel();
+    _companyDebounce = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!isAuthenticated) return;
+    if (state == AppLifecycleState.resumed) {
+      _refreshCompanySnapshot();
+      _startCompanyEvents();
+      _startSessionEvents();
+      if (selectedMachine != null) _startMachineEvents();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _stopCompanyEvents();
+      _stopMachineEvents();
     }
   }
 
   Future<void> selectMachine(Machine machine) async {
     // Carrega o snapshot completo antes de trocar a tela. Antes havia duas
     // reconstruções pesadas (card e resposta da API) durante a navegação.
+    final scope = _syncScope.generation;
+    final service = machinesApi;
     final selected = await _withLatestDiagnostics(
-      await machinesApi.find(machine.id),
+      await service.find(machine.id),
+      source: service,
     );
+    if (!_syncScope.accepts(scope) ||
+        _syncScope.isRemoved(selected.id) ||
+        !isAuthenticated)
+      return;
     selectedMachine = selected;
     machines = machines
         .map((item) => item.id == selected.id ? selected : item)
@@ -211,6 +410,7 @@ class AppController extends ChangeNotifier {
   }
 
   void replaceSelectedMachine(Machine machine, {bool notify = true}) {
+    if (!isAuthenticated || _syncScope.isRemoved(machine.id)) return;
     final changed = selectedMachine?.id != machine.id;
     selectedMachine = machine;
     machines = machines
@@ -223,15 +423,27 @@ class AppController extends ChangeNotifier {
   Future<void> refreshSelectedMachine() async {
     final id = selectedMachine?.id;
     if (id == null) return;
-    selectedMachine = await _withLatestDiagnostics(
-      await machinesApi.find(id),
+    final scope = _syncScope.generation;
+    final service = machinesApi;
+    final updated = await _withLatestDiagnostics(
+      await service.find(id),
+      source: service,
     );
+    if (!_syncScope.accepts(scope) ||
+        _syncScope.isRemoved(id) ||
+        selectedMachine?.id != id)
+      return;
+    selectedMachine = updated;
     notifyListeners();
   }
 
-  Future<Machine> _withLatestDiagnostics(Machine machine) async {
+  Future<Machine> _withLatestDiagnostics(
+    Machine machine, {
+    MachineService? source,
+  }) async {
+    final service = source ?? machinesApi;
     try {
-      final diagnostic = await machinesApi.diagnostics(machine.id);
+      final diagnostic = await service.diagnostics(machine.id);
       final update = <String, dynamic>{};
       final extras = diagnostic['dadosExtras'];
       final integrationMeta = diagnostic['integracaoMeta'];
@@ -255,7 +467,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> logout({String? forcedMessage}) async {
-    _stopMachineEvents();
+    final remoteLogout = forcedMessage == null && isAuthenticated ? auth : null;
+    // Remove primeiro o acesso local. A revogação remota é tentada sem reter o token.
+    _resetMachineScope();
     await _sessionEvents?.stop();
     _sessionEvents = null;
     await _sessionStore.clear();
@@ -267,17 +481,26 @@ class AppController extends ChangeNotifier {
     forcedLogoutNotice = forcedMessage;
     _configureServices();
     notifyListeners();
+    if (remoteLogout != null) {
+      try {
+        await remoteLogout.logout();
+      } catch (_) {
+        forcedLogoutNotice = AppStrings(language).get('logoutRemoteFailed');
+        notifyListeners();
+      }
+    }
   }
 
   void _startSessionEvents() {
     final token = session?.token ?? '';
+    final scope = _syncScope.generation;
     if (token.isEmpty) return;
 
     _sessionEvents?.stop();
     final service = SessionEventService(
       token: token,
       onRevoked: (reason) async {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || !_syncScope.accepts(scope)) return;
         await logout(
           forcedMessage: reason.trim().isEmpty
               ? AppStrings(language).get('sessionRevoked')
@@ -286,12 +509,14 @@ class AppController extends ChangeNotifier {
       },
       onProfile: (userJson) async {
         final current = session;
-        if (current == null || !isAuthenticated) return;
+        if (current == null || !isAuthenticated || !_syncScope.accepts(scope))
+          return;
 
         final updatedUser = UserProfile.fromJson(userJson);
         if (updatedUser.id != current.user.id || updatedUser.id <= 0) return;
 
-        final changed = updatedUser.name != current.user.name ||
+        final changed =
+            updatedUser.name != current.user.name ||
             updatedUser.email != current.user.email ||
             updatedUser.role != current.user.role;
         if (!changed) return;
@@ -320,43 +545,57 @@ class AppController extends ChangeNotifier {
     late void Function() connect;
 
     void scheduleReconnect() {
-      if (generation != _machineEventGeneration || selectedMachine?.id != machineId) return;
+      if (generation != _machineEventGeneration ||
+          selectedMachine?.id != machineId)
+        return;
       _machineReconnect?.cancel();
       _machineReconnect = Timer(const Duration(seconds: 2), connect);
     }
 
     connect = () {
-      if (generation != _machineEventGeneration || selectedMachine?.id != machineId || !isAuthenticated) return;
+      if (generation != _machineEventGeneration ||
+          selectedMachine?.id != machineId ||
+          !isAuthenticated)
+        return;
       _machineEvents?.cancel();
-      _machineEvents = machinesApi.events(machineId).listen(
-        (event) {
-          if (generation != _machineEventGeneration || selectedMachine?.id != machineId) return;
-          // Eventos de comando não alteram o snapshot da máquina. Ignorá-los
-          // aqui evita reconstruir o dashboard inteiro a cada ACK do Edge.
-          if ('${event['tipo'] ?? ''}' == 'comando') return;
-          final raw = event['dados'];
-          if (raw is! Map) return;
+      _machineEvents = machinesApi
+          .events(machineId)
+          .listen(
+            (event) {
+              if (generation != _machineEventGeneration ||
+                  selectedMachine?.id != machineId)
+                return;
+              // Eventos de comando não alteram o snapshot da máquina. Ignorá-los
+              // aqui evita reconstruir o dashboard inteiro a cada ACK do Edge.
+              if ('${event['tipo'] ?? ''}' == 'comando') return;
+              final raw = event['dados'];
+              if (raw is! Map) return;
 
-          final current = selectedMachine;
-          if (current == null || current.id != machineId) return;
-          final updated = current.mergeRealtime(Map<String, dynamic>.from(raw));
-          selectedMachine = updated;
-          machines = machines
-              .map((item) => item.id == machineId ? updated : item)
-              .toList(growable: false);
-          // Telemetria pode chegar dezenas de vezes por segundo. Atualizamos o
-          // modelo imediatamente, mas limitamos repaints globais a 4 Hz.
-          _machineUiRefresh ??= Timer(const Duration(milliseconds: 250), () {
-            _machineUiRefresh = null;
-            if (selectedMachine?.id == machineId && isAuthenticated) {
-              notifyListeners();
-            }
-          });
-        },
-        onError: (_) => scheduleReconnect(),
-        onDone: scheduleReconnect,
-        cancelOnError: true,
-      );
+              final current = selectedMachine;
+              if (current == null || current.id != machineId) return;
+              final updated = current.mergeRealtime(
+                Map<String, dynamic>.from(raw),
+              );
+              selectedMachine = updated;
+              machines = machines
+                  .map((item) => item.id == machineId ? updated : item)
+                  .toList(growable: false);
+              // Telemetria pode chegar dezenas de vezes por segundo. Atualizamos o
+              // modelo imediatamente, mas limitamos repaints globais a 4 Hz.
+              _machineUiRefresh ??= Timer(
+                const Duration(milliseconds: 250),
+                () {
+                  _machineUiRefresh = null;
+                  if (selectedMachine?.id == machineId && isAuthenticated) {
+                    notifyListeners();
+                  }
+                },
+              );
+            },
+            onError: (_) => scheduleReconnect(),
+            onDone: scheduleReconnect,
+            cancelOnError: true,
+          );
     };
 
     connect();
@@ -400,16 +639,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> updateApiUrl(String value) async {
-    await ApiConfig.save(value);
+    final normalized = ApiConfig.normalize(value);
+    if (normalized == ApiConfig.baseUrl) return;
+    // Não transfere a sessão de uma empresa para um servidor diferente.
+    if (isAuthenticated) {
+      await logout();
+    } else {
+      _resetMachineScope();
+    }
+    await ApiConfig.save(normalized);
     _configureServices();
     machineSyncServer = ApiConfig.baseUrl;
-    if (isAuthenticated) {
-      // Ao trocar de backend, valida imediatamente a sessão/empresa nesse
-      // servidor. Isso impede mostrar usuário cacheado com lista vazia.
-      await loadMachines();
-      _startSessionEvents();
-      if (selectedMachine != null) _startMachineEvents();
-    }
     notifyListeners();
   }
 
@@ -422,6 +662,8 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_observingLifecycle) WidgetsBinding.instance.removeObserver(this);
+    _stopCompanyEvents();
     _stopMachineEvents();
     _sessionEvents?.stop();
     super.dispose();

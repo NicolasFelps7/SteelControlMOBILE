@@ -109,8 +109,12 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   }
 
   Future<File> _capture() async {
-    if (!mounted || _camera?.value.isInitialized != true || _camera!.value.isTakingPicture) {
-      throw ApiException('Câmera indisponível. Abra o reconhecimento novamente.');
+    if (!mounted ||
+        _camera?.value.isInitialized != true ||
+        _camera!.value.isTakingPicture) {
+      throw ApiException(
+        'Câmera indisponível. Abra o reconhecimento novamente.',
+      );
     }
     final file = await _camera!.takePicture();
     return File(file.path);
@@ -128,9 +132,12 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
         final analysis = await widget.controller.auth.analyzeFace(candidate);
         if (!mounted) throw ApiException('Reconhecimento cancelado.');
         final yaw = _number((analysis['pose'] as Map?)?['yaw']);
-        if (analysis['pronto'] == true && analysis['quantidadeRostos'] == 1 && yaw.abs() <= 8) {
+        if (analysis['pronto'] == true &&
+            analysis['quantidadeRostos'] == 1 &&
+            yaw.abs() <= 8) {
           stableFrames++;
-          if (stableFrames >= 2 && DateTime.now().isBefore(deadline)) return candidate;
+          if (stableFrames >= 2 && DateTime.now().isBefore(deadline))
+            return candidate;
         } else {
           stableFrames = 0;
         }
@@ -140,7 +147,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       }
       await _deleteTemporaryFiles([candidate]);
     }
-    throw ApiException('Posição frontal não confirmada. Centralize o rosto e tente novamente.');
+    throw ApiException(
+      'Posição frontal não confirmada. Centralize o rosto e tente novamente.',
+    );
   }
 
   Future<void> _start() async {
@@ -175,7 +184,11 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     File? finalImage;
 
     try {
-      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      _step(
+        strings.get('firstPosition'),
+        strings.get('lookCameraSentence'),
+        .18,
+      );
       first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
@@ -214,7 +227,11 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     File? finalImage;
 
     try {
-      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      _step(
+        strings.get('firstPosition'),
+        strings.get('lookCameraSentence'),
+        .18,
+      );
       first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
@@ -252,7 +269,11 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     File? finalImage;
 
     try {
-      _step(strings.get('firstPosition'), strings.get('lookCameraSentence'), .18);
+      _step(
+        strings.get('firstPosition'),
+        strings.get('lookCameraSentence'),
+        .18,
+      );
       first = await _captureFrontal();
 
       liveness = await _captureLivenessWithTimeout(strings);
@@ -270,16 +291,6 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       } on ApiException catch (exception) {
         if (exception.data?['mfaRequired'] == true) {
           await _handleLoginMfa(exception.data!);
-          return;
-        }
-        if (
-          exception.code == 'FACE_AMBIGUOUS' &&
-          exception.data?['segundoFator'] == true &&
-          '${exception.data?['challengeId'] ?? ''}'.isNotEmpty
-        ) {
-          await _handleAmbiguousSecondFactor(
-            '${exception.data!['challengeId']}',
-          );
           return;
         }
         rethrow;
@@ -318,8 +329,11 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
         candidate = await _capture();
         final analysis = await widget.controller.auth.analyzeFace(candidate);
         final yaw = _number((analysis['pose'] as Map?)?['yaw']);
-        if (mounted && DateTime.now().isBefore(deadline) && analysis['detectado'] == true &&
-            analysis['quantidadeRostos'] == 1 && yaw.abs() >= 12) {
+        if (mounted &&
+            DateTime.now().isBefore(deadline) &&
+            analysis['detectado'] == true &&
+            analysis['quantidadeRostos'] == 1 &&
+            yaw.abs() >= 12) {
           return candidate;
         }
       } catch (_) {
@@ -378,271 +392,79 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
   }
 
   Future<void> _handleLoginMfa(Map<String, dynamic> challenge) async {
+    final strings = AppStrings.of(context);
     final code = TextEditingController();
     var busy = false;
     String? error;
     final confirmed = await showDialog<bool>(
-      context: context, barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(builder: (context, update) => AlertDialog(
-        title: const Text('Confirme o segundo fator'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('Código enviado para ${challenge['email'] ?? 'seu e-mail'}.'),
-          TextField(controller: code, keyboardType: TextInputType.number, maxLength: 6,
-            autofillHints: const [AutofillHints.oneTimeCode],
-            decoration: InputDecoration(labelText: 'Código de 6 dígitos', errorText: error)),
-        ]),
-        actions: [
-          TextButton(onPressed: busy ? null : () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: busy ? null : () async {
-            update(() { busy = true; error = null; });
-            try {
-              await widget.controller.verifyAdminMfa('${challenge['challengeId']}', code.text);
-              if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-            } on ApiException catch (e) {
-              if (dialogContext.mounted) update(() { error = e.message; busy = false; });
-            }
-          }, child: const Text('Confirmar')),
-        ],
-      )),
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(strings.get('registrationConfirmation')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(strings.get('registrationConfirmationCaption')),
+              TextField(
+                controller: code,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                decoration: InputDecoration(
+                  labelText: strings.get('sixDigitCode'),
+                  errorText: error,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () => Navigator.pop(dialogContext, false),
+              child: Text(strings.get('cancel')),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      update(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        await widget.controller.verifyAdminMfa(
+                          '${challenge['challengeId']}',
+                          code.text,
+                        );
+                        if (dialogContext.mounted)
+                          Navigator.pop(dialogContext, true);
+                      } on ApiException catch (e) {
+                        if (dialogContext.mounted)
+                          update(() {
+                            error = e.message;
+                            busy = false;
+                          });
+                      }
+                    },
+              child: Text(strings.get('confirm')),
+            ),
+          ],
+        ),
+      ),
     );
     code.dispose();
     if (!mounted) return;
     if (confirmed == true) {
-      _success('Identidade confirmada', 'Acesso autorizado.', result: true);
+      _success(
+        strings.get('identityConfirmed'),
+        strings.get('welcomeEnvironment'),
+        result: true,
+      );
     } else {
       Navigator.pop(context);
     }
-  }
-
-  Future<void> _handleAmbiguousSecondFactor(String challengeId) async {
-    if (!mounted) return;
-    final strings = AppStrings.of(context);
-
-    final camera = _camera;
-    _camera = null;
-    try {
-      await camera?.dispose();
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    final emailController = TextEditingController();
-    final codeController = TextEditingController();
-
-    final session = await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        var stage = 0;
-        var busy = false;
-        String? error;
-        String? maskedEmail;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> sendCode() async {
-              final email = emailController.text.trim().toLowerCase();
-              if (!email.contains('@')) {
-                setDialogState(() => error = strings.get('face2faInvalidEmail'));
-                return;
-              }
-
-              setDialogState(() {
-                busy = true;
-                error = null;
-              });
-
-              try {
-                final result = await widget.controller.auth.requestFaceSecondFactor(
-                  challengeId: challengeId,
-                  email: email,
-                );
-                if (!dialogContext.mounted) return;
-                setDialogState(() {
-                  stage = 1;
-                  maskedEmail = '${result['email'] ?? email}';
-                  busy = false;
-                });
-              } on ApiException catch (exception) {
-                if (!dialogContext.mounted) return;
-                setDialogState(() {
-                  busy = false;
-                  error = exception.message;
-                });
-              }
-            }
-
-            Future<void> verifyCode() async {
-              final email = emailController.text.trim().toLowerCase();
-              final code = codeController.text.replaceAll(RegExp(r'\D'), '');
-              if (code.length != 6) {
-                setDialogState(() => error = strings.get('face2faInvalidCode'));
-                return;
-              }
-
-              setDialogState(() {
-                busy = true;
-                error = null;
-              });
-
-              try {
-                final result = await widget.controller.auth.verifyFaceSecondFactor(
-                  challengeId: challengeId,
-                  email: email,
-                  code: code,
-                );
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext, result);
-              } on ApiException catch (exception) {
-                if (!dialogContext.mounted) return;
-                setDialogState(() {
-                  busy = false;
-                  error = exception.message;
-                });
-              }
-            }
-
-            return AlertDialog(
-              backgroundColor: _panel,
-              surfaceTintColor: Colors.transparent,
-              title: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _accent.withValues(alpha: .35)),
-                    ),
-                    child: const Icon(Icons.shield_rounded, color: _accent),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      strings.get('face2faTitle'),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 430,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      strings.get('face2faDescription'),
-                      style: const TextStyle(color: SteelColors.titaniumLight, height: 1.45),
-                    ),
-                    const SizedBox(height: 18),
-                    if (stage == 0) ...[
-                      TextField(
-                        controller: emailController,
-                        enabled: !busy,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: strings.get('face2faEmail'),
-                          labelStyle: const TextStyle(color: SteelColors.titaniumLight),
-                          prefixIcon: const Icon(Icons.alternate_email_rounded),
-                          filled: true,
-                          fillColor: _panelStrong,
-                        ),
-                      ),
-                    ] else ...[
-                      Text(
-                        strings
-                            .get('face2faSent')
-                            .replaceAll('{email}', maskedEmail ?? ''),
-                        style: const TextStyle(color: SteelColors.success, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: codeController,
-                        enabled: !busy,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          letterSpacing: 5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: strings.get('face2faCode'),
-                          labelStyle: const TextStyle(color: SteelColors.titaniumLight),
-                          counterText: '',
-                          filled: true,
-                          fillColor: _panelStrong,
-                        ),
-                      ),
-                    ],
-                    if (error?.isNotEmpty == true) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        error!,
-                        style: const TextStyle(color: SteelColors.danger, fontSize: 12),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Text(
-                      strings.get('face2faSecurity'),
-                      style: const TextStyle(color: SteelColors.titanium, fontSize: 11, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: busy ? null : () => Navigator.pop(dialogContext),
-                  child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-                ),
-                FilledButton.icon(
-                  onPressed: busy
-                      ? null
-                      : stage == 0
-                          ? sendCode
-                          : verifyCode,
-                  icon: busy
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(stage == 0 ? Icons.mail_outline_rounded : Icons.verified_user_rounded),
-                  label: Text(
-                    stage == 0
-                        ? strings.get('face2faSendCode')
-                        : strings.get('face2faVerify'),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    emailController.dispose();
-    codeController.dispose();
-
-    if (!mounted) return;
-
-    if (session == null) {
-      Navigator.maybePop(context);
-      return;
-    }
-
-    await widget.controller.acceptFaceSecondFactorSession(session);
-    _success(
-      strings.get('identityConfirmed'),
-      strings.get('welcomeEnvironment'),
-      result: true,
-    );
   }
 
   Future<void> _deleteTemporaryFiles(Iterable<File?> files) async {
@@ -751,10 +573,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    _accent.withValues(alpha: .12),
-                    Colors.transparent,
-                  ],
+                  colors: [_accent.withValues(alpha: .12), Colors.transparent],
                 ),
               ),
             ),
@@ -762,58 +581,61 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-            final tablet = constraints.maxWidth >= 760;
-            final landscape = constraints.maxWidth > constraints.maxHeight;
+                final tablet = constraints.maxWidth >= 760;
+                final landscape = constraints.maxWidth > constraints.maxHeight;
 
                 return Column(
-              children: [
-                _buildTopBar(strings, tablet),
-                if (tablet && landscape)
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: (constraints.maxWidth * .25)
-                              .clamp(300.0, 380.0)
-                              .toDouble(),
-                          child: _buildStatusConsole(strings, workstation: true),
+                  children: [
+                    _buildTopBar(strings, tablet),
+                    if (tablet && landscape)
+                      Expanded(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: (constraints.maxWidth * .25)
+                                  .clamp(300.0, 380.0)
+                                  .toDouble(),
+                              child: _buildStatusConsole(
+                                strings,
+                                workstation: true,
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildCameraConsole(
+                                strings,
+                                true,
+                                workstation: true,
+                              ),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: _buildCameraConsole(
-                            strings,
-                            true,
-                            workstation: true,
+                      )
+                    else
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(
+                            tablet ? 28 : 16,
+                            tablet ? 18 : 10,
+                            tablet ? 28 : 16,
+                            tablet ? 26 : 20,
+                          ),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1180),
+                              child: Column(
+                                children: [
+                                  _buildCameraConsole(strings, tablet),
+                                  const SizedBox(height: 18),
+                                  _buildStatusConsole(strings),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        tablet ? 28 : 16,
-                        tablet ? 18 : 10,
-                        tablet ? 28 : 16,
-                        tablet ? 26 : 20,
                       ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1180),
-                          child: Column(
-                            children: [
-                              _buildCameraConsole(strings, tablet),
-                              const SizedBox(height: 18),
-                              _buildStatusConsole(strings),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
+                  ],
+                );
               },
             ),
           ),
@@ -860,7 +682,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             ),
             child: SvgPicture.asset(
               'assets/images/steel-icon.svg',
-              colorFilter: const ColorFilter.mode(_panelStrong, BlendMode.srcIn),
+              colorFilter: const ColorFilter.mode(
+                _panelStrong,
+                BlendMode.srcIn,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -901,10 +726,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
             label: _finished
                 ? strings.get('protectedIdentity')
                 : _busy
-                    ? strings.get('automaticValidation')
-                    : _hasError
-                        ? strings.get('validationUnable')
-                        : strings.get('positionFace'),
+                ? strings.get('automaticValidation')
+                : _hasError
+                ? strings.get('validationUnable')
+                : strings.get('positionFace'),
           ),
         ],
       ),
@@ -920,7 +745,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
       padding: EdgeInsets.all(tablet ? 18 : 12),
       decoration: BoxDecoration(
         color: workstation ? const Color(0xFF070B0E) : _panel,
-        borderRadius: workstation ? BorderRadius.zero : BorderRadius.circular(10),
+        borderRadius: workstation
+            ? BorderRadius.zero
+            : BorderRadius.circular(10),
         border: workstation ? null : Border.all(color: _line),
         boxShadow: const [],
       ),
@@ -933,7 +760,9 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      workstation ? strings.get('lookAtCamera') : strings.translate(_title),
+                      workstation
+                          ? strings.get('lookAtCamera')
+                          : strings.translate(_title),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: tablet ? 24 : 19,
@@ -962,9 +791,7 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
                 decoration: BoxDecoration(
                   color: _stateColor.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _stateColor.withValues(alpha: .34),
-                  ),
+                  border: Border.all(color: _stateColor.withValues(alpha: .34)),
                 ),
                 child: Icon(_stateIcon, color: _stateColor),
               ),
@@ -974,126 +801,130 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           _fitWorkstationCamera(
             workstation,
             Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF0B1015),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: _stateColor.withValues(alpha: .52),
-                width: 1.2,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0B1015),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _stateColor.withValues(alpha: .52),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _stateColor.withValues(alpha: .12),
+                    blurRadius: 28,
+                    spreadRadius: -8,
+                  ),
+                  const BoxShadow(
+                    color: Color(0x8A000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 12),
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: _stateColor.withValues(alpha: .12),
-                  blurRadius: 28,
-                  spreadRadius: -8,
-                ),
-                const BoxShadow(
-                  color: Color(0x8A000000),
-                  blurRadius: 20,
-                  offset: Offset(0, 12),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(8),
-            child: AspectRatio(
-              aspectRatio: tablet ? 16 / 10 : 3 / 4,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (_camera?.value.isInitialized == true)
-                      RepaintBoundary(child: CameraPreview(_camera!))
-                    else
-                      Container(
-                        color: const Color(0xFF111820),
-                        child: Center(
-                          child: Icon(
-                            Icons.face_rounded,
-                            size: tablet ? 120 : 88,
-                            color: SteelColors.titanium.withValues(alpha: .35),
-                          ),
-                        ),
-                      ),
-                    IgnorePointer(
-                      child: CustomPaint(
-                        painter: _TechFaceGuidePainter(
-                          stateColor: _stateColor,
-                          success: _finished,
-                        ),
-                      ),
-                    ),
-                    if (!_finished && !_hasError)
-                      IgnorePointer(
-                        child: AnimatedBuilder(
-                          animation: _scanController,
-                          builder: (context, child) {
-                            return Align(
-                              alignment: Alignment(
-                                0,
-                                (_scanController.value * 1.45) - .72,
+              padding: const EdgeInsets.all(8),
+              child: AspectRatio(
+                aspectRatio: tablet ? 16 / 10 : 3 / 4,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (_camera?.value.isInitialized == true)
+                        RepaintBoundary(child: CameraPreview(_camera!))
+                      else
+                        Container(
+                          color: const Color(0xFF111820),
+                          child: Center(
+                            child: Icon(
+                              Icons.face_rounded,
+                              size: tablet ? 120 : 88,
+                              color: SteelColors.titanium.withValues(
+                                alpha: .35,
                               ),
-                              child: child,
-                            );
-                          },
-                          child: Container(
-                            height: 2,
-                            margin: const EdgeInsets.symmetric(horizontal: 46),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(99),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  _accent.withValues(alpha: .88),
-                                  Colors.transparent,
-                                ],
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _accent.withValues(alpha: .30),
-                                  blurRadius: 10,
-                                ),
-                              ],
                             ),
                           ),
                         ),
-                      ),
-                    Positioned(
-                      left: 14,
-                      right: 14,
-                      bottom: 14,
-                      child: _CameraInstructionBar(
-                        icon: _stateIcon,
-                        color: _stateColor,
-                        text: strings.get(
-                          _finished ? 'protectedIdentity' : 'positionFace',
+                      IgnorePointer(
+                        child: CustomPaint(
+                          painter: _TechFaceGuidePainter(
+                            stateColor: _stateColor,
+                            success: _finished,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 14,
-                      top: 14,
-                      child: _TechBadge(
-                        icon: Icons.videocam_outlined,
-                        label: 'CAM 01',
-                        color: _camera?.value.isInitialized == true
-                            ? SteelColors.success
-                            : SteelColors.titanium,
+                      if (!_finished && !_hasError)
+                        IgnorePointer(
+                          child: AnimatedBuilder(
+                            animation: _scanController,
+                            builder: (context, child) {
+                              return Align(
+                                alignment: Alignment(
+                                  0,
+                                  (_scanController.value * 1.45) - .72,
+                                ),
+                                child: child,
+                              );
+                            },
+                            child: Container(
+                              height: 2,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 46,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(99),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    _accent.withValues(alpha: .88),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _accent.withValues(alpha: .30),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        bottom: 14,
+                        child: _CameraInstructionBar(
+                          icon: _stateIcon,
+                          color: _stateColor,
+                          text: strings.get(
+                            _finished ? 'protectedIdentity' : 'positionFace',
+                          ),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: 14,
-                      top: 14,
-                      child: _TechBadge(
-                        icon: Icons.shield_outlined,
-                        label: widget.isRegistration ? 'ENROLL' : 'VERIFY',
-                        color: _accent,
+                      Positioned(
+                        left: 14,
+                        top: 14,
+                        child: _TechBadge(
+                          icon: Icons.videocam_outlined,
+                          label: 'CAM 01',
+                          color: _camera?.value.isInitialized == true
+                              ? SteelColors.success
+                              : SteelColors.titanium,
+                        ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        right: 14,
+                        top: 14,
+                        child: _TechBadge(
+                          icon: Icons.shield_outlined,
+                          label: widget.isRegistration ? 'ENROLL' : 'VERIFY',
+                          color: _accent,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           ),
           const SizedBox(height: 12),
@@ -1155,181 +986,180 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     );
   }
 
-  Widget _buildStatusConsole(
-    AppStrings strings, {
-    bool workstation = false,
-  }) {
+  Widget _buildStatusConsole(AppStrings strings, {bool workstation = false}) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: workstation ? const Color(0xFF0B1013) : _panel,
-        borderRadius: workstation ? BorderRadius.zero : BorderRadius.circular(10),
+        borderRadius: workstation
+            ? BorderRadius.zero
+            : BorderRadius.circular(10),
         border: workstation
             ? const Border(right: BorderSide(color: _line))
             : Border.all(color: _line),
       ),
       child: SingleChildScrollView(
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            (workstation
-                    ? strings.get('biometricAuthentication')
-                    : widget.isRegistration
-                        ? strings.get('biometricRegister')
-                        : strings.get('faceRecognition'))
-                .toUpperCase(),
-            style: const TextStyle(
-              color: _accent,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            workstation
-                ? strings.get('confirmIdentityContinue')
-                : widget.isRegistration
-                    ? strings.get('faceRegister')
-                    : strings.get('protectedAccess'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -.3,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            workstation
-                ? strings.get('quickVerificationProtects')
-                : widget.isRegistration
-                    ? strings.get('registrationFaceRequired')
-                    : strings.get('centerFace'),
-            style: const TextStyle(
-              color: SteelColors.titaniumLight,
-              fontSize: 12,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 17),
-          const Divider(height: 1, color: _line),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.security_rounded, color: _accent, size: 20),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  strings.get('automaticValidation'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              (workstation
+                      ? strings.get('biometricAuthentication')
+                      : widget.isRegistration
+                      ? strings.get('biometricRegister')
+                      : strings.get('faceRecognition'))
+                  .toUpperCase(),
+              style: const TextStyle(
+                color: _accent,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildValidationStep(
-            step: '01',
-            title: strings.get('firstPosition'),
-            subtitle: strings.get('centerFace'),
-            threshold: .18,
-            workstation: workstation,
-          ),
-          _buildValidationStep(
-            step: '02',
-            title: strings.get('liveness'),
-            subtitle: strings.get('turnHeadSlightly'),
-            threshold: .46,
-            workstation: workstation,
-          ),
-          _buildValidationStep(
-            step: '03',
-            title: strings.get('returnCenter'),
-            subtitle: strings.get('lookAgain'),
-            threshold: .72,
-            workstation: workstation,
-          ),
-          _buildValidationStep(
-            step: '04',
-            title: strings.get('verifyingIdentity'),
-            subtitle: strings.get('protectingBiometrics'),
-            threshold: .90,
-            workstation: workstation,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF13191F),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _line),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  size: 18,
-                  color: SteelColors.titanium,
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    strings.get('imagesAuthOnly'),
-                    style: const TextStyle(
-                      color: SteelColors.titaniumLight,
-                      fontSize: 11.5,
-                      height: 1.45,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_hasError) ...[
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: _start,
-              style: FilledButton.styleFrom(
-                backgroundColor: _accent,
-                foregroundColor: const Color(0xFF11161C),
-                minimumSize: const Size.fromHeight(48),
+            const SizedBox(height: 7),
+            Text(
+              workstation
+                  ? strings.get('confirmIdentityContinue')
+                  : widget.isRegistration
+                  ? strings.get('faceRegister')
+                  : strings.get('protectedAccess'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.3,
               ),
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(strings.get('retry')),
             ),
-          ] else if (_busy) ...[
+            const SizedBox(height: 6),
+            Text(
+              workstation
+                  ? strings.get('quickVerificationProtects')
+                  : widget.isRegistration
+                  ? strings.get('registrationFaceRequired')
+                  : strings.get('centerFace'),
+              style: const TextStyle(
+                color: SteelColors.titaniumLight,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 17),
+            const Divider(height: 1, color: _line),
             const SizedBox(height: 16),
             Row(
               children: [
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _accent,
-                  ),
-                ),
-                const SizedBox(width: 10),
+                const Icon(Icons.security_rounded, color: _accent, size: 20),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     strings.get('automaticValidation'),
                     style: const TextStyle(
-                      color: SteelColors.titaniumLight,
-                      fontSize: 12,
+                      color: Colors.white,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _buildValidationStep(
+              step: '01',
+              title: strings.get('firstPosition'),
+              subtitle: strings.get('centerFace'),
+              threshold: .18,
+              workstation: workstation,
+            ),
+            _buildValidationStep(
+              step: '02',
+              title: strings.get('liveness'),
+              subtitle: strings.get('turnHeadSlightly'),
+              threshold: .46,
+              workstation: workstation,
+            ),
+            _buildValidationStep(
+              step: '03',
+              title: strings.get('returnCenter'),
+              subtitle: strings.get('lookAgain'),
+              threshold: .72,
+              workstation: workstation,
+            ),
+            _buildValidationStep(
+              step: '04',
+              title: strings.get('verifyingIdentity'),
+              subtitle: strings.get('protectingBiometrics'),
+              threshold: .90,
+              workstation: workstation,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF13191F),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _line),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 18,
+                    color: SteelColors.titanium,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      strings.get('imagesAuthOnly'),
+                      style: const TextStyle(
+                        color: SteelColors.titaniumLight,
+                        fontSize: 11.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_hasError) ...[
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _start,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  foregroundColor: const Color(0xFF11161C),
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(strings.get('retry')),
+              ),
+            ] else if (_busy) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _accent,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      strings.get('automaticValidation'),
+                      style: const TextStyle(
+                        color: SteelColors.titaniumLight,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
         ),
       ),
     );
@@ -1343,12 +1173,16 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
     bool workstation = false,
   }) {
     final complete = _finished || (!_hasError && _progress > threshold);
-    final active = !_finished && !_hasError && _progress >= threshold && _progress < threshold + .20;
+    final active =
+        !_finished &&
+        !_hasError &&
+        _progress >= threshold &&
+        _progress < threshold + .20;
     final color = complete
         ? SteelColors.success
         : active
-            ? _accent
-            : SteelColors.titanium;
+        ? _accent
+        : SteelColors.titanium;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1358,19 +1192,19 @@ class _FaceAuthScreenState extends State<FaceAuthScreen>
           color: complete
               ? SteelColors.success.withValues(alpha: .07)
               : active
-                  ? _accent.withValues(alpha: .075)
-                  : workstation
-                      ? Colors.transparent
-                      : const Color(0xFF1B2229),
+              ? _accent.withValues(alpha: .075)
+              : workstation
+              ? Colors.transparent
+              : const Color(0xFF1B2229),
           borderRadius: BorderRadius.circular(workstation ? 8 : 15),
           border: Border.all(
             color: complete
                 ? SteelColors.success.withValues(alpha: .22)
                 : active
-                    ? _accent.withValues(alpha: .30)
-                    : workstation
-                        ? Colors.transparent
-                        : _line,
+                ? _accent.withValues(alpha: .30)
+                : workstation
+                ? Colors.transparent
+                : _line,
           ),
         ),
         child: Row(
@@ -1753,6 +1587,7 @@ class _TechFaceGuidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TechFaceGuidePainter oldDelegate) {
-    return oldDelegate.success != success || oldDelegate.stateColor != stateColor;
+    return oldDelegate.success != success ||
+        oldDelegate.stateColor != stateColor;
   }
 }

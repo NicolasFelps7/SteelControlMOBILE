@@ -15,14 +15,16 @@ class ApiConfig {
   );
   static const _emulatorUrl = 'http://10.0.2.2:3000';
   static const _usbReverseUrl = 'http://127.0.0.1:3000';
-  static const _secureFallbackUrl = 'https://127.0.0.1:3000';
+  static const _secureFallbackUrl =
+      'https://web-production-6682df.up.railway.app';
 
-  static String _baseUrl =
-      _allowInsecureHttp ? _emulatorUrl : _secureFallbackUrl;
+  static String _baseUrl = _allowInsecureHttp
+      ? _emulatorUrl
+      : _secureFallbackUrl;
 
   static String get baseUrl => _baseUrl.replaceAll(RegExp(r'/+$'), '');
 
-  static Future<void> load() async {
+  static Future<void> load({http.Client? healthClient}) async {
     final preferences = await SharedPreferences.getInstance();
     final saved = preferences.getString(_storageKey)?.trim();
     final explicit = _explicitCompiledUrl.trim();
@@ -30,7 +32,13 @@ class ApiConfig {
 
     if (saved?.isNotEmpty == true) {
       try {
-        normalizedSaved = _normalize(saved!);
+        normalizedSaved = normalize(saved!);
+        // Endereço provisório de versões antigas não é um servidor de produção.
+        if (!_allowInsecureHttp &&
+            normalizedSaved == 'https://127.0.0.1:3000') {
+          normalizedSaved = null;
+          await preferences.remove(_storageKey);
+        }
       } on FormatException {
         // Descarta endereços HTTP persistidos por versões antigas do app.
         await preferences.remove(_storageKey);
@@ -38,7 +46,13 @@ class ApiConfig {
     }
 
     if (explicit.isNotEmpty) {
-      _baseUrl = _normalize(explicit);
+      _baseUrl = normalize(explicit);
+      return;
+    }
+
+    // Um servidor personalizado nunca é trocado silenciosamente por outro.
+    if (normalizedSaved != null) {
+      _baseUrl = normalizedSaved;
       return;
     }
 
@@ -52,7 +66,7 @@ class ApiConfig {
     final seen = <String>{};
     for (final candidate in candidates) {
       if (!seen.add(candidate)) continue;
-      if (await _healthCheck(candidate)) {
+      if (await _healthCheck(candidate, healthClient)) {
         _baseUrl = candidate;
         if (candidate != saved) {
           await preferences.setString(_storageKey, candidate);
@@ -61,21 +75,24 @@ class ApiConfig {
       }
     }
 
-    _baseUrl = normalizedSaved ??
+    _baseUrl =
+        normalizedSaved ??
         (_allowInsecureHttp ? _emulatorUrl : _secureFallbackUrl);
   }
 
   static Future<void> save(String value) async {
-    final normalized = _normalize(value);
+    final normalized = normalize(value);
     _baseUrl = normalized;
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_storageKey, normalized);
   }
 
-  static Future<bool> _healthCheck(String base) async {
+  static Future<bool> _healthCheck(String base, http.Client? client) async {
     try {
-      final response = await http
-          .get(Uri.parse('${base.replaceAll(RegExp(r'/+$'), '')}/api/health'))
+      final uri = Uri.parse(
+        '${base.replaceAll(RegExp(r'/+$'), '')}/api/health',
+      );
+      final response = await (client == null ? http.get(uri) : client.get(uri))
           .timeout(const Duration(milliseconds: 1400));
       return response.statusCode >= 200 && response.statusCode < 300;
     } on SocketException {
@@ -87,7 +104,7 @@ class ApiConfig {
     }
   }
 
-  static String _normalize(String value) {
+  static String normalize(String value) {
     var normalized = value.trim();
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(normalized)) {
       normalized = 'https://$normalized';
@@ -98,7 +115,11 @@ class ApiConfig {
     if (uri == null ||
         !uri.hasScheme ||
         (scheme != 'http' && scheme != 'https') ||
-        uri.host.isEmpty) {
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        (uri.path.isNotEmpty && uri.path != '/')) {
       throw const FormatException('Informe um endereço HTTP válido.');
     }
     if (scheme == 'http' && !_allowInsecureHttp) {

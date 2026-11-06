@@ -1,3 +1,6 @@
+import '../core/app_strings.dart';
+import '../core/dobot_command_policy.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/machine.dart';
@@ -46,7 +49,9 @@ class MachineService {
     final machines = _parseMachines(result);
     if (kDebugMode) {
       final ids = machines.map((machine) => machine.id).join(',');
-      debugPrint('[SteelControl][machines] GET /maquinas -> ${machines.length} item(ns) [${ids.isEmpty ? '-' : ids}]');
+      debugPrint(
+        '[SteelControl][machines] GET /maquinas -> ${machines.length} item(ns) [${ids.isEmpty ? '-' : ids}]',
+      );
     }
 
     // A identificação da empresa é apenas diagnóstica. Uma falha não deve
@@ -82,13 +87,16 @@ class MachineService {
     return Machine.fromJson(Map<String, dynamic>.from(result as Map));
   }
 
-  Stream<Map<String, dynamic>> events(int id) => client.sse('/maquinas/$id/stream');
+  Stream<Map<String, dynamic>> events(int id) =>
+      client.sse('/maquinas/$id/stream');
 
   Future<List<MaintenanceRecord>> maintenance(int machineId) async {
     final result = await client.get('/maquinas/$machineId/manutencoes') as List;
     return result
         .whereType<Map>()
-        .map((json) => MaintenanceRecord.fromJson(Map<String, dynamic>.from(json)))
+        .map(
+          (json) => MaintenanceRecord.fromJson(Map<String, dynamic>.from(json)),
+        )
         .toList();
   }
 
@@ -99,10 +107,7 @@ class MachineService {
   }) async {
     await client.post(
       '/maquinas/$machineId/manutencoes',
-      body: {
-        'tipo': type,
-        'descricao': description,
-      },
+      body: {'tipo': type, 'descricao': description},
     );
   }
 
@@ -133,10 +138,28 @@ class MachineService {
       '/maquinas/$id/telemetria',
       query: {'limit': limit},
     ) as List;
-    return result.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    return result
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> sendDobotCommand(int id, String command, [Map<String, dynamic>? data]) async {
+  Future<Map<String, dynamic>> sendDobotCommand(
+    int id,
+    String command, [
+    Map<String, dynamic>? data,
+  ]) async {
+    final problem = DobotCommandPolicy.validate(command, data ?? const {});
+    if (problem != null) {
+      throw ApiException(
+        AppStrings(client.language).get(
+          problem == 'DOBOT_LOCAL_HOME_REQUIRED'
+              ? 'localCalibration'
+              : 'dobotInvalidCommand',
+        ),
+        code: problem,
+      );
+    }
     final result = await client.post(
       '/maquinas/$id/comandos',
       body: {'comando': command, 'payload': data ?? <String, dynamic>{}},
@@ -144,7 +167,10 @@ class MachineService {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<Map<String, dynamic>> dobotCommandStatus(int machineId, int commandId) async {
+  Future<Map<String, dynamic>> dobotCommandStatus(
+    int machineId,
+    int commandId,
+  ) async {
     final result = await client.get('/maquinas/$machineId/comandos/$commandId');
     return Map<String, dynamic>.from(result as Map);
   }
@@ -188,10 +214,7 @@ class MachineService {
     double? progress,
     String? error,
   }) async {
-    final body = <String, dynamic>{
-      'acao': action,
-      'origem': origin,
-    };
+    final body = <String, dynamic>{'acao': action, 'origem': origin};
     if (executionId != null) body['execucaoId'] = executionId;
     if (currentCycle != null) body['cicloAtual'] = currentCycle;
     if (currentStep != null) body['etapaAtual'] = currentStep;
@@ -227,7 +250,10 @@ class MachineService {
 
   Future<List<Map<String, dynamic>>> discoveredDevices() async {
     final result = await client.get('/descoberta') as List;
-    return result.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+    return result
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
   Future<void> scanDiscovery() async {
@@ -239,7 +265,10 @@ class MachineService {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<Map<String, dynamic>> discoverDeviceByIp(String host, {int port = 80}) async {
+  Future<Map<String, dynamic>> discoverDeviceByIp(
+    String host, {
+    int port = 80,
+  }) async {
     final result = await client.post(
       '/descoberta/por-ip',
       body: <String, dynamic>{'host': host, 'port': port},
@@ -247,23 +276,36 @@ class MachineService {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<Map<String, dynamic>> approveDiscoveredDevice(String discoveryId) async {
+  Future<Map<String, dynamic>> approveDiscoveredDevice(
+    String discoveryId,
+  ) async {
     final encoded = Uri.encodeComponent(discoveryId);
-    final result = await client.post('/descoberta/$encoded/aprovar', body: <String, dynamic>{});
+    final result = await client.post(
+      '/descoberta/$encoded/aprovar',
+      body: <String, dynamic>{},
+    );
     return Map<String, dynamic>.from(result as Map);
   }
 
   Future<Map<String, dynamic>> create(Map<String, dynamic> data) async =>
-      Map<String, dynamic>.from(await client.post('/maquinas', body: data) as Map);
+      Map<String, dynamic>.from(
+        await client.post('/maquinas', body: data) as Map,
+      );
 
-  Future<Map<String, dynamic>> update(int id, Map<String, dynamic> data) async =>
-      Map<String, dynamic>.from(await client.put('/maquinas/$id', body: data) as Map);
+  Future<Map<String, dynamic>> update(
+    int id,
+    Map<String, dynamic> data,
+  ) async => Map<String, dynamic>.from(
+    await client.put('/maquinas/$id', body: data) as Map,
+  );
 
   Future<void> remove(int id) => client.delete('/maquinas/$id');
 
-  Future<Map<String, dynamic>> regenerateKey(int id) async => Map<String, dynamic>.from(
+  Future<Map<String, dynamic>> regenerateKey(int id) async =>
+      Map<String, dynamic>.from(
         await client.post('/maquinas/$id/device-key/regenerar') as Map,
       );
 }
 
-int _intValue(dynamic value) => value is int ? value : int.tryParse('$value') ?? 0;
+int _intValue(dynamic value) =>
+    value is int ? value : int.tryParse('$value') ?? 0;

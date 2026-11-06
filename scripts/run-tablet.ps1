@@ -1,18 +1,14 @@
+param([string]$DeviceId = "")
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
-
+Set-Location (Split-Path $PSScriptRoot -Parent)
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-  throw "Flutter nao foi encontrado. Execute scripts\setup.ps1 depois de instalar o Flutter."
+  throw "Instale o Flutter e adicione-o ao PATH antes de continuar."
 }
-
-Write-Host "Dispositivos encontrados:" -ForegroundColor Cyan
+flutter pub get
+if ($LASTEXITCODE -ne 0) { throw "Falha ao instalar dependencias." }
 flutter devices
-
-$ip = Read-Host "Digite o IPv4 do computador que esta rodando o backend (ex.: 192.168.0.10)"
-if ($ip -notmatch '^\d{1,3}(\.\d{1,3}){3}$') {
-  throw "IPv4 invalido. Rode ipconfig no computador e informe o Endereco IPv4."
-}
-
-$apiUrl = "http://${ip}:3000"
-Write-Host "Iniciando o SteelControl conectado em $apiUrl" -ForegroundColor Green
-flutter run --dart-define="API_URL=$apiUrl"
+if ($LASTEXITCODE -ne 0) { throw "Falha ao consultar dispositivos." }
+$flutterArgs = @("run", "--dart-define=API_URL=https://web-production-6682df.up.railway.app")
+if ($DeviceId) { $flutterArgs += @("-d", $DeviceId) }
+& flutter @flutterArgs
+if ($LASTEXITCODE -ne 0) { throw "Falha ao iniciar o aplicativo." }

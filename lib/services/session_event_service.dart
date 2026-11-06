@@ -10,9 +10,10 @@ class SessionEventService {
     required this.token,
     required this.onRevoked,
     required this.onProfile,
-  });
+  }) : baseUrl = ApiConfig.baseUrl;
 
   final String token;
+  final String baseUrl;
   final Future<void> Function(String reason) onRevoked;
   final Future<void> Function(Map<String, dynamic> user) onProfile;
 
@@ -38,12 +39,11 @@ class SessionEventService {
     _client = client;
 
     try {
-      final request = http.Request(
-        'GET',
-        ApiConfig.uri('/auth/session-events'),
-      )
-        ..headers['Accept'] = 'text/event-stream'
-        ..headers['Authorization'] = 'Bearer $token';
+      final request =
+          http.Request('GET', Uri.parse('$baseUrl/auth/session-events'))
+            ..followRedirects = false
+            ..headers['Accept'] = 'text/event-stream'
+            ..headers['Authorization'] = 'Bearer $token';
 
       final response = await client
           .send(request)
@@ -54,7 +54,7 @@ class SessionEventService {
         return;
       }
 
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
         await onRevoked('');
         return;
       }
@@ -86,7 +86,8 @@ class SessionEventService {
 
           if (line.isEmpty) {
             if (currentEvent == 'revoked') {
-              var reason = 'Seu acesso ao SteelControl foi encerrado pelo administrador.';
+              var reason =
+                  'Seu acesso ao SteelControl foi encerrado pelo administrador.';
               try {
                 final payload = jsonDecode(currentData ?? '{}');
                 if (payload is Map) {
@@ -101,7 +102,9 @@ class SessionEventService {
               try {
                 final payload = jsonDecode(currentData ?? '{}');
                 if (payload is Map && payload['usuario'] is Map) {
-                  await onProfile(Map<String, dynamic>.from(payload['usuario'] as Map));
+                  await onProfile(
+                    Map<String, dynamic>.from(payload['usuario'] as Map),
+                  );
                 }
               } catch (_) {
                 // O próximo evento/reconnect sincroniza novamente.

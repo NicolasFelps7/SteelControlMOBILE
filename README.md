@@ -1,11 +1,13 @@
 # SteelControl Mobile
 
+Atualização 1.20.1+53: veja [ATUALIZACAO_MOBILE_DESKTOP.md](ATUALIZACAO_MOBILE_DESKTOP.md) para as mudanças e os comandos atuais de execução.
+
 Aplicativo Flutter do SteelControl para Android/iOS, integrado ao mesmo backend Node/Express, PostgreSQL/Prisma e Face API usados pelo Desktop.
 
 ## Principais recursos
 
 - Login por e-mail/senha e reconhecimento facial.
-- Liveness, múltiplos templates faciais e segundo fator em casos ambíguos.
+- Liveness e templates faciais; em caso de ambiguidade, acesso por senha. Código de e-mail somente para concluir o cadastro.
 - Gestão de empresa, funcionários e logo institucional.
 - Máquinas, produção, manutenção, logs, alertas e auditoria.
 - IHM industrial supervisionada e painel dedicado ao Dobot Magician.

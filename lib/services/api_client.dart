@@ -9,12 +9,7 @@ import '../core/api_config.dart';
 import '../core/app_strings.dart';
 
 class ApiException implements Exception {
-  const ApiException(
-    this.message, {
-    this.statusCode,
-    this.code,
-    this.data,
-  });
+  const ApiException(this.message, {this.statusCode, this.code, this.data});
 
   final String message;
   final int? statusCode;
@@ -26,51 +21,72 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient({this.token, this.language = AppLanguage.pt});
+  ApiClient({
+    this.token,
+    this.language = AppLanguage.pt,
+    http.Client? transport,
+  }) : baseUrl = ApiConfig.baseUrl,
+       _transport = transport;
+
+  final String baseUrl;
+  final http.Client? _transport;
+
+  Uri _uri(String path, [Map<String, dynamic>? query]) {
+    if (path.contains('://') || path.startsWith('//')) {
+      throw const FormatException('Use um caminho relativo da API.');
+    }
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    return Uri.parse('$baseUrl$cleanPath').replace(
+      queryParameters: query?.map((key, value) => MapEntry(key, '$value')),
+    );
+  }
+
+  Future<http.Response> _request(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+  }) async {
+    final client = _transport ?? http.Client();
+    try {
+      final request = http.Request(method, _uri(path, query))
+        ..followRedirects = false
+        ..headers.addAll(_headers);
+      if (body != null) request.body = jsonEncode(body);
+      return await http.Response.fromStream(
+        await client.send(request).timeout(const Duration(seconds: 20)),
+      ).timeout(const Duration(seconds: 20));
+    } finally {
+      if (_transport == null) client.close();
+    }
+  }
 
   String? token;
   final AppLanguage language;
   String _text(String key) => AppStrings(language).get(key);
 
   Map<String, String> get _headers => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-SteelControl-Client': 'mobile',
-        if (token?.isNotEmpty == true) 'Authorization': 'Bearer $token',
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'X-SteelControl-Client': 'mobile',
+    if (token?.isNotEmpty == true) 'Authorization': 'Bearer $token',
+  };
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
-    return _send(
-      () => http.get(ApiConfig.uri(path, query), headers: _headers),
-      retries: 1,
-    );
-  }
+  Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
+      _send(() => _request('GET', path, query: query), retries: 1);
 
-  Future<dynamic> post(String path, {Object? body}) async {
-    return _send(() => http.post(
-          ApiConfig.uri(path),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        ));
-  }
-
-  Future<dynamic> put(String path, {Object? body}) async {
-    return _send(() => http.put(
-          ApiConfig.uri(path),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        ));
-  }
-
-  Future<dynamic> delete(String path) async {
-    return _send(() => http.delete(ApiConfig.uri(path), headers: _headers));
-  }
+  // Escritas e comandos nunca são repetidos automaticamente pelo app.
+  Future<dynamic> post(String path, {Object? body}) =>
+      _send(() => _request('POST', path, body: body));
+  Future<dynamic> put(String path, {Object? body}) =>
+      _send(() => _request('PUT', path, body: body));
+  Future<dynamic> delete(String path) => _send(() => _request('DELETE', path));
 
   Stream<Map<String, dynamic>> sse(String path) async* {
     final client = http.Client();
 
     try {
-      final request = http.Request('GET', ApiConfig.uri(path));
+      final request = http.Request('GET', _uri(path))..followRedirects = false;
       request.headers['Accept'] = 'text/event-stream';
       request.headers['Cache-Control'] = 'no-cache';
       request.headers['X-SteelControl-Client'] = 'mobile';
@@ -78,7 +94,9 @@ class ApiClient {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await client.send(request).timeout(const Duration(seconds: 20));
+      final response = await client
+          .send(request)
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final body = await response.stream.bytesToString();
@@ -92,16 +110,19 @@ class ApiClient {
             ? '${decoded['mensagem'] ?? decoded['message'] ?? _text('operationFailed')}'
             : _text('operationFailed');
         throw ApiException(
-        message,
-        statusCode: response.statusCode,
-        code: decoded is Map ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim() : null,
-        data: decoded is Map ? Map<String, dynamic>.from(decoded) : null,
-      );
+          message,
+          statusCode: response.statusCode,
+          code: decoded is Map
+              ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim()
+              : null,
+          data: decoded is Map ? Map<String, dynamic>.from(decoded) : null,
+        );
       }
 
-      await for (final line in response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())) {
+      await for (final line
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         if (!line.startsWith('data:')) continue;
         final payload = line.substring(5).trim();
         if (payload.isEmpty) continue;
@@ -127,8 +148,10 @@ class ApiClient {
     Map<String, String> fields = const <String, String>{},
     bool binaryFiles = false,
   }) async {
+    final client = http.Client();
     try {
-      final request = http.MultipartRequest('POST', ApiConfig.uri(path));
+      final request = http.MultipartRequest('POST', _uri(path))
+        ..followRedirects = false;
       request.headers['Accept'] = 'application/json';
       request.headers['X-SteelControl-Client'] = 'mobile';
       if (token?.isNotEmpty == true) {
@@ -138,7 +161,9 @@ class ApiClient {
       request.fields.addAll(fields);
 
       for (final entry in files.entries) {
-        final mediaType = binaryFiles ? MediaType('application', 'pkcs7-signature') : await _detectImageMediaType(entry.value);
+        final mediaType = binaryFiles
+            ? MediaType('application', 'pkcs7-signature')
+            : await _detectImageMediaType(entry.value);
         request.files.add(
           await http.MultipartFile.fromPath(
             entry.key,
@@ -148,16 +173,20 @@ class ApiClient {
         );
       }
 
-      final streamed = await request.send().timeout(const Duration(seconds: 35));
-      final response = await http.Response.fromStream(streamed);
+      final streamed = await client
+          .send(request)
+          .timeout(const Duration(seconds: 35));
+      final response = await http.Response.fromStream(streamed)
+          .timeout(const Duration(seconds: 35));
       return _decode(response);
     } on SocketException {
       throw ApiException(_text('networkUnavailable'));
     } on TimeoutException {
       throw ApiException(_text('requestTimeout'));
+    } finally {
+      client.close();
     }
   }
-
 
   Future<MediaType> _detectImageMediaType(File file) async {
     final handle = await file.open();
@@ -206,7 +235,8 @@ class ApiClient {
     }
 
     final extension = file.path.split('.').last.toLowerCase();
-    if (extension == 'jpg' || extension == 'jpeg') return MediaType('image', 'jpeg');
+    if (extension == 'jpg' || extension == 'jpeg')
+      return MediaType('image', 'jpeg');
     if (extension == 'png') return MediaType('image', 'png');
     if (extension == 'webp') return MediaType('image', 'webp');
     if (extension == 'gif') return MediaType('image', 'gif');
@@ -248,9 +278,14 @@ class ApiClient {
   dynamic _decode(http.Response response) {
     dynamic decoded;
     try {
-      decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+      decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
     } catch (_) {
-      throw ApiException(_text('invalidServerResponse'), statusCode: response.statusCode);
+      throw ApiException(
+        _text('invalidServerResponse'),
+        statusCode: response.statusCode,
+      );
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -260,7 +295,9 @@ class ApiClient {
       throw ApiException(
         message,
         statusCode: response.statusCode,
-        code: decoded is Map ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim() : null,
+        code: decoded is Map
+            ? '${decoded['codigo'] ?? decoded['code'] ?? ''}'.trim()
+            : null,
         data: decoded is Map ? Map<String, dynamic>.from(decoded) : null,
       );
     }

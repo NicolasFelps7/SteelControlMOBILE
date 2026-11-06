@@ -8,6 +8,10 @@ class AuthService {
 
   final ApiClient client;
 
+  Future<void> logout() async {
+    await client.post('/auth/logout');
+  }
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     final result = await client.post(
       '/auth/login',
@@ -38,37 +42,6 @@ class AuthService {
     final result = await client.multipart(
       '/auth/face/login-image',
       files: {'imagem': finalImage, 'liveness': livenessImage},
-    );
-    return Map<String, dynamic>.from(result as Map);
-  }
-
-
-  Future<Map<String, dynamic>> requestFaceSecondFactor({
-    required String challengeId,
-    required String email,
-  }) async {
-    final result = await client.post(
-      '/auth/face/ambiguous/request-code',
-      body: {
-        'challengeId': challengeId,
-        'email': email.trim().toLowerCase(),
-      },
-    );
-    return Map<String, dynamic>.from(result as Map);
-  }
-
-  Future<Map<String, dynamic>> verifyFaceSecondFactor({
-    required String challengeId,
-    required String email,
-    required String code,
-  }) async {
-    final result = await client.post(
-      '/auth/face/ambiguous/verify-code',
-      body: {
-        'challengeId': challengeId,
-        'email': email.trim().toLowerCase(),
-        'codigo': code.replaceAll(RegExp(r'\D'), '').trim(),
-      },
     );
     return Map<String, dynamic>.from(result as Map);
   }
