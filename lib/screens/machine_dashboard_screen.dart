@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../models/machine.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
 import '../widgets/section_card.dart';
+import 'operation_center_screen.dart';
 import '../widgets/industrial_hmi_panel.dart';
 import '../widgets/dynamic_industrial_dashboard.dart';
 
@@ -39,7 +41,7 @@ class MachineDashboardScreen extends StatelessWidget {
                 message: AppStrings.of(context).get('adminOnly'),
               ),
       4 => AlertsSection(machine: machine),
-      _ => OverviewSection(controller: controller, machine: machine),
+      _ => OperationCenterScreen(controller: controller, machineId: machine.id),
     };
   }
 }
@@ -3080,9 +3082,11 @@ class _DobotControlModePanel extends StatefulWidget {
   const _DobotControlModePanel({
     required this.controller,
     required this.machine,
+    this.initialAutomatic = false,
   });
   final AppController controller;
   final Machine machine;
+  final bool initialAutomatic;
 
   @override
   State<_DobotControlModePanel> createState() => _DobotControlModePanelState();
@@ -3092,6 +3096,12 @@ class _DobotControlModePanelState extends State<_DobotControlModePanel> {
   bool _automaticMode = false;
   bool _automaticRunning = false;
   final _automaticKey = GlobalKey<_DobotAutomaticPanelState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _automaticMode = widget.initialAutomatic;
+  }
 
   void _selectManual() {
     if (_automaticRunning) {
@@ -3504,6 +3514,28 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _refreshSharedAutomation(),
     );
+  }
+
+  @override
+  void dispose() {
+    final stop = _running && _localExecutor,
+        api = widget.controller.machinesApi,
+        id = widget.machine.id,
+        execution = _executionId;
+    _stopRequested = true;
+    _paused = false;
+    _running = false;
+    if (stop)
+      unawaited(() async {
+        try {
+          await api.controlDobotAutomation(id, 'PARAR', executionId: execution);
+        } catch (_) {
+          try {
+            await api.sendDobotCommand(id, 'DOBOT_STOP');
+          } catch (_) {}
+        }
+      }());
+    super.dispose();
   }
 
   @override
@@ -4003,6 +4035,16 @@ class _DobotAutomaticPanelState extends State<_DobotAutomaticPanel> {
     final startedExecutionId = startedAutomatic is Map
         ? '${startedAutomatic['execucaoId'] ?? ''}'.trim()
         : '';
+    if (!mounted && startedExecutionId.isNotEmpty) {
+      try {
+        await widget.controller.machinesApi.controlDobotAutomation(
+          widget.machine.id,
+          'PARAR',
+          executionId: startedExecutionId,
+        );
+      } catch (_) {}
+      return;
+    }
     if (startedExecutionId.isEmpty || !mounted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4684,6 +4726,20 @@ class _DobotJogPanelState extends State<_DobotJogPanel> {
   String _status =
       'Pronto para movimentar • segure uma direção para movimento contínuo';
 
+  @override
+  void dispose() {
+    _holding = false;
+    _holdGeneration++;
+    if (_moving)
+      unawaited(
+        widget.controller.machinesApi
+            .sendDobotCommand(widget.machine.id, 'DOBOT_STOP')
+            .then<void>((_) {})
+            .catchError((Object _) {}),
+      );
+    super.dispose();
+  }
+
   Map<String, double>? _poseOf(Machine machine) {
     final root = machine.extraData;
     final nested = root['dobot'];
@@ -4751,6 +4807,7 @@ class _DobotJogPanelState extends State<_DobotJogPanel> {
     if (mounted) setState(() => _moving = true);
     try {
       final pose = _confirmedPose ?? await _currentPose();
+      if (!mounted) return false;
       if (pose == null)
         throw const ApiException(
           'A posição real do Dobot ainda não está disponível.',
@@ -7139,4 +7196,53 @@ class _EventList extends StatelessWidget {
         ),
     ],
   );
+}
+
+/// Componentes de comando reaproveitados dentro do novo workspace 3D.
+class MachineControlSection extends StatelessWidget {
+  const MachineControlSection({
+    required this.controller,
+    required this.machine,
+    this.initialAutomatic = false,
+    super.key,
+  });
+  final AppController controller;
+  final Machine machine;
+  final bool initialAutomatic;
+  @override
+  Widget build(BuildContext context) {
+    if (machine.is3DPrinter) {
+      Map<String, dynamic> asMap(dynamic value) =>
+          value is Map ? Map<String, dynamic>.from(value) : {};
+      final extras = machine.extraData;
+      final printer = asMap(
+        extras['impressora3d'] ?? extras['printer3d'] ?? extras['printer'],
+      );
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: _PrinterControlPanel(
+          controller: controller,
+          machine: machine,
+          capabilities: asMap(printer['capabilities'] ?? printer['features']),
+          enabled:
+              asMap(
+                    machine.integrationMeta['impressora3d'],
+                  )['remoteControlEnabled'] ==
+                  true &&
+              machine.isOnline &&
+              !machine.simulation,
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: machine.isDobot
+          ? _DobotControlModePanel(
+              controller: controller,
+              machine: machine,
+              initialAutomatic: initialAutomatic,
+            )
+          : IndustrialHmiPanel(controller: controller, machine: machine),
+    );
+  }
 }

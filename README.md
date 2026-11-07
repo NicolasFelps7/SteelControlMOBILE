@@ -1,5 +1,7 @@
 # SteelControl Mobile
 
+Versão 1.21.0+54: nova Central industrial. Veja [CENTRAL_INDUSTRIAL.md](CENTRAL_INDUSTRIAL.md) para publicação, fontes e uso no Galaxy Tab.
+
 Atualização 1.20.1+53: veja [ATUALIZACAO_MOBILE_DESKTOP.md](ATUALIZACAO_MOBILE_DESKTOP.md) para as mudanças e os comandos atuais de execução.
 
 Aplicativo Flutter do SteelControl para Android/iOS, integrado ao mesmo backend Node/Express, PostgreSQL/Prisma e Face API usados pelo Desktop.

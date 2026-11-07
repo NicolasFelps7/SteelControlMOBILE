@@ -56,6 +56,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   int? machineSyncCount;
   String? machineSyncError;
 
+  int operationRevision = 0;
+
   bool get isAuthenticated => session?.token.isNotEmpty == true;
 
   Future<void> initialize() async {
@@ -321,6 +323,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           final company = int.tryParse('${event['empresaId'] ?? ''}');
           if (company != null && company != session?.company.id) return;
           final type = '${event['tipo'] ?? ''}';
+          if (type.startsWith('operacao.')) {
+            operationRevision++;
+            notifyListeners();
+          }
           final data = event['dados'];
           if (type == 'maquina.desativada' || type == 'maquina.excluida') {
             final id = data is Map
@@ -425,7 +431,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (id == null) return;
     final scope = _syncScope.generation;
     final service = machinesApi;
-    final updated = await _withLatestDiagnostics(
+    var updated = await _withLatestDiagnostics(
       await service.find(id),
       source: service,
     );
@@ -433,6 +439,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         _syncScope.isRemoved(id) ||
         selectedMachine?.id != id)
       return;
+    final live = selectedMachine;
+    if (live?.lastTelemetryAt != null &&
+        (updated.lastTelemetryAt == null ||
+            updated.lastTelemetryAt!.isBefore(live!.lastTelemetryAt!))) {
+      updated = updated.mergeRealtime({
+        'dadosExtras': live!.extraData,
+        'ultimaTelemetriaEm': live.lastTelemetryAt!.toIso8601String(),
+        'origemUltimaLeitura': live.telemetryOrigin,
+      });
+    }
     selectedMachine = updated;
     notifyListeners();
   }
@@ -445,6 +461,15 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final diagnostic = await service.diagnostics(machine.id);
       final update = <String, dynamic>{};
+      for (final key in [
+        'ultimaTelemetriaEm',
+        'origemUltimaLeitura',
+        'estadoConexao',
+        'modoSimulacao',
+        'paradaSeguranca',
+      ]) {
+        if (diagnostic.containsKey(key)) update[key] = diagnostic[key];
+      }
       final extras = diagnostic['dadosExtras'];
       final integrationMeta = diagnostic['integracaoMeta'];
       if (extras is Map) {

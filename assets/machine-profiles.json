@@ -1,0 +1,1296 @@
+{
+  "dobot": {
+    "title": "Dobot · posição e manipulação",
+    "sections": [
+      {
+        "title": "Ângulos das juntas · medidos",
+        "metrics": [
+          {
+            "label": "Base J1",
+            "path": "dadosExtras.dobot.joints.j1",
+            "unit": "°"
+          },
+          {
+            "label": "Ombro J2",
+            "path": "dadosExtras.dobot.joints.j2",
+            "unit": "°"
+          },
+          {
+            "label": "Cotovelo J3",
+            "path": "dadosExtras.dobot.joints.j3",
+            "unit": "°"
+          },
+          {
+            "label": "Ferramenta J4",
+            "path": "dadosExtras.dobot.joints.j4",
+            "unit": "°"
+          }
+        ]
+      },
+      {
+        "title": "Posição cartesiana · medida",
+        "metrics": [
+          {
+            "label": "X",
+            "path": "dadosExtras.dobot.pose.x",
+            "unit": "mm"
+          },
+          {
+            "label": "Y",
+            "path": "dadosExtras.dobot.pose.y",
+            "unit": "mm"
+          },
+          {
+            "label": "Z",
+            "path": "dadosExtras.dobot.pose.z",
+            "unit": "mm"
+          },
+          {
+            "label": "Rotação",
+            "path": "dadosExtras.dobot.pose.r",
+            "unit": "°"
+          }
+        ]
+      },
+      {
+        "title": "Ferramenta e controlador",
+        "metrics": [
+          {
+            "label": "Sucção",
+            "path": "dadosExtras.dobot.endEffector.suction",
+            "unit": ""
+          },
+          {
+            "label": "Garra",
+            "path": "dadosExtras.dobot.endEffector.gripper",
+            "unit": ""
+          },
+          {
+            "label": "Fila",
+            "path": "dadosExtras.dobot.queue",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "robot": {
+    "title": "Robô · célula de manipulação",
+    "sections": [
+      {
+        "title": "Processo · Robô",
+        "metrics": [
+          {
+            "label": "X TCP",
+            "path": "dadosExtras.robot.pose.x",
+            "unit": "mm"
+          },
+          {
+            "label": "Y TCP",
+            "path": "dadosExtras.robot.pose.y",
+            "unit": "mm"
+          },
+          {
+            "label": "Z TCP",
+            "path": "dadosExtras.robot.pose.z",
+            "unit": "mm"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Velocidade",
+            "path": "dadosExtras.robot.speedPct",
+            "unit": "%"
+          },
+          {
+            "label": "Programa",
+            "path": "dadosExtras.robot.program",
+            "unit": ""
+          },
+          {
+            "label": "Modo",
+            "path": "dadosExtras.robot.mode",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Articulações do robô",
+        "metrics": [
+          {
+            "label": "Junta J1",
+            "path": "dadosExtras.robot.joints.j1",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J2",
+            "path": "dadosExtras.robot.joints.j2",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J3",
+            "path": "dadosExtras.robot.joints.j3",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J4",
+            "path": "dadosExtras.robot.joints.j4",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J5",
+            "path": "dadosExtras.robot.joints.j5",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J6",
+            "path": "dadosExtras.robot.joints.j6",
+            "unit": "°"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "conveyor": {
+    "title": "Esteira · transporte e fluxo",
+    "sections": [
+      {
+        "title": "Processo · Esteira",
+        "metrics": [
+          {
+            "label": "Velocidade",
+            "path": "dadosExtras.conveyor.speedMMin",
+            "unit": "m/min"
+          },
+          {
+            "label": "Ocupação",
+            "path": "dadosExtras.conveyor.occupancyPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Motor",
+            "path": "dadosExtras.conveyor.motorState",
+            "unit": ""
+          },
+          {
+            "label": "Sensor entrada",
+            "path": "dadosExtras.conveyor.sensors.entry",
+            "unit": ""
+          },
+          {
+            "label": "Sensor saída",
+            "path": "dadosExtras.conveyor.sensors.exit",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Acionamento elétrico",
+        "metrics": [
+          {
+            "label": "Corrente do motor",
+            "path": "dadosExtras.conveyor.motorCurrentA",
+            "unit": "A"
+          },
+          {
+            "label": "Frequência do inversor",
+            "path": "dadosExtras.conveyor.driveFrequencyHz",
+            "unit": "Hz"
+          },
+          {
+            "label": "Temperatura do motor",
+            "path": "dadosExtras.conveyor.motorTemperatureC",
+            "unit": "°C"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "injection": {
+    "title": "Injetora · moldagem",
+    "sections": [
+      {
+        "title": "Processo · Injetora",
+        "metrics": [
+          {
+            "label": "Pressão de injeção",
+            "path": "dadosExtras.injection.pressureBar",
+            "unit": "bar"
+          },
+          {
+            "label": "Temperatura do cilindro",
+            "path": "dadosExtras.injection.barrelTemperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Força de fechamento",
+            "path": "dadosExtras.injection.clampForceKn",
+            "unit": "kN"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Molde",
+            "path": "dadosExtras.injection.moldState",
+            "unit": ""
+          },
+          {
+            "label": "Receita",
+            "path": "dadosExtras.injection.recipe",
+            "unit": ""
+          },
+          {
+            "label": "Ciclo",
+            "path": "dadosExtras.injection.cycleSeconds",
+            "unit": "s"
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": []
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "cnc": {
+    "title": "Fresadora CNC · usinagem",
+    "sections": [
+      {
+        "title": "Processo · Fresadora CNC",
+        "metrics": [
+          {
+            "label": "Rotação do spindle",
+            "path": "dadosExtras.cnc.spindleRpm",
+            "unit": "rpm"
+          },
+          {
+            "label": "Avanço",
+            "path": "dadosExtras.cnc.feedMmMin",
+            "unit": "mm/min"
+          },
+          {
+            "label": "Ferramenta",
+            "path": "dadosExtras.cnc.tool",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "X",
+            "path": "dadosExtras.cnc.position.x",
+            "unit": "mm"
+          },
+          {
+            "label": "Y",
+            "path": "dadosExtras.cnc.position.y",
+            "unit": "mm"
+          },
+          {
+            "label": "Z",
+            "path": "dadosExtras.cnc.position.z",
+            "unit": "mm"
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Programa",
+            "path": "dadosExtras.cnc.program",
+            "unit": ""
+          },
+          {
+            "label": "Carga spindle",
+            "path": "dadosExtras.cnc.spindleLoadPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "lathe": {
+    "title": "Torno CNC · torneamento",
+    "sections": [
+      {
+        "title": "Processo · Torno CNC",
+        "metrics": [
+          {
+            "label": "Rotação da placa",
+            "path": "dadosExtras.lathe.spindleRpm",
+            "unit": "rpm"
+          },
+          {
+            "label": "Avanço",
+            "path": "dadosExtras.lathe.feedMmMin",
+            "unit": "mm/min"
+          },
+          {
+            "label": "Torre",
+            "path": "dadosExtras.lathe.tool",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "X",
+            "path": "dadosExtras.lathe.position.x",
+            "unit": "mm"
+          },
+          {
+            "label": "Z",
+            "path": "dadosExtras.lathe.position.z",
+            "unit": "mm"
+          },
+          {
+            "label": "Placa travada",
+            "path": "dadosExtras.lathe.chuckClosed",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Programa",
+            "path": "dadosExtras.lathe.program",
+            "unit": ""
+          },
+          {
+            "label": "Carga",
+            "path": "dadosExtras.lathe.spindleLoadPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "press": {
+    "title": "Prensa · força e curso",
+    "sections": [
+      {
+        "title": "Processo · Prensa",
+        "metrics": [
+          {
+            "label": "Força",
+            "path": "dadosExtras.press.forceKn",
+            "unit": "kN"
+          },
+          {
+            "label": "Pressão hidráulica",
+            "path": "dadosExtras.press.pressureBar",
+            "unit": "bar"
+          },
+          {
+            "label": "Curso",
+            "path": "dadosExtras.press.strokeMm",
+            "unit": "mm"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Posição",
+            "path": "dadosExtras.press.positionMm",
+            "unit": "mm"
+          },
+          {
+            "label": "Óleo",
+            "path": "dadosExtras.press.oilTemperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Proteção fechada",
+            "path": "dadosExtras.press.guardClosed",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Tempo de ciclo",
+            "path": "dadosExtras.press.cycleSeconds",
+            "unit": "s"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "printer": {
+    "title": "Impressora 3D · fabricação aditiva",
+    "sections": [
+      {
+        "title": "Processo · Impressora 3D",
+        "metrics": [
+          {
+            "label": "Bico",
+            "path": "dadosExtras.impressora3d.nozzle.current",
+            "unit": "°C"
+          },
+          {
+            "label": "Mesa",
+            "path": "dadosExtras.impressora3d.bed.current",
+            "unit": "°C"
+          },
+          {
+            "label": "Câmara",
+            "path": "dadosExtras.impressora3d.chamber.current",
+            "unit": "°C"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Trabalho",
+            "path": "dadosExtras.impressora3d.job.name",
+            "unit": ""
+          },
+          {
+            "label": "Progresso",
+            "path": "dadosExtras.impressora3d.progress",
+            "unit": "%"
+          },
+          {
+            "label": "Camada",
+            "path": "dadosExtras.impressora3d.layer.current",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Tempo restante",
+            "path": "dadosExtras.impressora3d.job.remainingSeconds",
+            "unit": "s"
+          },
+          {
+            "label": "Material",
+            "path": "dadosExtras.impressora3d.material",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "packer": {
+    "title": "Embaladora · selagem e expedição",
+    "sections": [
+      {
+        "title": "Processo · Embaladora",
+        "metrics": [
+          {
+            "label": "Ritmo",
+            "path": "dadosExtras.packer.unitsPerMinute",
+            "unit": "un/min"
+          },
+          {
+            "label": "Selagem",
+            "path": "dadosExtras.packer.sealTemperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Filme restante",
+            "path": "dadosExtras.packer.filmRemainingPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Lote",
+            "path": "dadosExtras.packer.batch",
+            "unit": ""
+          },
+          {
+            "label": "Sensor de pacote",
+            "path": "dadosExtras.packer.packagePresent",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Ciclo",
+            "path": "dadosExtras.packer.cycleSeconds",
+            "unit": "s"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "filler": {
+    "title": "Envasadora · dosagem",
+    "sections": [
+      {
+        "title": "Processo · Envasadora",
+        "metrics": [
+          {
+            "label": "Dose",
+            "path": "dadosExtras.filler.doseMl",
+            "unit": "ml"
+          },
+          {
+            "label": "Vazão",
+            "path": "dadosExtras.filler.flowLMin",
+            "unit": "L/min"
+          },
+          {
+            "label": "Nível do tanque",
+            "path": "dadosExtras.filler.tankLevelPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Bicos ativos",
+            "path": "dadosExtras.filler.activeNozzles",
+            "unit": ""
+          },
+          {
+            "label": "Lote",
+            "path": "dadosExtras.filler.batch",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Pressão",
+            "path": "dadosExtras.filler.pressureBar",
+            "unit": "bar"
+          },
+          {
+            "label": "Desvio de dose",
+            "path": "dadosExtras.filler.doseDeviationPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "welder": {
+    "title": "Solda · célula robotizada",
+    "sections": [
+      {
+        "title": "Processo · Solda",
+        "metrics": [
+          {
+            "label": "Corrente de solda",
+            "path": "dadosExtras.welder.currentA",
+            "unit": "A"
+          },
+          {
+            "label": "Tensão de arco",
+            "path": "dadosExtras.welder.voltageV",
+            "unit": "V"
+          },
+          {
+            "label": "Arame",
+            "path": "dadosExtras.welder.wireSpeedMMin",
+            "unit": "m/min"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Gás",
+            "path": "dadosExtras.welder.gasFlowLMin",
+            "unit": "L/min"
+          },
+          {
+            "label": "Programa",
+            "path": "dadosExtras.welder.program",
+            "unit": ""
+          },
+          {
+            "label": "Arco ativo",
+            "path": "dadosExtras.welder.arcOn",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Articulações do robô",
+        "metrics": [
+          {
+            "label": "Junta J1",
+            "path": "dadosExtras.robot.joints.j1",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J2",
+            "path": "dadosExtras.robot.joints.j2",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J3",
+            "path": "dadosExtras.robot.joints.j3",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J4",
+            "path": "dadosExtras.robot.joints.j4",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J5",
+            "path": "dadosExtras.robot.joints.j5",
+            "unit": "°"
+          },
+          {
+            "label": "Junta J6",
+            "path": "dadosExtras.robot.joints.j6",
+            "unit": "°"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "compressor": {
+    "title": "Compressor · ar comprimido",
+    "sections": [
+      {
+        "title": "Processo · Compressor",
+        "metrics": [
+          {
+            "label": "Pressão do reservatório",
+            "path": "dadosExtras.compressor.pressureBar",
+            "unit": "bar"
+          },
+          {
+            "label": "Temperatura",
+            "path": "dadosExtras.compressor.temperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Vazão",
+            "path": "dadosExtras.compressor.flowM3Min",
+            "unit": "m³/min"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Carga",
+            "path": "dadosExtras.compressor.loadPct",
+            "unit": "%"
+          },
+          {
+            "label": "Motor",
+            "path": "dadosExtras.compressor.motorState",
+            "unit": ""
+          },
+          {
+            "label": "Horas",
+            "path": "dadosExtras.compressor.runtimeHours",
+            "unit": "h"
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Ponto de orvalho",
+            "path": "dadosExtras.compressor.dewPointC",
+            "unit": "°C"
+          },
+          {
+            "label": "Consumo",
+            "path": "dadosExtras.compressor.powerKw",
+            "unit": "kW"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "furnace": {
+    "title": "Forno · processo térmico",
+    "sections": [
+      {
+        "title": "Processo · Forno",
+        "metrics": [
+          {
+            "label": "Temperatura",
+            "path": "dadosExtras.furnace.temperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Referência",
+            "path": "dadosExtras.furnace.setpointC",
+            "unit": "°C"
+          },
+          {
+            "label": "Potência",
+            "path": "dadosExtras.furnace.powerPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Etapa",
+            "path": "dadosExtras.furnace.stage",
+            "unit": ""
+          },
+          {
+            "label": "Lote",
+            "path": "dadosExtras.furnace.batch",
+            "unit": ""
+          },
+          {
+            "label": "Porta fechada",
+            "path": "dadosExtras.furnace.doorClosed",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Patamar restante",
+            "path": "dadosExtras.furnace.holdRemainingSeconds",
+            "unit": "s"
+          },
+          {
+            "label": "Energia",
+            "path": "dadosExtras.furnace.energyKwh",
+            "unit": "kWh"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "plc": {
+    "title": "CLP · entradas e saídas",
+    "sections": [
+      {
+        "title": "Processo · CLP",
+        "metrics": [
+          {
+            "label": "Programa",
+            "path": "dadosExtras.plc.program",
+            "unit": ""
+          },
+          {
+            "label": "Tempo de varredura",
+            "path": "dadosExtras.plc.scanMs",
+            "unit": "ms"
+          },
+          {
+            "label": "CPU",
+            "path": "dadosExtras.plc.cpuLoadPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Entradas ativas",
+            "path": "dadosExtras.plc.activeInputs",
+            "unit": ""
+          },
+          {
+            "label": "Saídas ativas",
+            "path": "dadosExtras.plc.activeOutputs",
+            "unit": ""
+          },
+          {
+            "label": "Modo",
+            "path": "dadosExtras.plc.mode",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Comunicação",
+            "path": "dadosExtras.plc.communicationState",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  },
+  "generic": {
+    "title": "Equipamento · supervisão",
+    "sections": [
+      {
+        "title": "Processo · Equipamento",
+        "metrics": [
+          {
+            "label": "Etapa",
+            "path": "dadosExtras.process.stage",
+            "unit": ""
+          },
+          {
+            "label": "Receita",
+            "path": "dadosExtras.process.recipe",
+            "unit": ""
+          },
+          {
+            "label": "Velocidade",
+            "path": "dadosExtras.process.speedPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Estado e posição",
+        "metrics": [
+          {
+            "label": "Pressão",
+            "path": "dadosExtras.process.pressureBar",
+            "unit": "bar"
+          },
+          {
+            "label": "Temperatura",
+            "path": "dadosExtras.process.temperatureC",
+            "unit": "°C"
+          },
+          {
+            "label": "Carga",
+            "path": "dadosExtras.process.loadPct",
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "title": "Desempenho e recursos",
+        "metrics": [
+          {
+            "label": "Horas",
+            "path": "dadosExtras.process.runtimeHours",
+            "unit": "h"
+          },
+          {
+            "label": "Energia",
+            "path": "dadosExtras.process.energyKwh",
+            "unit": "kWh"
+          }
+        ]
+      },
+      {
+        "title": "Conexão e intertravamentos",
+        "metrics": [
+          {
+            "label": "Conexão",
+            "path": "estadoConexao.texto",
+            "unit": ""
+          },
+          {
+            "label": "Parada de segurança",
+            "path": "paradaSeguranca",
+            "unit": ""
+          },
+          {
+            "label": "Latência medida",
+            "path": "latenciaMs",
+            "unit": "ms"
+          },
+          {
+            "label": "Última amostra",
+            "path": "ultimaTelemetriaEm",
+            "unit": ""
+          }
+        ]
+      }
+    ]
+  }
+}

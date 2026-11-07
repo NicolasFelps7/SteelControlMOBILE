@@ -9,8 +9,9 @@ import '../widgets/steel_brand.dart';
 import '../widgets/steel_motion.dart';
 import '../widgets/logout_confirmation.dart';
 import 'audit_screen.dart';
+import 'operation_center_screen.dart';
 import 'company_screen.dart';
-import 'machine_dashboard_screen.dart';
+
 import 'machines_screen.dart';
 import 'settings_screen.dart';
 
@@ -46,57 +47,62 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     final selected = widget.controller.selectedMachine;
-    final admin = widget.controller.session?.user.role.toUpperCase() == 'ADMINISTRADOR';
+    final admin =
+        widget.controller.session?.user.role.toUpperCase() == 'ADMINISTRADOR';
     final selectedName = selected == null
         ? ''
-        : (selected.name.trim().isNotEmpty ? selected.name.trim() : 'Máquina #${selected.id}');
+        : (selected.name.trim().isNotEmpty
+              ? selected.name.trim()
+              : 'Máquina #${selected.id}');
     final selectedMeta = selected == null
         ? ''
         : (selected.sector.trim().isNotEmpty && selected.sector.trim() != '-'
-            ? selected.sector.trim()
-            : ((selected.controller ?? '').trim().isNotEmpty
-                ? selected.controller!.trim()
-                : selected.model.trim()));
-    final items = selected == null
-        ? <_Destination>[
-            _Destination(strings.get('machines'), Icons.precision_manufacturing_outlined, 0),
-            _Destination(strings.get('company'), Icons.apartment_rounded, 1),
-            if (admin) _Destination(strings.get('audit'), Icons.policy_outlined, 2),
-            _Destination(strings.get('settings'), Icons.settings_outlined, 3),
-          ]
-        : <_Destination>[
-            _Destination(strings.get('overview'), Icons.dashboard_outlined, 0),
-            _Destination(strings.get('production'), Icons.analytics_outlined, 1),
-            _Destination(strings.get('maintenance'), Icons.build_outlined, 2),
-            if (admin) _Destination(strings.get('logs'), Icons.receipt_long_outlined, 3),
-            _Destination(strings.get('alerts'), Icons.notifications_none_rounded, 4),
-            _Destination(strings.get('settings'), Icons.settings_outlined, -1),
-          ];
+              ? selected.sector.trim()
+              : ((selected.controller ?? '').trim().isNotEmpty
+                    ? selected.controller!.trim()
+                    : selected.model.trim()));
+    final items = <_Destination>[
+      _Destination(
+        strings.get('machines'),
+        Icons.precision_manufacturing_outlined,
+        0,
+      ),
+      _Destination(strings.get('company'), Icons.apartment_rounded, 1),
+      if (admin) _Destination(strings.get('audit'), Icons.policy_outlined, 2),
+      _Destination(strings.get('settings'), Icons.settings_outlined, 3),
+    ];
 
     if (_index >= items.length) _index = 0;
 
-    final body = selected == null
-        ? switch (items[_index].section) {
-            1 => CompanyScreen(controller: widget.controller),
-            2 => AuditScreen(controller: widget.controller),
-            3 => SettingsScreen(
-                controller: widget.controller,
-                onOpenCompany: () => setState(() => _index = 1),
+    final body = switch (items[_index].section) {
+      1 => CompanyScreen(controller: widget.controller),
+      2 => AuditScreen(controller: widget.controller),
+      3 => SettingsScreen(
+        controller: widget.controller,
+        onOpenCompany: () => setState(() => _index = 1),
+      ),
+      _ => MachinesScreen(
+        controller: widget.controller,
+        onSelected: () async {
+          final machine = widget.controller.selectedMachine;
+          if (!mounted || machine == null) return;
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (routeContext) => Scaffold(
+                body: SafeArea(
+                  child: OperationCenterScreen(
+                    controller: widget.controller,
+                    machineId: machine.id,
+                    onMachines: () => Navigator.pop(routeContext),
+                  ),
+                ),
               ),
-            _ => MachinesScreen(
-                controller: widget.controller,
-                onSelected: () => setState(() => _index = 0),
-              ),
-          }
-        : items[_index].section == -1
-            ? SettingsScreen(controller: widget.controller, onOpenCompany: () {
-                setState(() => _index = 1);
-                widget.controller.clearSelectedMachine();
-              })
-            : MachineDashboardScreen(
-                controller: widget.controller,
-                section: items[_index].section,
-              );
+            ),
+          );
+          if (mounted) widget.controller.clearSelectedMachine();
+        },
+      ),
+    };
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -107,7 +113,10 @@ class _HomeShellState extends State<HomeShell> {
             appBar: AppBar(
               title: selected == null
                   ? const SteelBrand()
-                  : Text(selected.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  : Text(
+                      selected.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
               leading: selected == null
                   ? null
                   : IconButton(
@@ -118,11 +127,15 @@ class _HomeShellState extends State<HomeShell> {
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
               actions: [
-                IconButton(onPressed: () => _refresh(selected != null), icon: const Icon(Icons.refresh_rounded)),
+                IconButton(
+                  onPressed: () => _refresh(selected != null),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
               ],
             ),
             body: SteelPageSwap(
-              transitionKey: '${selected?.id ?? 'fleet'}:${items[_index].section}',
+              transitionKey:
+                  '${selected?.id ?? 'fleet'}:${items[_index].section}',
               child: body,
             ),
             bottomNavigationBar: NavigationBar(
@@ -130,7 +143,12 @@ class _HomeShellState extends State<HomeShell> {
               selectedIndex: _index,
               onDestinationSelected: (value) => setState(() => _index = value),
               destinations: items
-                  .map((item) => NavigationDestination(icon: Icon(item.icon), label: item.label))
+                  .map(
+                    (item) => NavigationDestination(
+                      icon: Icon(item.icon),
+                      label: item.label,
+                    ),
+                  )
                   .toList(),
             ),
           );
@@ -184,7 +202,8 @@ class _HomeShellState extends State<HomeShell> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: SteelColors.industrialAccent.withValues(alpha: .10),
+                                    color: SteelColors.industrialAccent
+                                        .withValues(alpha: .10),
                                     borderRadius: BorderRadius.circular(9),
                                   ),
                                   child: const Icon(
@@ -196,7 +215,8 @@ class _HomeShellState extends State<HomeShell> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         strings.get('selectedMachine'),
@@ -214,10 +234,11 @@ class _HomeShellState extends State<HomeShell> {
                                         selectedName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleSmall?.copyWith(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                       const SizedBox(height: 2),
                                       Row(
@@ -288,7 +309,10 @@ class _HomeShellState extends State<HomeShell> {
                             leading: const Icon(Icons.swap_horiz_rounded),
                             title: Text(
                               strings.get('switchMachine'),
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             onTap: () {
                               setState(() => _index = 0);
@@ -308,7 +332,10 @@ class _HomeShellState extends State<HomeShell> {
                           leading: const Icon(Icons.logout_rounded),
                           title: Text(
                             strings.get('logout'),
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           onTap: () async {
                             if (await confirmLogout(context) && mounted) {
@@ -325,7 +352,10 @@ class _HomeShellState extends State<HomeShell> {
                     children: [
                       Container(
                         margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: scheme.surface,
                           border: Border.all(color: railBorder),
@@ -338,24 +368,26 @@ class _HomeShellState extends State<HomeShell> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    selected?.name ?? strings.get('centralMachines'),
+                                    selected?.name ??
+                                        (items[_index].section == 0
+                                            ? strings.get('centralMachines')
+                                            : items[_index].label),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    selected == null
-                                        ? strings.get('selectEquipment')
-                                        : '${selected.controller ?? selected.model} • ${selected.isOnline ? strings.get('online') : strings.get('offline')}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: railMuted,
+                                  if (items[_index].section == 0)
+                                    Text(
+                                      selected == null
+                                          ? strings.get('selectEquipment')
+                                          : '${selected.controller ?? selected.model} • ${selected.isOnline ? strings.get('online') : strings.get('offline')}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(color: railMuted),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -374,7 +406,8 @@ class _HomeShellState extends State<HomeShell> {
                       ),
                       Expanded(
                         child: SteelPageSwap(
-                          transitionKey: '${selected?.id ?? 'fleet'}:${items[_index].section}',
+                          transitionKey:
+                              '${selected?.id ?? 'fleet'}:${items[_index].section}',
                           child: body,
                         ),
                       ),
@@ -399,7 +432,8 @@ class _HomeShellState extends State<HomeShell> {
       }
     } catch (exception) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$exception')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$exception')));
     }
   }
 }
@@ -461,9 +495,15 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final titleKey = widget.notice.newAccount ? 'welcomeCreatedName' : 'welcomeBackName';
-    final captionKey = widget.notice.newAccount ? 'registerSuccessCaption' : 'loginSuccessCaption';
-    final title = strings.get(titleKey).replaceAll('{name}', widget.notice.name);
+    final titleKey = widget.notice.newAccount
+        ? 'welcomeCreatedName'
+        : 'welcomeBackName';
+    final captionKey = widget.notice.newAccount
+        ? 'registerSuccessCaption'
+        : 'loginSuccessCaption';
+    final title = strings
+        .get(titleKey)
+        .replaceAll('{name}', widget.notice.name);
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
@@ -473,9 +513,17 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
         padding: const EdgeInsets.fromLTRB(30, 28, 30, 30),
         decoration: BoxDecoration(
           color: dark ? const Color(0xFF20272F) : Colors.white,
-          border: Border.all(color: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
+          border: Border.all(
+            color: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8),
+          ),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: dark ? .35 : .14), blurRadius: 32, offset: const Offset(0, 16))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: dark ? .35 : .14),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -492,8 +540,19 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
                 child: Container(
                   width: 68,
                   height: 68,
-                  decoration: BoxDecoration(color: const Color(0xFFD9FBE7), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: .22), width: 7)),
-                  child: const Icon(Icons.check_rounded, color: Color(0xFF0AA34F), size: 39),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9FBE7),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF22C55E).withValues(alpha: .22),
+                      width: 7,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Color(0xFF0AA34F),
+                    size: 39,
+                  ),
                 ),
               ),
             ),
@@ -505,30 +564,63 @@ class _AccessWelcomeDialogState extends State<_AccessWelcomeDialog> {
               child: AnimatedOpacity(
                 opacity: _showContent ? 1 : 0,
                 duration: const Duration(milliseconds: 500),
-                child: Column(children: [
-                  Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.14, letterSpacing: -.55)),
-                  const SizedBox(height: 12),
-                  Text(strings.get(captionKey), textAlign: TextAlign.center, style: const TextStyle(color: SteelColors.muted, height: 1.55)),
-                ]),
+                child: Column(
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.14,
+                            letterSpacing: -.55,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      strings.get(captionKey),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: SteelColors.muted,
+                        height: 1.55,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 26),
             AnimatedOpacity(
               opacity: _showLoading ? 1 : 0,
               duration: const Duration(milliseconds: 450),
-              child: Column(children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: _progress),
-                  duration: const Duration(milliseconds: 2000),
-                  curve: Curves.easeOut,
-                  builder: (context, value, _) => ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(value: value, minHeight: 5, backgroundColor: dark ? const Color(0xFF3D4854) : const Color(0xFFDDE3E8)),
+              child: Column(
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: _progress),
+                    duration: const Duration(milliseconds: 2000),
+                    curve: Curves.easeOut,
+                    builder: (context, value, _) => ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: value,
+                        minHeight: 5,
+                        backgroundColor: dark
+                            ? const Color(0xFF3D4854)
+                            : const Color(0xFFDDE3E8),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(strings.get('openingWorkspace'), style: const TextStyle(color: SteelColors.muted, fontSize: 11, fontWeight: FontWeight.w700)),
-              ]),
+                  const SizedBox(height: 10),
+                  Text(
+                    strings.get('openingWorkspace'),
+                    style: const TextStyle(
+                      color: SteelColors.muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -586,7 +678,9 @@ class _RailDestinationTile extends StatelessWidget {
                   destination.icon,
                   size: 18,
                   color: selected
-                      ? (dark ? const Color(0xFFFFB33A) : SteelColors.industrialAccentDark)
+                      ? (dark
+                            ? const Color(0xFFFFB33A)
+                            : SteelColors.industrialAccentDark)
                       : (dark ? const Color(0xFF87939A) : SteelColors.steel500),
                 ),
               ),
@@ -625,21 +719,35 @@ class _UserBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, border: Border.all(color: Theme.of(context).dividerColor), borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      border: Border.all(color: Theme.of(context).dividerColor),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const CircleAvatar(
+          radius: 15,
+          backgroundColor: SteelColors.primary,
+          child: Icon(Icons.person, color: Colors.white, size: 18),
+        ),
+        const SizedBox(width: 9),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(radius: 15, backgroundColor: SteelColors.primary, child: Icon(Icons.person, color: Colors.white, size: 18)),
-            const SizedBox(width: 9),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(controller.session?.user.name ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                Text(controller.session?.user.role ?? '', style: const TextStyle(color: SteelColors.muted, fontSize: 10)),
-              ],
+            Text(
+              controller.session?.user.name ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+            Text(
+              controller.session?.user.role ?? '',
+              style: const TextStyle(color: SteelColors.muted, fontSize: 10),
             ),
           ],
         ),
-      );
+      ],
+    ),
+  );
 }

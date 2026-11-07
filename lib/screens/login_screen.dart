@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/app_theme.dart';
 import '../core/app_strings.dart';
 import '../services/api_client.dart';
 import '../state/app_controller.dart';
-import '../widgets/steel_brand.dart';
+
 import 'face_auth_screen.dart';
 import 'register_screen.dart';
 
@@ -189,20 +190,50 @@ class _LoginScreenState extends State<LoginScreen> {
             return Stack(
               children: [
                 Positioned.fill(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: tablet ? 48 : 24,
-                        vertical: 64,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 510),
-                          child: form,
+                  child: tablet
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 40,
+                                    vertical: 40,
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 510,
+                                    ),
+                                    child: form,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(child: _LoginMessage(strings: strings)),
+                          ],
+                        )
+                      : Center(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 64,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 510),
+                              child: Column(
+                                children: [
+                                  form,
+                                  const SizedBox(height: 32),
+                                  _LoginMessage(
+                                    strings: strings,
+                                    compact: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
                 Positioned(
                   top: 12,
@@ -216,6 +247,124 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class _LoginMessage extends StatelessWidget {
+  const _LoginMessage({required this.strings, this.compact = false});
+  final AppStrings strings;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final accent = dark ? const Color(0xFFFF9A44) : const Color(0xFFAB4908);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: dark
+              ? const [Color(0xFF423024), Color(0xFF202121), Color(0xFF181B1D)]
+              : const [Color(0xFFFFDFC1), Color(0xFFFFF4E8), Color(0xFFFDFBF8)],
+        ),
+        borderRadius: compact ? BorderRadius.circular(22) : BorderRadius.zero,
+        border: compact
+            ? Border.all(color: accent.withValues(alpha: .28))
+            : Border(left: BorderSide(color: accent.withValues(alpha: .28))),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: compact ? 60 : 112,
+                child: CustomPaint(painter: _SignalLines(accent)),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 24 : 36,
+                  10,
+                  compact ? 24 : 36,
+                  compact ? 28 : 42,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.get('desktopHero'),
+                      style:
+                          (compact
+                                  ? theme.textTheme.headlineSmall
+                                  : theme.textTheme.displaySmall)
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                height: 1.12,
+                                letterSpacing: -.8,
+                              ),
+                    ),
+                    SizedBox(height: compact ? 20 : 32),
+                    Divider(height: 1, color: accent.withValues(alpha: .28)),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.hub_outlined, size: 20, color: accent),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            strings.get('desktopHeroCaption'),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalLines extends CustomPainter {
+  const _SignalLines(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    for (var track = 0; track < 4; track++) {
+      final x = size.width * .46 + track * 20;
+      final y = size.height * .72 - track * 8;
+      stroke.color = color.withValues(alpha: track == 1 ? .8 : .24);
+      final path = Path()
+        ..moveTo(size.width * .07, y)
+        ..lineTo(x, y)
+        ..lineTo(x + 40, y - 40)
+        ..lineTo(size.width, y - 40);
+      canvas.drawPath(path, stroke);
+      canvas.drawCircle(
+        Offset(size.width * .07, y),
+        2.2,
+        Paint()..color = stroke.color,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SignalLines oldDelegate) => oldDelegate.color != color;
 }
 
 class _PreferencesButton extends StatelessWidget {
@@ -482,8 +631,20 @@ class _LoginForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showBrand) ...[
-            const SteelBrand(),
-            const SizedBox(height: 42),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SvgPicture.asset(
+                'assets/images/steel-icon.svg',
+                semanticsLabel: 'SteelControl',
+                width: 54,
+                height: 54,
+                colorFilter: ColorFilter.mode(
+                  Theme.of(context).colorScheme.onSurface,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
           ] else
             const SizedBox(height: 12),
           Text(
@@ -540,6 +701,11 @@ class _LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xffff922c),
+              foregroundColor: const Color(0xff331c0c),
+              minimumSize: const Size.fromHeight(50),
+            ),
             onPressed: busy ? null : onLogin,
             icon: busy
                 ? const SizedBox(
@@ -580,7 +746,12 @@ class _LoginForm extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          TextButton.icon(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xffff922c),
+              foregroundColor: const Color(0xff331c0c),
+              minimumSize: const Size.fromHeight(50),
+            ),
             onPressed: onRegister,
             icon: const Icon(Icons.add_business_outlined),
             label: Text(strings.get('registerCompany')),

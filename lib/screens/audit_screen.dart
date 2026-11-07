@@ -131,12 +131,16 @@ class _AuditScreenState extends State<AuditScreen> {
   }
 
   List<String> _optionsFor(String key, {bool actor = false}) {
-    final values = _entries
-        .map((entry) => actor ? _actorName(entry) : '${entry[key] ?? ''}'.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final values =
+        _entries
+            .map(
+              (entry) =>
+                  actor ? _actorName(entry) : '${entry[key] ?? ''}'.trim(),
+            )
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return values;
   }
 
@@ -210,7 +214,11 @@ class _AuditScreenState extends State<AuditScreen> {
           date.month == today.month &&
           date.day == today.day;
     }).length;
-    final actors = _entries.map(_actorName).where((name) => name.isNotEmpty).toSet().length;
+    final actors = _entries
+        .map(_actorName)
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .length;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -225,9 +233,7 @@ class _AuditScreenState extends State<AuditScreen> {
                 children: [
                   Text(
                     strings.get('audit'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
+                    style: Theme.of(context).textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 5),
@@ -248,7 +254,12 @@ class _AuditScreenState extends State<AuditScreen> {
                   children: [title, const SizedBox(height: 12), refresh],
                 );
               }
-              return Row(children: [Expanded(child: title), refresh]);
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  refresh,
+                ],
+              );
             },
           ),
           const SizedBox(height: 18),
@@ -257,8 +268,8 @@ class _AuditScreenState extends State<AuditScreen> {
               final columns = constraints.maxWidth >= 900
                   ? 4
                   : constraints.maxWidth >= 540
-                      ? 2
-                      : 1;
+                  ? 2
+                  : 1;
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -340,15 +351,16 @@ class _AuditScreenState extends State<AuditScreen> {
                     strings
                         .get('auditHistoryCount')
                         .replaceAll('{count}', '${filtered.length}'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
+                    style: Theme.of(context).textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 Text(
                   strings.get('auditNewestFirst'),
-                  style: const TextStyle(color: SteelColors.muted, fontSize: 11),
+                  style: const TextStyle(
+                    color: SteelColors.muted,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -390,8 +402,8 @@ class _AuditScreenState extends State<AuditScreen> {
                 label == strings.get('auditAction')
                     ? _auditActionLabel(strings, item)
                     : label == strings.get('auditEntity')
-                        ? _auditEntityLabel(strings, item)
-                        : item,
+                    ? _auditEntityLabel(strings, item)
+                    : item,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -413,9 +425,7 @@ class _AuditScreenState extends State<AuditScreen> {
               Expanded(
                 child: Text(
                   strings.get('auditFilters'),
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
+                  style: Theme.of(context).textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -466,10 +476,13 @@ class _AuditScreenState extends State<AuditScreen> {
 
               if (constraints.maxWidth < 720) {
                 return Column(
-                  children: fields
-                      .expand((field) => [field, const SizedBox(height: 10)])
-                      .toList()
-                    ..removeLast(),
+                  children:
+                      fields
+                          .expand(
+                            (field) => [field, const SizedBox(height: 10)],
+                          )
+                          .toList()
+                        ..removeLast(),
                 );
               }
               return Row(
@@ -575,12 +588,18 @@ class _AuditEntryCard extends StatelessWidget {
               children: [
                 Text(
                   '${strings.get('auditActor')}: ${actor.isEmpty ? strings.get('system') : actor}',
-                  style: const TextStyle(color: SteelColors.muted, fontSize: 11),
+                  style: const TextStyle(
+                    color: SteelColors.muted,
+                    fontSize: 11,
+                  ),
                 ),
                 if (date != null)
                   Text(
                     DateFormat('dd/MM/yyyy HH:mm:ss').format(date),
-                    style: const TextStyle(color: SteelColors.muted, fontSize: 11),
+                    style: const TextStyle(
+                      color: SteelColors.muted,
+                      fontSize: 11,
+                    ),
                   ),
               ],
             ),
@@ -638,25 +657,26 @@ class _AuditBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: SteelColors.primary.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: SteelColors.primary.withValues(alpha: .13)),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: SteelColors.primary,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: SteelColors.primary.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: SteelColors.primary.withValues(alpha: .13)),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: SteelColors.primary,
+        fontSize: 9,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 DateTime? _entryDate(Map<String, dynamic> entry) {
-  final raw = entry['criadoEm'] ??
+  final raw =
+      entry['criadoEm'] ??
       entry['createdAt'] ??
       entry['created_at'] ??
       entry['data'] ??
@@ -669,7 +689,8 @@ String _actorName(Map<String, dynamic> entry) {
   if (actor is Map) {
     return '${actor['nome'] ?? actor['name'] ?? actor['email'] ?? ''}'.trim();
   }
-  final direct = entry['usuarioNome'] ??
+  final direct =
+      entry['usuarioNome'] ??
       entry['userName'] ??
       entry['atorNome'] ??
       entry['emailUsuario'];

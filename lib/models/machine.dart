@@ -42,6 +42,8 @@ class Machine {
     this.integrationMeta = const {},
     this.signalQuality,
     this.latencyMs,
+    this.lastTelemetryAt,
+    this.telemetryOrigin,
   });
 
   final int id;
@@ -86,11 +88,25 @@ class Machine {
   final Map<String, dynamic> integrationMeta;
   final double? signalQuality;
   final double? latencyMs;
+  final DateTime? lastTelemetryAt;
+  final String? telemetryOrigin;
+  bool get hasRecentTelemetry {
+    final stamp = lastTelemetryAt;
+    if (stamp == null ||
+        simulation ||
+        !isOnline ||
+        telemetryOrigin == 'SIMULADOR')
+      return false;
+    final age = DateTime.now().difference(stamp).inMilliseconds;
+    return age >= -5000 &&
+        age < (readInterval * 3 < 10000 ? 10000 : readInterval * 3);
+  }
 
   bool get isOnline {
     final normalized = connection.toLowerCase();
     return simulation || normalized == 'online' || normalized == 'conectada';
   }
+
   bool get isDobot => (controller ?? '').toLowerCase().contains('dobot');
   bool get is3DPrinter {
     final c = (controller ?? '').trim().toUpperCase();
@@ -98,14 +114,26 @@ class Machine {
     if (c.isNotEmpty && c != 'OUTRO') return c == 'IMPRESSORA_3D';
     return t.contains('IMPRESSORA 3D') || t.contains('3D PRINTER');
   }
+
   bool get hasIndustrialHmi {
     final value = (controller ?? '').trim().toUpperCase();
-    return value.isNotEmpty && value != 'DOBOT_MAGICIAN' && value != 'IMPRESSORA_3D' && !value.contains('DOBOT');
+    return value.isNotEmpty &&
+        value != 'DOBOT_MAGICIAN' &&
+        value != 'IMPRESSORA_3D' &&
+        !value.contains('DOBOT');
   }
 
   Machine mergeRealtime(Map<String, dynamic> json) {
+    final stamp = DateTime.tryParse('${json['ultimaTelemetriaEm'] ?? ''}');
+    if (stamp != null &&
+        lastTelemetryAt != null &&
+        stamp.isBefore(lastTelemetryAt!) &&
+        (json.containsKey('dadosExtras') ||
+            json.containsKey('dadosExtrasAtuais')))
+      return this;
     String nextConnection = connection;
-    if (json.containsKey('estadoConexao') || json.containsKey('statusConexao')) {
+    if (json.containsKey('estadoConexao') ||
+        json.containsKey('statusConexao')) {
       nextConnection = _connection(json);
     }
 
@@ -123,46 +151,102 @@ class Machine {
 
     return Machine(
       id: id,
+      lastTelemetryAt: stamp ?? lastTelemetryAt,
+      telemetryOrigin:
+          (json['origemUltimaLeitura'] ?? json['origem'])?.toString() ??
+          telemetryOrigin,
       name: json.containsKey('nome') ? '${json['nome'] ?? name}' : name,
       sector: json.containsKey('setor') ? '${json['setor'] ?? sector}' : sector,
       model: json.containsKey('modelo') ? '${json['modelo'] ?? model}' : model,
       code: json.containsKey('codigo') ? '${json['codigo'] ?? code}' : code,
-      status: json.containsKey('status') ? '${json['status'] ?? status}' : status,
-      temperature: json.containsKey('temperatura') ? _double(json['temperatura']) : temperature,
-      vibration: json.containsKey('vibracao') ? _double(json['vibracao']) : vibration,
-      current: json.containsKey('corrente') ? _double(json['corrente']) : current,
-      production: json.containsKey('producao') ? _int(json['producao']) : production,
+      status: json.containsKey('status')
+          ? '${json['status'] ?? status}'
+          : status,
+      temperature: json.containsKey('temperatura')
+          ? _double(json['temperatura'])
+          : temperature,
+      vibration: json.containsKey('vibracao')
+          ? _double(json['vibracao'])
+          : vibration,
+      current: json.containsKey('corrente')
+          ? _double(json['corrente'])
+          : current,
+      production: json.containsKey('producao')
+          ? _int(json['producao'])
+          : production,
       cycles: json.containsKey('ciclos') ? _int(json['ciclos']) : cycles,
-      energy: json.containsKey('consumoEnergia') ? _double(json['consumoEnergia']) : energy,
-      simulation: json.containsKey('modoSimulacao') ? json['modoSimulacao'] == true : simulation,
+      energy: json.containsKey('consumoEnergia')
+          ? _double(json['consumoEnergia'])
+          : energy,
+      simulation: json.containsKey('modoSimulacao')
+          ? json['modoSimulacao'] == true
+          : simulation,
       connection: nextConnection,
-      safetyStop: json.containsKey('paradaSeguranca') ? json['paradaSeguranca'] == true : safetyStop,
-      controller: json.containsKey('controlador') ? json['controlador']?.toString() : controller,
-      protocol: json.containsKey('protocolo') ? json['protocolo']?.toString() : protocol,
-      maintenanceStatus: json.containsKey('manutencao') ? '${json['manutencao'] ?? maintenanceStatus}' : maintenanceStatus,
-      lastMaintenance: json.containsKey('ultimaManutencao') ? '${json['ultimaManutencao'] ?? lastMaintenance}' : lastMaintenance,
-      nextMaintenance: json.containsKey('proximaManutencao') ? '${json['proximaManutencao'] ?? nextMaintenance}' : nextMaintenance,
+      safetyStop: json.containsKey('paradaSeguranca')
+          ? json['paradaSeguranca'] == true
+          : safetyStop,
+      controller: json.containsKey('controlador')
+          ? json['controlador']?.toString()
+          : controller,
+      protocol: json.containsKey('protocolo')
+          ? json['protocolo']?.toString()
+          : protocol,
+      maintenanceStatus: json.containsKey('manutencao')
+          ? '${json['manutencao'] ?? maintenanceStatus}'
+          : maintenanceStatus,
+      lastMaintenance: json.containsKey('ultimaManutencao')
+          ? '${json['ultimaManutencao'] ?? lastMaintenance}'
+          : lastMaintenance,
+      nextMaintenance: json.containsKey('proximaManutencao')
+          ? '${json['proximaManutencao'] ?? nextMaintenance}'
+          : nextMaintenance,
       logs: logs,
       alerts: alerts,
       extraData: nextExtraData,
-      manufacturer: json.containsKey('fabricante') ? json['fabricante']?.toString() : manufacturer,
+      manufacturer: json.containsKey('fabricante')
+          ? json['fabricante']?.toString()
+          : manufacturer,
       type: json.containsKey('tipo') ? json['tipo']?.toString() : type,
-      description: json.containsKey('descricao') ? json['descricao']?.toString() : description,
+      description: json.containsKey('descricao')
+          ? json['descricao']?.toString()
+          : description,
       host: json.containsKey('host') ? json['host']?.toString() : host,
-      endpoint: json.containsKey('endpoint') ? json['endpoint']?.toString() : endpoint,
+      endpoint: json.containsKey('endpoint')
+          ? json['endpoint']?.toString()
+          : endpoint,
       topic: json.containsKey('topico') ? json['topico']?.toString() : topic,
-      port: json.containsKey('porta') ? (json['porta'] == null ? null : _int(json['porta'])) : port,
-      unitId: json.containsKey('unitId') ? (json['unitId'] == null ? null : _int(json['unitId'])) : unitId,
-      readInterval: json.containsKey('intervaloLeitura') && _int(json['intervaloLeitura']) > 0
+      port: json.containsKey('porta')
+          ? (json['porta'] == null ? null : _int(json['porta']))
+          : port,
+      unitId: json.containsKey('unitId')
+          ? (json['unitId'] == null ? null : _int(json['unitId']))
+          : unitId,
+      readInterval:
+          json.containsKey('intervaloLeitura') &&
+              _int(json['intervaloLeitura']) > 0
           ? _int(json['intervaloLeitura'])
           : readInterval,
-      temperatureWarning: json.containsKey('tempAtencao') ? _doubleOr(json['tempAtencao'], temperatureWarning) : temperatureWarning,
-      temperatureCritical: json.containsKey('tempCritica') ? _doubleOr(json['tempCritica'], temperatureCritical) : temperatureCritical,
-      energyWarning: json.containsKey('energiaAtencao') ? _doubleOr(json['energiaAtencao'], energyWarning) : energyWarning,
-      energyCritical: json.containsKey('energiaCritica') ? _doubleOr(json['energiaCritica'], energyCritical) : energyCritical,
-      vibrationWarning: json.containsKey('vibracaoAtencao') ? _doubleOr(json['vibracaoAtencao'], vibrationWarning) : vibrationWarning,
-      vibrationCritical: json.containsKey('vibracaoCritica') ? _doubleOr(json['vibracaoCritica'], vibrationCritical) : vibrationCritical,
-      maintenanceCycles: json.containsKey('ciclosManutencao') && _int(json['ciclosManutencao']) > 0
+      temperatureWarning: json.containsKey('tempAtencao')
+          ? _doubleOr(json['tempAtencao'], temperatureWarning)
+          : temperatureWarning,
+      temperatureCritical: json.containsKey('tempCritica')
+          ? _doubleOr(json['tempCritica'], temperatureCritical)
+          : temperatureCritical,
+      energyWarning: json.containsKey('energiaAtencao')
+          ? _doubleOr(json['energiaAtencao'], energyWarning)
+          : energyWarning,
+      energyCritical: json.containsKey('energiaCritica')
+          ? _doubleOr(json['energiaCritica'], energyCritical)
+          : energyCritical,
+      vibrationWarning: json.containsKey('vibracaoAtencao')
+          ? _doubleOr(json['vibracaoAtencao'], vibrationWarning)
+          : vibrationWarning,
+      vibrationCritical: json.containsKey('vibracaoCritica')
+          ? _doubleOr(json['vibracaoCritica'], vibrationCritical)
+          : vibrationCritical,
+      maintenanceCycles:
+          json.containsKey('ciclosManutencao') &&
+              _int(json['ciclosManutencao']) > 0
           ? _int(json['ciclosManutencao'])
           : maintenanceCycles,
       integrationMeta: json['integracaoMeta'] is Map
@@ -171,8 +255,12 @@ class Machine {
               Map<String, dynamic>.from(json['integracaoMeta'] as Map),
             )
           : integrationMeta,
-      signalQuality: json.containsKey('qualidadeSinal') ? _optionalDouble(json['qualidadeSinal']) : signalQuality,
-      latencyMs: json.containsKey('latenciaMs') ? _optionalDouble(json['latenciaMs']) : latencyMs,
+      signalQuality: json.containsKey('qualidadeSinal')
+          ? _optionalDouble(json['qualidadeSinal'])
+          : signalQuality,
+      latencyMs: json.containsKey('latenciaMs')
+          ? _optionalDouble(json['latenciaMs'])
+          : latencyMs,
     );
   }
 
@@ -182,6 +270,9 @@ class Machine {
 
     return Machine(
       id: _int(json['id']),
+      lastTelemetryAt: DateTime.tryParse('${json['ultimaTelemetriaEm'] ?? ''}'),
+      telemetryOrigin: (json['origemUltimaLeitura'] ?? json['origem'])
+          ?.toString(),
       name: '${json['nome'] ?? 'Máquina'}',
       sector: '${json['setor'] ?? '-'}',
       model: '${json['modelo'] ?? '-'}',
@@ -201,10 +292,13 @@ class Machine {
       maintenanceStatus: '${json['manutencao'] ?? 'Normal'}',
       lastMaintenance: '${json['ultimaManutencao'] ?? 'Sem registro'}',
       nextMaintenance: '${json['proximaManutencao'] ?? 'A definir'}',
-      logs: logItems.map((item) {
-        if (item is Map) return '${item['mensagem'] ?? ''}';
-        return '$item';
-      }).where((item) => item.isNotEmpty).toList(),
+      logs: logItems
+          .map((item) {
+            if (item is Map) return '${item['mensagem'] ?? ''}';
+            return '$item';
+          })
+          .where((item) => item.isNotEmpty)
+          .toList(),
       alerts: alertItems
           .whereType<Map>()
           .map((item) => MachineAlert.fromJson(Map<String, dynamic>.from(item)))
@@ -220,22 +314,32 @@ class Machine {
       topic: json['topico']?.toString(),
       port: json['porta'] == null ? null : _int(json['porta']),
       unitId: json['unitId'] == null ? null : _int(json['unitId']),
-      readInterval: _int(json['intervaloLeitura']) == 0 ? 2000 : _int(json['intervaloLeitura']),
+      readInterval: _int(json['intervaloLeitura']) == 0
+          ? 2000
+          : _int(json['intervaloLeitura']),
       temperatureWarning: _doubleOr(json['tempAtencao'], 55),
       temperatureCritical: _doubleOr(json['tempCritica'], 70),
       energyWarning: _doubleOr(json['energiaAtencao'], 80),
       energyCritical: _doubleOr(json['energiaCritica'], 90),
       vibrationWarning: _doubleOr(json['vibracaoAtencao'], 4),
       vibrationCritical: _doubleOr(json['vibracaoCritica'], 7),
-      maintenanceCycles: _int(json['ciclosManutencao']) == 0 ? 1000 : _int(json['ciclosManutencao']),
-      integrationMeta: Map<String, dynamic>.from(json['integracaoMeta'] as Map? ?? const {}),
+      maintenanceCycles: _int(json['ciclosManutencao']) == 0
+          ? 1000
+          : _int(json['ciclosManutencao']),
+      integrationMeta: Map<String, dynamic>.from(
+        json['integracaoMeta'] as Map? ?? const {},
+      ),
       signalQuality: _optionalDouble(
         json['qualidadeSinal'] ??
-            (json['estadoConexao'] is Map ? (json['estadoConexao'] as Map)['qualidadeSinal'] : null),
+            (json['estadoConexao'] is Map
+                ? (json['estadoConexao'] as Map)['qualidadeSinal']
+                : null),
       ),
       latencyMs: _optionalDouble(
         json['latenciaMs'] ??
-            (json['estadoConexao'] is Map ? (json['estadoConexao'] as Map)['latenciaMs'] : null),
+            (json['estadoConexao'] is Map
+                ? (json['estadoConexao'] as Map)['latenciaMs']
+                : null),
       ),
     );
   }
@@ -275,11 +379,11 @@ class MachineAlert {
   final DateTime? createdAt;
 
   factory MachineAlert.fromJson(Map<String, dynamic> json) => MachineAlert(
-        id: _int(json['id']),
-        type: '${json['tipo'] ?? 'Alerta'}',
-        message: '${json['mensagem'] ?? ''}',
-        createdAt: DateTime.tryParse('${json['criadoEm'] ?? ''}'),
-      );
+    id: _int(json['id']),
+    type: '${json['tipo'] ?? 'Alerta'}',
+    message: '${json['mensagem'] ?? ''}',
+    createdAt: DateTime.tryParse('${json['criadoEm'] ?? ''}'),
+  );
 }
 
 class MaintenanceRecord {
@@ -301,20 +405,25 @@ class MaintenanceRecord {
   final String time;
   final int? cycles;
 
-  factory MaintenanceRecord.fromJson(Map<String, dynamic> json) => MaintenanceRecord(
+  factory MaintenanceRecord.fromJson(Map<String, dynamic> json) =>
+      MaintenanceRecord(
         id: _int(json['id']),
         type: '${json['tipo'] ?? '-'}',
         technician: '${json['tecnico'] ?? '-'}',
         description: '${json['descricao'] ?? '-'}',
         date: '${json['data'] ?? '-'}',
         time: '${json['horario'] ?? '-'}',
-        cycles: json['ciclosNoRegistro'] == null ? null : _int(json['ciclosNoRegistro']),
+        cycles: json['ciclosNoRegistro'] == null
+            ? null
+            : _int(json['ciclosNoRegistro']),
       );
 }
 
 int _int(dynamic value) => value is int ? value : int.tryParse('$value') ?? 0;
-double _double(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
-double? _optionalDouble(dynamic value) => value is num ? value.toDouble() : double.tryParse('$value');
+double _double(dynamic value) =>
+    value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+double? _optionalDouble(dynamic value) =>
+    value is num ? value.toDouble() : double.tryParse('$value');
 double _doubleOr(dynamic value, double fallback) {
   final parsed = value is num ? value.toDouble() : double.tryParse('$value');
   return parsed ?? fallback;

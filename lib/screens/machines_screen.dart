@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'machine_connection_screen.dart';
+import '../widgets/machine_model_3d.dart';
 import '../core/app_strings.dart';
 import '../core/app_theme.dart';
 import '../models/machine.dart';
@@ -534,7 +535,9 @@ class _MachinesScreenState extends State<MachinesScreen> {
                       admin: _admin,
                       onOpen: () async {
                         await widget.controller.selectMachine(machine);
-                        widget.onSelected();
+                        if (mounted &&
+                            widget.controller.selectedMachine?.id == machine.id)
+                          widget.onSelected();
                       },
                       onEdit: () => _edit(machine),
                       onRemove: () => _remove(machine),
@@ -2194,11 +2197,7 @@ class _MachineDialogState extends State<_MachineDialog> {
         ? savedProtocol
         : (savedProtocol.isEmpty ? '' : 'OUTRO');
     equipmentType = m?.type ?? '';
-    identificationExpanded =
-        m != null &&
-        ((m.manufacturer?.isNotEmpty ?? false) ||
-            (m.type?.isNotEmpty ?? false) ||
-            (m.description?.isNotEmpty ?? false));
+    identificationExpanded = true;
     networkExpanded =
         m != null &&
         ((m.host?.isNotEmpty ?? false) ||
@@ -2801,6 +2800,52 @@ class _MachineDialogState extends State<_MachineDialog> {
                           ),
                           child: Column(
                             children: [
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(
+                                  'family-3d-${fields['tipo']!.text}',
+                                ),
+                                value:
+                                    machine3dKinds.any(
+                                      (k) => k.$2 == fields['tipo']!.text,
+                                    )
+                                    ? fields['tipo']!.text
+                                    : null,
+                                decoration: const InputDecoration(
+                                  labelText: 'Família física / modelo 3D',
+                                ),
+                                items: machine3dKinds
+                                    .map(
+                                      (k) => DropdownMenuItem(
+                                        value: k.$2,
+                                        child: Text(k.$2),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  fields['tipo']!.text = value;
+                                  _changeEquipmentType(value);
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 260,
+                                child: MachineModel3D(
+                                  machines: [
+                                    {
+                                      'id': 1,
+                                      'nome': 'Prévia do cadastro',
+                                      'tipo': fields['tipo']!.text,
+                                      'controlador': controller,
+                                      'modelo': fields['modelo']!.text,
+                                      'online': false,
+                                      'simulacao': false,
+                                    },
+                                  ],
+                                  selectedId: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               pair(
                                 TextFormField(
                                   controller: fields['tipo'],

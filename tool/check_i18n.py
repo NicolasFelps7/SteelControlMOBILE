@@ -5,7 +5,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 lib = root / "lib"
 source = (lib / "core" / "app_strings.dart").read_text(encoding="utf-8")
-keys = set(re.findall(r"^\s*'([^']+)'\s*:\s*\[", source, flags=re.M))
+keys = set(re.findall(r'''^\s*['"]([^'"]+)['"]\s*:\s*\[''', source, flags=re.M))
 used = set()
 for path in lib.rglob("*.dart"):
     text = path.read_text(encoding="utf-8")
