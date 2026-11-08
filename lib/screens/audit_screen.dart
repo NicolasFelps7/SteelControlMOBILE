@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +20,8 @@ class AuditScreen extends StatefulWidget {
 }
 
 class _AuditScreenState extends State<AuditScreen> {
+  StreamSubscription<Map<String,dynamic>>? _changes;
+  bool _reading = false, _pending = false;
   final _search = TextEditingController();
 
   List<Map<String, dynamic>> _entries = const [];
@@ -36,12 +39,16 @@ class _AuditScreenState extends State<AuditScreen> {
   @override
   void initState() {
     super.initState();
+    _changes = widget.controller.companyChanges.listen((event) {
+      if (event['tipo'] == 'auditoria.registrada' || event['tipo'] == 'conectado') _load();
+    });
     _search.addListener(_refreshFilters);
     _load();
   }
 
   @override
   void dispose() {
+    _changes?.cancel();
     _search
       ..removeListener(_refreshFilters)
       ..dispose();
@@ -53,6 +60,17 @@ class _AuditScreenState extends State<AuditScreen> {
   }
 
   Future<void> _load() async {
+    if (_reading) { _pending = true; return; }
+    _reading = true;
+    try {
+      do {
+        _pending = false;
+        await _loadOnce();
+      } while (_pending && mounted);
+    } finally { _reading = false; }
+  }
+
+  Future<void> _loadOnce() async {
     if (!_admin) {
       if (mounted) {
         setState(() {
@@ -65,7 +83,7 @@ class _AuditScreenState extends State<AuditScreen> {
 
     if (mounted) {
       setState(() {
-        _loading = true;
+        _loading = _entries.isEmpty;
         _error = null;
       });
     }

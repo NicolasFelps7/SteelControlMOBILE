@@ -12,6 +12,7 @@ class MachineConnectionScreen extends StatefulWidget {
     required this.client,
     required this.machineId,
     required this.machineName,
+    this.changes,
     this.controller,
     this.protocol,
     super.key,
@@ -19,6 +20,7 @@ class MachineConnectionScreen extends StatefulWidget {
   final ApiClient client;
   final int machineId;
   final String machineName;
+  final Stream<Map<String, dynamic>>? changes;
   final String? controller;
   final String? protocol;
   @override
@@ -54,6 +56,7 @@ class _MachineConnectionScreenState extends State<MachineConnectionScreen> {
   String _t(String key) => AppStrings.of(context).get(key);
   bool _busy = false, _loading = true, _commands = false, _refreshing = false;
   Timer? _timer;
+  StreamSubscription<Map<String, dynamic>>? _changes;
   String get _path => '/conexoes/maquinas/${widget.machineId}';
   @override
   void initState() {
@@ -64,6 +67,11 @@ class _MachineConnectionScreenState extends State<MachineConnectionScreen> {
         ? 'SERIAL_JSON'
         : widget.protocol;
     if (drivers.containsKey(preferred)) _driver = preferred!;
+    _changes = widget.changes?.listen((event) {
+      if (event['tipo'] != 'conexao.atualizada') return;
+      final data = event['dados'];
+      if (!_busy && data is Map && (data['maquinaId'] == null || data['maquinaId'] == widget.machineId)) _load();
+    });
     _load(initial: true);
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!_busy) _load();
@@ -72,6 +80,7 @@ class _MachineConnectionScreenState extends State<MachineConnectionScreen> {
 
   @override
   void dispose() {
+    _changes?.cancel();
     _timer?.cancel();
     for (final c in [
       _host,

@@ -33,7 +33,11 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
   bool reading = false;
   String? error;
   AppController get controller => widget.controller;
-  Machine? get selected => controller.selectedMachine;
+  Machine? get selected {
+    final machine = controller.selectedMachine;
+    return machine?.id == widget.machineId ? machine : null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,7 +86,7 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
   }
 
   Future<void> choose(int? id) async {
-    if (busy || disposed) return;
+    if (id == null || id != widget.machineId || busy || disposed) return;
     final machine = controller.machines.where((m) => m.id == id).firstOrNull;
     if (machine == null) {
       controller.clearSelectedMachine();
@@ -152,11 +156,10 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
         child: MachineModel3D(
           factoryScene: true,
           key: ValueKey(machine?.id ?? 'fleet'),
-          machines: (machine == null ? controller.machines : [machine])
+          machines: (machine == null ? <Machine>[] : [machine])
               .map(machineSceneData)
               .toList(),
           selectedId: machine?.id,
-          onSelect: choose,
         ),
       ),
     ],
@@ -291,30 +294,11 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
                 const SizedBox(height: 6),
                 Text(
                   machine == null
-                      ? 'Escolha um equipamento para consultar os sensores.'
+                      ? 'Volte para Máquinas para selecionar um equipamento.'
                       : '${machine.type ?? machine.controller ?? 'Equipamento'} · ${machine.model}',
                   style: TextStyle(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  key: ValueKey(machine?.id ?? 'fleet'),
-                  initialValue: machine?.id,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Equipamento',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<int>(
-                      value: null,
-                      child: Text('Visão geral dos equipamentos'),
-                    ),
-                    for (final m in controller.machines)
-                      DropdownMenuItem(value: m.id, child: Text(m.name)),
-                  ],
-                  onChanged: busy ? null : choose,
-                ),
-                const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -357,7 +341,6 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
                       key: ValueKey('plant-${machine.id}'),
                       machines: [machineSceneData(machine)],
                       selectedId: machine.id,
-                      onSelect: choose,
                     ),
                     onMaintenance: () => open(2),
                   )
@@ -377,18 +360,6 @@ class _OperationCenterScreenState extends State<OperationCenterScreen>
                       skipNear: true,
                     ),
                 ],
-                if (machine == null)
-                  for (final m in controller.machines)
-                    Card(
-                      child: ListTile(
-                        title: Text(m.name),
-                        subtitle: Text(
-                          '${m.type ?? m.controller ?? 'Equipamento'} · ${m.connection}',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => choose(m.id),
-                      ),
-                    ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Text(

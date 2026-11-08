@@ -138,7 +138,8 @@ class _MachineWorkspaceScreenState extends State<MachineWorkspaceScreen>
                   context,
                   MaterialPageRoute<void>(
                     builder: (_) => MachineConnectionScreen(
-                      client: controller.companyApi.client,
+                      changes: controller.companyChanges,
+          client: controller.companyApi.client,
                       machineId: machine.id,
                       machineName: machine.name,
                       controller: machine.controller,

@@ -6505,6 +6505,7 @@ class MaintenanceSection extends StatefulWidget {
 }
 
 class _MaintenanceSectionState extends State<MaintenanceSection> {
+  StreamSubscription<Map<String,dynamic>>? _changes;
   late Future<List<MaintenanceRecord>> _items;
   bool _busy = false;
   bool get _admin =>
@@ -6517,8 +6518,18 @@ class _MaintenanceSectionState extends State<MaintenanceSection> {
   @override
   void initState() {
     super.initState();
+    _changes = widget.controller.companyChanges.listen((event) {
+      final data = event['dados'];
+      if (mounted && (event['tipo'] == 'conectado' ||
+          (event['tipo'] == 'maquina.manutencao' && data is Map && data['maquinaId'] == widget.machine.id))) {
+        setState(_reload);
+      }
+    });
     _reload();
   }
+
+  @override
+  void dispose() { _changes?.cancel(); super.dispose(); }
 
   void _reload() =>
       _items = widget.controller.machinesApi.maintenance(widget.machine.id);

@@ -57,6 +57,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   String? machineSyncError;
 
   int operationRevision = 0;
+  final _companyChanges = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get companyChanges => _companyChanges.stream;
 
   bool get isAuthenticated => session?.token.isNotEmpty == true;
 
@@ -78,9 +80,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
     if (isAuthenticated) {
       try {
-        await loadMachines();
         _startSessionEvents();
         _startCompanyEvents();
+        await loadMachines();
       } on ApiException catch (exception) {
         if (exception.statusCode == 401) {
           await logout(
@@ -178,9 +180,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     );
     await _sessionStore.save(json);
     _configureServices();
-    await loadMachines();
     _startSessionEvents();
     _startCompanyEvents();
+    await loadMachines();
   }
 
   Future<void> loadMachines({bool notify = false}) async {
@@ -251,11 +253,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           .where((m) => !_syncScope.isRemoved(m.id))
           .toList(growable: false);
       machineSyncCount = machines.length;
-      if (selectedMachine != null) {
-        selectedMachine = machines
-            .where((m) => m.id == selectedMachine!.id)
-            .firstOrNull;
-        if (selectedMachine == null) _stopMachineEvents();
+      // A lista traz resumos. A pose e os históricos vêm do canal da máquina.
+      final live = selectedMachine;
+      if (live != null && !existingIds.contains(live.id)) {
+        selectedMachine = null;
+        _stopMachineEvents();
       }
       notifyListeners();
     } on ApiException catch (exception) {
@@ -267,6 +269,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       }
       rethrow;
     }
+  }
+
+  void acceptSavedMachine(Map result) {
+    final row = result['maquina'];
+    if (!isAuthenticated || row is! Map) return;
+    final machine = Machine.fromJson(Map<String, dynamic>.from(row));
+    if (machine.id <= 0 || _syncScope.isRemoved(machine.id)) return;
+    machines = [machine, ...machines.where((item) => item.id != machine.id)];
+    machineSyncCount = machines.length;
+    notifyListeners();
   }
 
   void removeMachineLocally(int id) {
@@ -322,6 +334,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           if (generation != _companyGeneration || !isAuthenticated) return;
           final company = int.tryParse('${event['empresaId'] ?? ''}');
           if (company != null && company != session?.company.id) return;
+          _companyChanges.add(event);
           final type = '${event['tipo'] ?? ''}';
           if (type.startsWith('operacao.')) {
             operationRevision++;
@@ -592,7 +605,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
                 return;
               // Eventos de comando não alteram o snapshot da máquina. Ignorá-los
               // aqui evita reconstruir o dashboard inteiro a cada ACK do Edge.
-              if ('${event['tipo'] ?? ''}' == 'comando') return;
+              final type = event['tipo'];
+              if (type == 'comando') return;
+              if (type == 'comando.confirmado' || type == 'historico.atualizado' || type == 'conectado') {
+                unawaited(refreshSelectedMachine().catchError((Object _) {}));
+                return;
+              }
               final raw = event['dados'];
               if (raw is! Map) return;
 
@@ -606,9 +624,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
                   .map((item) => item.id == machineId ? updated : item)
                   .toList(growable: false);
               // Telemetria pode chegar dezenas de vezes por segundo. Atualizamos o
-              // modelo imediatamente, mas limitamos repaints globais a 4 Hz.
+              // modelo imediatamente, mas agrupamos amostras recebidas na mesma janela de desenho.
               _machineUiRefresh ??= Timer(
-                const Duration(milliseconds: 250),
+                const Duration(milliseconds: 16),
                 () {
                   _machineUiRefresh = null;
                   if (selectedMachine?.id == machineId && isAuthenticated) {
@@ -691,6 +709,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _stopCompanyEvents();
     _stopMachineEvents();
     _sessionEvents?.stop();
+    _companyChanges.close();
     super.dispose();
   }
 

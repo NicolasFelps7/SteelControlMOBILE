@@ -42,6 +42,15 @@ class MachineService {
   }
 
   Future<MachineSyncSnapshot> sync() async {
+    try {
+      final data = await client.get('/maquinas/sync');
+      if (data is Map && data['maquinas'] is List) {
+        return MachineSyncSnapshot(companyId: _intValue(data['empresaId']),
+          userId: _intValue(data['usuarioId']), machines: _parseMachines(data));
+      }
+    } on ApiException catch (error) {
+      if (error.statusCode != 404 && error.statusCode != 405) rethrow;
+    }
     // Usa o endpoint estável que existe em todas as versões atuais do
     // SteelControl Desktop. A Central de Máquinas não depende de uma rota
     // auxiliar para conseguir listar equipamentos.

@@ -50,17 +50,13 @@ class _CompanyScreenState extends State<CompanyScreen> {
     if (_closingRealtime || widget.controller.session?.token.isNotEmpty != true) return;
 
     _companyEvents?.cancel();
-    _companyEvents = widget.controller.companyApi.events().listen(
+    _companyEvents = widget.controller.companyChanges.listen(
       (event) {
         final type = '${event['tipo'] ?? ''}';
-        if (type.isEmpty || type == 'conectado') return;
-        if (!type.startsWith('usuario.') && !type.startsWith('empresa.')) return;
-
-        _companyEventsDebounce?.cancel();
-        _companyEventsDebounce = Timer(const Duration(milliseconds: 120), () {
-          if (!_closingRealtime && mounted) {
-            _refresh();
-          }
+        if (type != 'conectado' && type != 'auditoria.registrada' && !type.startsWith('usuario.') && !type.startsWith('empresa.')) return;
+        _companyEventsDebounce ??= Timer(const Duration(milliseconds: 80), () {
+          _companyEventsDebounce = null;
+          if (!_closingRealtime && mounted) _refresh().catchError((Object _) {});
         });
       },
       onError: (_) => _scheduleCompanyRealtimeReconnect(),
@@ -811,7 +807,7 @@ class _UserDialogState extends State<_UserDialog> {
     super.initState();
     _loginDomain = widget.loginDomain;
     if (widget.controller != null) {
-      _domainEvents = widget.controller!.companyApi.events().listen((event) async {
+      _domainEvents = widget.controller!.companyChanges.listen((event) async {
         if ('${event['tipo']}' != 'empresa.atualizada' || _domainLoading) return;
         _domainLoading = true;
         try {

@@ -69,6 +69,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => MachineConnectionScreen(
+          changes: widget.controller.companyChanges,
           client: widget.controller.companyApi.client,
           machineId: id,
           machineName: name,
@@ -91,6 +92,8 @@ class _MachinesScreenState extends State<MachinesScreen> {
     if (data == null) return;
     await _run(() async {
       final result = await widget.controller.machinesApi.create(data);
+      if (!mounted) return;
+      widget.controller.acceptSavedMachine(result);
       await widget.controller.loadMachines();
       _message('${result['mensagem'] ?? successMessage}');
       if (result['deviceKey'] != null && mounted) {
@@ -118,6 +121,8 @@ class _MachinesScreenState extends State<MachinesScreen> {
         machine.id,
         data,
       );
+      if (!mounted) return;
+      widget.controller.acceptSavedMachine(result);
       final rawUpdated = result['maquina'];
       if (rawUpdated is Map) {
         final updated = Machine.fromJson(Map<String, dynamic>.from(rawUpdated));
@@ -366,6 +371,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
   @override
   void initState() {
     super.initState();
+    widget.controller.addListener(_machinesChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
@@ -385,8 +391,11 @@ class _MachinesScreenState extends State<MachinesScreen> {
     });
   }
 
+  void _machinesChanged() { if (mounted) setState(() {}); }
+
   @override
   void dispose() {
+    widget.controller.removeListener(_machinesChanged);
     _discoveryTimer?.cancel();
     _searchController.dispose();
     _discoveryIpController.dispose();
